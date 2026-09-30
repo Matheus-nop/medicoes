@@ -158,6 +158,19 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
       />
       <AbasDoPainel atual="cliente" />
 
+      {/* O mês aberto e ainda sem lançamento: o painel é leitura, e o atalho
+          leva para onde se lança. */}
+      {celulas.every((c) => !c.medido && !c.faturado) && (
+        <Aviso tom="ok">
+          {periodo.rotulo} está aberto e ainda sem lançamento — por enquanto o painel mostra só o
+          saldo que veio do mês anterior. O painel é só leitura:{" "}
+          <Link href={lancar} className="font-semibold underline">
+            lançar as medições de {periodo.rotulo}
+          </Link>
+          .
+        </Aviso>
+      )}
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <CartaoIndicador
           compacto

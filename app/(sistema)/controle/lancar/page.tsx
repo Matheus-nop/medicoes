@@ -103,6 +103,22 @@ export default async function LancarMedicoes({
         }
       />
 
+      {periodo && regioes.length > 0 && (
+        <ol className="grid gap-2 rounded-xl border border-acento/30 bg-acento-fraco p-3 text-xs text-texto sm:grid-cols-3">
+          <li>
+            <strong>1.</strong> Confira o mês em <strong>Posição</strong>, no alto ({periodo.rotulo}).
+          </li>
+          <li>
+            <strong>2.</strong> Em cada base, digite o <strong>medido</strong> e o{" "}
+            <strong>faturado</strong> do mês. O saldo do mês anterior já vem.
+          </li>
+          <li>
+            <strong>3.</strong> Clique em <strong>Salvar</strong>, no alto do quadro. O painel mostra
+            em até um minuto.
+          </li>
+        </ol>
+      )}
+
       {periodo && regioes.length > 0 ? (
         <Grade
           // A grade renasce quando o período muda ou alguém lança: o que ela
@@ -116,15 +132,39 @@ export default async function LancarMedicoes({
         />
       ) : (
         <p className="rounded-xl border border-dashed border-borda p-6 text-center text-sm text-texto-3">
-          {regioes.length === 0
-            ? "Cadastre as regiões (ou bases) deste cliente para lançar."
-            : "Abra o período do mês para lançar."}
+          {regioes.length === 0 ? (
+            <>
+              {cliente} não tem nenhuma base cadastrada — é um cliente novo, ou o nome foi
+              digitado diferente?{" "}
+              {clientes.filter((c) => c !== cliente).length > 0 && (
+                <>
+                  Os clientes com bases são:{" "}
+                  {clientes
+                    .filter((c) => c !== cliente)
+                    .map((c, n) => (
+                      <span key={c}>
+                        {n > 0 && " · "}
+                        <Link
+                          href={`/controle/lancar?cliente=${encodeURIComponent(c)}`}
+                          className="font-semibold text-acento underline"
+                        >
+                          {c}
+                        </Link>
+                      </span>
+                    ))}
+                  . Se é novo mesmo, cadastre as bases dele em &quot;Nova região&quot;, abaixo.
+                </>
+              )}
+            </>
+          ) : (
+            "Abra o período do mês para lançar, no pé da página."
+          )}
         </p>
       )}
 
       {/* Abrir mês e cadastrar base ficam no pé: é o que se faz uma vez. */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <NovoPeriodo cliente={cliente} />
+        <NovoPeriodo cliente={cliente} clientes={clientes} />
         <NovaRegiao cliente={cliente} />
       </div>
     </div>
