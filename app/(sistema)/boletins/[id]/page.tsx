@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { sessaoAtual } from "@/lib/supabase/papel";
+import { proximoDocumento } from "@/lib/medicoes/bases";
 import { Boletim } from "./boletim";
 import { carregarBoletim } from "./dados";
 
@@ -47,6 +48,20 @@ export default async function PaginaDoBoletim({ params }: { params: Promise<{ id
   // As deste boletim também contam: colar de novo a mesma lista não duplica.
   for (const i of carga.itens) jaMedidas[i.om] = carga.boletim.numero;
 
+  // O próximo Documento Nº da base, para o boletim que ainda está sem.
+  let documentoSugerido: string | null = null;
+  if (!carga.boletim.documento?.trim() && carga.boletim.base) {
+    const { data: daBase } = await supabase
+      .from("boletins")
+      .select("cliente, base, documento")
+      .neq("id", boletimId);
+    documentoSugerido = proximoDocumento(
+      (daBase ?? []) as { cliente: string; base: string | null; documento: string | null }[],
+      carga.boletim.cliente,
+      carga.boletim.base,
+    );
+  }
+
   return (
     <Boletim
       boletim={carga.boletim}
@@ -54,6 +69,7 @@ export default async function PaginaDoBoletim({ params }: { params: Promise<{ id
       andamentos={carga.andamentos}
       jaMedidas={jaMedidas}
       ehDiretoria={sessao.papel === "diretoria"}
+      documentoSugerido={documentoSugerido}
     />
   );
 }
