@@ -10,7 +10,10 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   CATEGORIAS,
+  TODAS,
+  emailDaRegiao,
   faixaDoFaturado,
+  historicoDaRegiao,
   lerColagemDoMes,
   lerNumero,
   periodoDoMes,
@@ -140,4 +143,34 @@ test("o recado da região para o WhatsApp", () => {
   ok(t.includes("Posição: Setembro 2026"));
   ok(t.includes("Saldo a faturar"));
   ok(t.includes("• Manutenção"));
+});
+
+test("a história da região: uma foto por período, sem somar", () => {
+  const set = celulasDaColagem();
+  const ago = set.map((c) => ({ ...c, periodo_id: 2, medido: c.medido / 2, faturado: 0 }));
+  const periodos = [
+    { id: 1, cliente: "X", mes: "2026-09-01", rotulo: "Setembro 2026" },
+    { id: 2, cliente: "X", mes: "2026-08-01", rotulo: "Agosto 2026" },
+    { id: 3, cliente: "X", mes: "2026-10-01", rotulo: "Outubro 2026" },
+  ];
+  const h = historicoDaRegiao([...set, ...ago], periodos, "VCG");
+  // Outubro não tem valor: fica de fora. A ordem é a do mês.
+  deepStrictEqual(h.map((f) => f.rotulo), ["Agosto 2026", "Setembro 2026"]);
+  e(h[1].saldo, 513738);
+  e(h[0].faturado, 0);
+  const todas = historicoDaRegiao(set, periodos);
+  e(todas[0].medido, 1558887.59);
+});
+
+test("o e-mail da base não leva o negrito do WhatsApp", () => {
+  const r = resumirPeriodo(celulasDaColagem());
+  const { assunto, corpo } = emailDaRegiao(
+    "ÁGUAS DO RIO / AEGEA",
+    "Setembro 2026",
+    { ...r, regiao: TODAS, ordem: 0 },
+    "30/09/2026",
+  );
+  e(assunto, "Medições ÁGUAS DO RIO / AEGEA — todas as bases — Setembro 2026");
+  ok(!corpo.includes("*"));
+  ok(corpo.startsWith("ÁGUAS DO RIO / AEGEA — Todas as bases"));
 });

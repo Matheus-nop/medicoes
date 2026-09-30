@@ -2,8 +2,10 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Botao, CAMPO, Campo } from "@/components/ui";
+import { Botao, CAMPO, Campo, ESTILO_BOTAO } from "@/components/ui";
 import {
+  TODAS,
+  emailDaRegiao,
   recadoDaRegiao,
   type LinhaDaRegiao,
   type Periodo,
@@ -124,10 +126,12 @@ export function RecadoDaBase({
   cliente,
   rotulo,
   regioes,
+  periodoId,
 }: {
   cliente: string;
   rotulo: string;
   regioes: LinhaDaRegiao[];
+  periodoId?: number;
 }) {
   const comValor = regioes.filter((r) => r.medido !== 0 || r.faturado !== 0);
   const [nome, setNome] = useState(
@@ -161,11 +165,90 @@ export function RecadoDaBase({
           </select>
         </Campo>
         <Botao onClick={copiar}>Copiar resumo</Botao>
+        <a
+          href={`/controle/relatorio?cliente=${encodeURIComponent(cliente)}&base=${encodeURIComponent(nome)}${periodoId ? `&periodo=${periodoId}` : ""}`}
+          className={ESTILO_BOTAO.discreto}
+        >
+          PDF / e-mail desta base
+        </a>
         {copiado && <span className="text-xs text-texto-2">{copiado}</span>}
       </div>
       <pre className="rounded-lg border border-borda bg-superficie-2 p-3 text-xs whitespace-pre-wrap text-texto-2 select-all">
         {texto}
       </pre>
     </div>
+  );
+}
+
+/** A base do relatório — "todas" é o cliente inteiro. Muda o endereço. */
+export function EscolherBase({ bases, base }: { bases: string[]; base: string }) {
+  const router = useRouter();
+  const caminho = usePathname();
+  const busca = useSearchParams();
+  return (
+    <Campo rotulo="Base">
+      <select
+        value={base}
+        onChange={(e) => {
+          const p = new URLSearchParams(busca.toString());
+          p.set("base", e.target.value);
+          router.push(`${caminho}?${p.toString()}`);
+        }}
+        className={CAMPO}
+      >
+        <option value={TODAS}>Todas as bases</option>
+        {bases.map((b) => (
+          <option key={b}>{b}</option>
+        ))}
+      </select>
+    </Campo>
+  );
+}
+
+/**
+ * Mandar o relatório: copiar o resumo (WhatsApp) ou abrir o e-mail já com
+ * assunto e corpo. O PDF sai do "Imprimir / PDF" e se anexa — o navegador não
+ * deixa um link de e-mail levar arquivo junto.
+ */
+export function EnviarRelatorio({
+  cliente,
+  rotulo,
+  linha,
+  endereco,
+}: {
+  cliente: string;
+  rotulo: string;
+  linha: LinhaDaRegiao;
+  /** O caminho do relatório, para ir no corpo do e-mail. */
+  endereco: string;
+}) {
+  const [copiado, setCopiado] = useState<string | null>(null);
+  const hoje = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(recadoDaRegiao(cliente, rotulo, linha, hoje));
+      setCopiado("Copiado — cole no WhatsApp.");
+    } catch {
+      setCopiado("O navegador não deixou copiar.");
+    }
+    window.setTimeout(() => setCopiado(null), 3000);
+  }
+
+  function email() {
+    const { assunto, corpo } = emailDaRegiao(cliente, rotulo, linha, hoje);
+    const link = `${window.location.origin}${endereco}`;
+    const texto = `${corpo}\n\nRelatório completo (PDF em anexo, ou no sistema): ${link}`;
+    window.location.href = `mailto:?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(texto)}`;
+  }
+
+  return (
+    <>
+      {copiado && <span className="text-xs text-texto-2">{copiado}</span>}
+      <Botao variante="discreto" onClick={copiar}>
+        Copiar resumo
+      </Botao>
+      <Botao onClick={email}>Enviar por e-mail</Botao>
+    </>
   );
 }

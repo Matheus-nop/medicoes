@@ -12,6 +12,7 @@ import { emPorcento, emReais } from "@/lib/medicoes/dinheiro";
 import {
   CATEGORIAS,
   ROTULO_CATEGORIA,
+  TODAS,
   faixaDoFaturado,
   resumirPeriodo,
   saldoPorRegiao,
@@ -54,6 +55,18 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
   const lancar = `/controle/lancar?cliente=${encodeURIComponent(cliente)}${
     periodo ? `&periodo=${periodo.id}` : ""
   }`;
+  // A foto anterior, para dizer se o saldo subiu ou desceu desde lá.
+  const i = serie.findIndex((x) => x.periodo_id === periodo?.id);
+  const antes = i > 0 ? serie[i - 1] : null;
+  const variacao = (agora: number, antigo: number) => {
+    const d = agora - antigo;
+    if (Math.abs(d) < 0.005) return `igual a ${antes!.rotulo}`;
+    return `${d > 0 ? "▲" : "▼"} ${emReais(Math.abs(d))} vs ${antes!.rotulo}`;
+  };
+  const relatorio = (base: string) =>
+    `/controle/relatorio?cliente=${encodeURIComponent(cliente)}${
+      periodo ? `&periodo=${periodo.id}` : ""
+    }&base=${encodeURIComponent(base)}`;
 
   if (!periodo) {
     return (
@@ -118,6 +131,9 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
               periodoId={periodo.id}
               comValor={serie.map((s) => s.periodo_id)}
             />
+            <Link href={relatorio(TODAS)} className={ESTILO_BOTAO.contorno}>
+              Relatório / PDF
+            </Link>
             <Link href={lancar} className={ESTILO_BOTAO.primario}>
               Lançar medições
             </Link>
@@ -126,8 +142,14 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <CartaoIndicador compacto rotulo="Medido" valor={emReais(r.medido)} detalhe="total do período" />
-        <CartaoIndicador compacto rotulo="Faturado" valor={emReais(r.faturado)} cor="bg-disponivel">
+        <CartaoIndicador compacto rotulo="Medido" valor={emReais(r.medido)} detalhe={antes ? variacao(r.medido, antes.medido) : "total do período"} />
+        <CartaoIndicador
+          compacto
+          rotulo="Faturado"
+          valor={emReais(r.faturado)}
+          cor="bg-disponivel"
+          detalhe={antes ? variacao(r.faturado, antes.faturado) : undefined}
+        >
           <Progresso fracao={r.fracao} cor="bg-disponivel" />
         </CartaoIndicador>
         <CartaoIndicador
@@ -135,7 +157,7 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
           rotulo="Saldo a faturar"
           valor={<span className="text-saldo">{emReais(r.saldo)}</span>}
           cor="bg-saldo"
-          detalhe="pendente de faturamento"
+          detalhe={antes ? variacao(r.saldo, antes.saldo) : "pendente de faturamento"}
         />
         <CartaoIndicador
           compacto
@@ -158,7 +180,10 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
         </Painel>
       </div>
 
-      <Painel titulo="Por região" descricao={`Saldo de cada categoria em ${periodo.rotulo}`}>
+      <Painel
+        titulo="Por região"
+        descricao={`Saldo de cada categoria em ${periodo.rotulo} — clique na região para o relatório dela`}
+      >
         <div className="overflow-x-auto">
           <table className="w-full min-w-[52rem] text-left text-xs tabular-nums">
             <thead className="text-texto-3">
@@ -179,7 +204,11 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
             <tbody>
               {r.regioes.map((l) => (
                 <tr key={l.regiao} className="border-b border-borda/50">
-                  <td className="px-4 py-2 font-medium">{l.regiao}</td>
+                  <td className="px-4 py-2 font-medium">
+                    <Link href={relatorio(l.regiao)} className="hover:text-acento hover:underline">
+                      {l.regiao}
+                    </Link>
+                  </td>
                   {CATEGORIAS.map((c) => (
                     <td key={c} className="py-2 pr-3 text-right text-texto-2">
                       {l.categorias[c].medido || l.categorias[c].faturado
@@ -215,8 +244,16 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
       </Painel>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Painel titulo="Relatório por base" descricao="O resumo de uma região, pronto para mandar">
-          <RecadoDaBase cliente={cliente} rotulo={periodo.rotulo} regioes={r.regioes} />
+        <Painel
+          titulo="Relatório por base"
+          descricao="O resumo de uma região, pronto para mandar"
+          acoes={
+            <Link href={relatorio(TODAS)} className="text-xs font-semibold text-acento underline">
+              Relatório completo em PDF
+            </Link>
+          }
+        >
+          <RecadoDaBase cliente={cliente} rotulo={periodo.rotulo} regioes={r.regioes} periodoId={periodo.id} />
         </Painel>
 
         <Painel titulo="Histórico" descricao="Cada linha é a foto daquele mês — não somar">

@@ -84,5 +84,7 @@ desfaz isso logo depois de criar.
       com o RESUMO EXECUTIVO. Falta aplicar no Supabase e rodar um mês.
 - [~] Fase 3 — o painel do controle (`/controle`): indicadores, as três
       categorias, evolução, saldo por região, relatório por base para o
-      WhatsApp e o histórico — ao vivo, relendo a cada minuto. Contratos
-      ainda não.
+      WhatsApp e o histórico — ao vivo, relendo a cada minuto, com a variação
+      contra a foto anterior. O relatório (`/controle/relatorio`), de uma base
+      ou de todas, sai em PDF A4 e vai por e-mail (o e-mail abre pronto; o PDF
+      se anexa à mão — link de e-mail não leva arquivo). Contratos ainda não.

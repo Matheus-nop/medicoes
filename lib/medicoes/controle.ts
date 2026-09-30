@@ -237,6 +237,50 @@ export function lerColagemDoMes(texto: string, regioes: string[]): LeituraDaCola
   return { linhas, desconhecidas };
 }
 
+/* ── A história de uma região ──────────────────────────────── */
+
+/** O valor de "todas as bases" no seletor do relatório. */
+export const TODAS = "todas";
+
+export interface FotoDaRegiao extends Soma {
+  periodo_id: number;
+  rotulo: string;
+  mes: string;
+  categorias: Record<Categoria, Soma>;
+}
+
+/**
+ * A região período a período — a aba "HISTÓRICO REGIÕES" da planilha. Cada
+ * linha é uma foto, e por isso a tabela se lê de cima a baixo, sem somar.
+ * Período sem valor nenhum fica de fora. Sem `regiao`, é o cliente inteiro.
+ */
+export function historicoDaRegiao(
+  celulas: Celula[],
+  periodos: Periodo[],
+  regiao?: string,
+): FotoDaRegiao[] {
+  const minhas = regiao ? celulas.filter((c) => c.regiao === regiao) : celulas;
+  return [...periodos]
+    .sort((a, b) => a.mes.localeCompare(b.mes))
+    .flatMap((p) => {
+      const doPeriodo = minhas.filter((c) => c.periodo_id === p.id);
+      if (!doPeriodo.some((c) => num(c.medido) !== 0 || num(c.faturado) !== 0)) return [];
+      const r = resumirPeriodo(doPeriodo);
+      return [
+        {
+          periodo_id: p.id,
+          rotulo: p.rotulo,
+          mes: p.mes,
+          medido: r.medido,
+          faturado: r.faturado,
+          saldo: r.saldo,
+          fracao: r.fracao,
+          categorias: r.categorias,
+        },
+      ];
+    });
+}
+
 /* ── O recado da região ────────────────────────────────────── */
 
 /**
@@ -250,7 +294,8 @@ export function recadoDaRegiao(
   hoje: string,
 ): string {
   const pct = (f: number | null) => (f === null ? "0%" : `${Math.round(f * 100)}%`);
-  let t = `*${cliente} — Base ${linha.regiao}*\nPosição: ${rotulo}\n\n`;
+  const quem = linha.regiao === TODAS ? "Todas as bases" : `Base ${linha.regiao}`;
+  let t = `*${cliente} — ${quem}*\nPosição: ${rotulo}\n\n`;
   t += `Medido: ${emReais(linha.medido)}\nFaturado: ${emReais(linha.faturado)}\n`;
   t += `*Saldo a faturar: ${emReais(linha.saldo)}* (${pct(linha.fracao)} faturado)\n`;
   const abertas = CATEGORIAS.filter((c) => linha.categorias[c].medido > 0);
@@ -263,4 +308,18 @@ export function recadoDaRegiao(
   }
   t += `\nGerado em ${hoje} · Grupo Nova Opção`;
   return t;
+}
+
+/** O resumo como e-mail: sem os asteriscos do WhatsApp. */
+export function emailDaRegiao(
+  cliente: string,
+  rotulo: string,
+  linha: LinhaDaRegiao,
+  hoje: string,
+): { assunto: string; corpo: string } {
+  const quem = linha.regiao === TODAS ? "todas as bases" : `base ${linha.regiao}`;
+  return {
+    assunto: `Medições ${cliente} — ${quem} — ${rotulo}`,
+    corpo: recadoDaRegiao(cliente, rotulo, linha, hoje).replace(/\*/g, ""),
+  };
 }
