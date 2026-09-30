@@ -1,15 +1,17 @@
-// Service worker do Estoque.
+// Service worker do Medições (veio do Estoque).
 //
-// DELIBERADAMENTE PEQUENO. O que este app mostra é saldo, fila e situação de
-// equipamento: dado que muda a cada minuto e que, servido velho, faz alguém
-// prometer uma máquina que já saiu. Então nada de HTML nem de resposta de API
-// entra em cache — só o que é imutável.
+// DELIBERADAMENTE PEQUENO. O que este app mostra é medido, faturado e saldo:
+// número que muda a cada lançamento e que, servido velho, faz alguém cobrar o
+// que já foi pago. Então nada de HTML nem de resposta de API entra em cache —
+// só o que é imutável.
 //
 // O ganho real está aí: os arquivos do Next em /_next/static/ têm hash no
 // nome, então nunca mudam de conteúdo. Guardá-los tira do caminho toda a
 // baixa de JS e CSS na segunda visita, que é a parte pesada de abrir o app.
 
-const CACHE = "estoque-estatico-v1";
+// v2: o ícone próprio de Medições. Trocar o nome joga fora o cache anterior,
+// que ainda guardava o cubo do Estoque.
+const CACHE = "medicoes-estatico-v2";
 
 self.addEventListener("install", (e) => {
   // Assume o controle já nesta carga, sem esperar a aba antiga fechar.
