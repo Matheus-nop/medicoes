@@ -63,13 +63,14 @@ Variáveis de ambiente — as quatro primeiras são **as mesmas do Estoque**
 | `NEXT_PUBLIC_URL_FROTA` | o endereço da Frota (opcional) |
 
 **Domains**: `medicoes.novaopcaoequipamentos.com.br`. Com o cookie no domínio
-pai, quem já está logado no Estoque ou no Roteiros entra aqui sem digitar a
-senha.
+pai, quem já está logado no **Estoque** entra aqui sem digitar a senha. Do
+**Roteiros** a senha é a mesma, mas é preciso entrar de novo: ele guarda a
+sessão no navegador (localStorage), e não no cookie.
 
 **E nos outros dois apps**, para o Medições aparecer na troca de sistema:
-acrescente `NEXT_PUBLIC_URL_MEDICOES` com o endereço daqui nos projetos do
-Estoque e do Roteiros na Vercel, e faça um redeploy. (O Roteiros precisa da
-mesma entrada na lista dele — é uma linha em `troca-sistema`.)
+acrescente a variável com o endereço daqui e faça um redeploy — no Estoque ela
+se chama `NEXT_PUBLIC_URL_MEDICOES`; no Roteiros, `VITE_URL_MEDICOES`. O item na
+lista de cada um vem nos PRs de lá.
 
 ## 4. Acessos
 
