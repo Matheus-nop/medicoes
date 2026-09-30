@@ -58,6 +58,13 @@ export const IconeReceber = svg(
   </>,
 );
 
+export const IconeBase = svg(
+  <>
+    <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z" />
+    <circle cx="12" cy="10" r="2.4" />
+  </>,
+);
+
 export const IconeArquivo = svg(
   <>
     <path d="M3.5 7.5h17v11a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5z" />

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   IconeArquivo,
+  IconeBase,
   IconeLancar,
   IconeMedicoes,
   IconePainel,
@@ -25,7 +26,10 @@ import {
 const SECOES = [
   {
     titulo: "Orçamento · manutenção",
-    itens: [{ href: "/", rotulo: "Lançar medições de manutenção", Icone: IconeMedicoes }],
+    itens: [
+      { href: "/", rotulo: "Lançar medições de manutenção", Icone: IconeMedicoes },
+      { href: "/bases", rotulo: "Cadastro de bases", Icone: IconeBase },
+    ],
   },
   {
     titulo: "Faturamento · painel",

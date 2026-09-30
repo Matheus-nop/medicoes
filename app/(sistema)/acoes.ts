@@ -3,13 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import {
+  acharBase,
+  dadosDoBoletimNovo,
+  proximoDocumento,
+  type Base,
+} from "@/lib/medicoes/bases";
+import {
   acharComprovantes,
   chaveDoCliente,
   chaveDoDestino,
   dataDaOm,
   descricaoDoEquipamento,
   mesDeReferencia,
-  modeloDoCliente,
   modeloLido,
   type DemandaDoRoteiros,
   type ModeloDoPapel,
@@ -143,10 +148,13 @@ export async function incluirOms(entrada: {
     // mesmo cliente, e o painel soma por nome. E o boletim anterior da MESMA
     // base empresta o contato, o telefone e o endereço da obra — é o que o
     // antigo fazia copiando a planilha do mês passado.
-    const { data: anteriores } = await supabase
-      .from("boletins")
-      .select("cliente, base, contato, email, telefone, local_obra, modelo")
-      .order("id", { ascending: false });
+    const [{ data: anteriores }, cadastro] = await Promise.all([
+      supabase
+        .from("boletins")
+        .select("cliente, base, contato, email, telefone, local_obra, observacao, modelo, documento")
+        .order("id", { ascending: false }),
+      supabase.from("bases").select("*"),
+    ]);
     type Anterior = {
       cliente: string;
       base: string | null;
@@ -154,26 +162,36 @@ export async function incluirOms(entrada: {
       email: string | null;
       telefone: string | null;
       local_obra: string | null;
+      observacao: string | null;
       modelo: ModeloDoPapel;
+      documento: string | null;
     };
     const lista = (anteriores ?? []) as Anterior[];
+    // Sem a 0010 o cadastro não existe: segue como antes, pelo último boletim.
+    const bases = cadastro.error ? [] : ((cadastro.data ?? []) as Base[]);
     const chave = chaveDoCliente(entrada.cliente);
     const conhecido = lista.find((b) => chaveDoCliente(b.cliente) === chave)?.cliente;
+    const nomeDoCliente = (conhecido ?? entrada.cliente).trim();
     const destino = chaveDoDestino(entrada.cliente, entrada.base);
     const mesmaBase = lista.find((b) => chaveDoDestino(b.cliente, b.base) === destino);
+    const daBase = acharBase(bases, entrada.cliente, entrada.base);
+    // O cadastro manda; o último boletim da base completa; o cliente dá o papel.
+    const dados = dadosDoBoletimNovo(nomeDoCliente, daBase, mesmaBase ?? null);
+    const nomeDaBase = daBase?.nome ?? mesmaBase?.base ?? (entrada.base.trim() || null);
 
     const { data, error } = await supabase
       .from("boletins")
       .insert({
-        cliente: (conhecido ?? entrada.cliente).trim(),
-        // O papel: o do último boletim da mesma base, ou o que o nome do
-        // cliente diz (Rio+ tem o dela).
-        modelo: mesmaBase?.modelo ?? modeloDoCliente(conhecido ?? entrada.cliente),
-        base: mesmaBase?.base ?? (entrada.base.trim() || null),
-        contato: mesmaBase?.contato ?? null,
-        email: mesmaBase?.email ?? null,
-        telefone: mesmaBase?.telefone ?? null,
-        local_obra: mesmaBase?.local_obra ?? null,
+        cliente: nomeDoCliente,
+        base: nomeDaBase,
+        contato: dados.contato,
+        email: dados.email,
+        telefone: dados.telefone,
+        local_obra: dados.local_obra,
+        observacao: dados.observacao,
+        modelo: dados.modelo,
+        // O próximo número da base ("08" → "09"), como o cliente conta.
+        documento: nomeDaBase ? proximoDocumento(lista, nomeDoCliente, nomeDaBase) : null,
         referencia: mesDeReferencia(
           novas.map((l) => dataDaOm({ chegada_em: l.chegadaEm, aberta_em: l.abertaEm })),
         ),
@@ -184,6 +202,19 @@ export async function incluirOms(entrada: {
     if (error) return { ok: false, erro: recado(error, "abrir o boletim") };
     boletimId = data.id as number;
     numero = data.numero as string;
+    // Base nova entra no cadastro com o que se sabe dela — da próxima vez o
+    // boletim já nasce com os dados que alguém completar lá.
+    if (!daBase && nomeDaBase && !cadastro.error) {
+      await supabase.from("bases").insert({
+        cliente: nomeDoCliente,
+        nome: nomeDaBase,
+        responsavel: dados.contato,
+        email: dados.email,
+        telefone: dados.telefone,
+        local_obra: dados.local_obra,
+        modelo: dados.modelo,
+      });
+    }
   }
 
   // Os comprovantes, antes de gravar: o "OM RETIRADA" do Sisloc vale mais
@@ -556,6 +587,47 @@ export async function andar(
     }
     return { ok: false, erro: recado(error, "registrar o passo") };
   }
+  refazer(boletimId);
+  return { ok: true };
+}
+
+/**
+ * Traz para o boletim aberto os dados do cadastro da base — responsável,
+ * e-mail, telefone, local da obra, observação e papel. O que o cadastro não
+ * tem, o boletim mantém.
+ */
+export async function puxarDaBase(boletimId: number): Promise<Resultado> {
+  const supabase = await createClient();
+  const [{ data: b }, cadastro] = await Promise.all([
+    supabase.from("boletins").select("cliente, base, contato, email, telefone, local_obra, observacao, modelo").eq("id", boletimId).maybeSingle(),
+    supabase.from("bases").select("*"),
+  ]);
+  if (!b) return { ok: false, erro: "Boletim não encontrado." };
+  if (cadastro.error) return { ok: false, erro: "Falta aplicar a migração 0010_bases.sql no Supabase." };
+  const base = acharBase((cadastro.data ?? []) as Base[], b.cliente, b.base);
+  if (!base) return { ok: false, erro: "Esta base ainda não está no cadastro. Cadastre em Cadastro de bases." };
+  const d = dadosDoBoletimNovo(b.cliente, base, {
+    contato: b.contato,
+    email: b.email,
+    telefone: b.telefone,
+    local_obra: b.local_obra,
+    observacao: b.observacao,
+    modelo: b.modelo,
+  });
+  const { data, error } = await supabase
+    .from("boletins")
+    .update({
+      contato: d.contato,
+      email: d.email,
+      telefone: d.telefone,
+      local_obra: d.local_obra,
+      observacao: d.observacao,
+      modelo: d.modelo,
+    })
+    .eq("id", boletimId)
+    .select("id");
+  if (error) return { ok: false, erro: recado(error, "puxar os dados da base") };
+  if (!data?.length) return fechado;
   refazer(boletimId);
   return { ok: true };
 }

@@ -15,6 +15,7 @@ import {
   Vazio,
 } from "@/components/ui";
 import { basesDosBoletins, boletinsPorBase, daBase } from "@/lib/medicoes/arquivo";
+import type { Base } from "@/lib/medicoes/bases";
 import { emReais } from "@/lib/medicoes/dinheiro";
 import {
   ROTULO_SITUACAO,
@@ -57,10 +58,13 @@ export function Medicoes({
   boletins,
   porCliente,
   jaMedidas,
+  bases = [],
 }: {
   boletins: BoletimAtual[];
   porCliente: SaldoLido[];
   jaMedidas: Record<string, string>;
+  /** O cadastro de bases, para a colagem mostrar o que o boletim novo puxa. */
+  bases?: Base[];
 }) {
   const [filtro, setFiltro] = useState<Filtro>("todos");
 
@@ -72,7 +76,7 @@ export function Medicoes({
   const daBaseEscolhida = boletins.filter((b) => daBase(b.base, base));
   const visiveis =
     filtro === "todos" ? daBaseEscolhida : daBaseEscolhida.filter((b) => b.situacao === filtro);
-  const bases = basesDosBoletins(boletins);
+  const nomesDasBases = basesDosBoletins(boletins);
   const basesVisiveis = new Set(daBaseEscolhida.map((b) => b.base?.trim())).size;
   const [recolhidos, setRecolhidos] = useState<Set<string>>(new Set());
 
@@ -122,7 +126,7 @@ export function Medicoes({
         />
       </div>
 
-      <ColarDoSisloc abertos={abertos} jaMedidas={jaMedidas} />
+      <ColarDoSisloc abertos={abertos} jaMedidas={jaMedidas} bases={bases} todos={boletins} />
 
       <div className="space-y-3">
         <div className="flex flex-wrap items-end gap-3">
@@ -143,7 +147,7 @@ export function Medicoes({
               )}
             </div>
             <datalist id="bases-dos-boletins">
-              {bases.map((b) => (
+              {nomesDasBases.map((b) => (
                 <option key={b} value={b} />
               ))}
             </datalist>

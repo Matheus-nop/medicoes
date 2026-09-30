@@ -44,6 +44,7 @@ import {
   incluirOmAMao,
   mudarRecibos,
   mudarValor,
+  puxarDaBase,
   tirarOm,
   type CabecalhoDoBoletim,
   type CamposDaOm,
@@ -446,7 +447,16 @@ export function Boletim({
         </div>
       )}
 
-      {aberto && <Dados boletim={boletim} ocupado={enviando} aoSalvar={(c) => fazer(() => editarBoletim(boletim.id, c))} />}
+      {aberto && (
+        <Dados
+          // Renasce quando os dados mudam por fora ("Puxar dados da base").
+          key={[boletim.contato, boletim.email, boletim.telefone, boletim.local_obra, boletim.observacao, boletim.modelo].join("|")}
+          boletim={boletim}
+          ocupado={enviando}
+          aoSalvar={(c) => fazer(() => editarBoletim(boletim.id, c))}
+          aoPuxar={() => fazer(() => puxarDaBase(boletim.id))}
+        />
+      )}
 
       <Painel titulo="Histórico">
         <ul className="divide-y divide-borda text-sm">
@@ -714,10 +724,12 @@ function Dados({
   boletim,
   ocupado,
   aoSalvar,
+  aoPuxar,
 }: {
   boletim: BoletimAtual;
   ocupado: boolean;
   aoSalvar: (c: CabecalhoDoBoletim) => void;
+  aoPuxar: () => void;
 }) {
   const inicial: CabecalhoDoBoletim = {
     referencia: boletim.referencia ?? "",
@@ -754,7 +766,20 @@ function Dados({
   return (
     <Painel
       titulo="Dados do boletim"
-      descricao="O cabeçalho do papel. O boletim seguinte da mesma base já nasce com eles."
+      descricao="O cabeçalho do papel. O boletim novo nasce com os dados do cadastro da base."
+      acoes={
+        <>
+          <Botao variante="discreto" onClick={aoPuxar} disabled={ocupado}>
+            Puxar dados da base
+          </Botao>
+          <Link
+            href={`/bases?base=${encodeURIComponent(boletim.base ?? "")}`}
+            className="text-xs font-semibold text-acento underline"
+          >
+            Cadastro da base
+          </Link>
+        </>
+      }
     >
       <form
         className="space-y-3 p-4"

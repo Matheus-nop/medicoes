@@ -111,6 +111,13 @@ desfaz isso logo depois de criar.
   sai a mais vira crédito e abate o que entrar depois — assim a idade soma
   exatamente o saldo. Faixas: do mês, 1 mês, 2 meses, 3 ou mais. A abertura
   do recebimento conta como velha. Conta em `lib/medicoes/controle.ts`.
+- **cadastro de bases** (`/bases`, 0010): responsável, e-mail, telefone,
+  local da obra, observação e papel de cada base. O boletim novo nasce com
+  eles (e, no que o cadastro não diz, com os do último boletim da base) e com
+  o próximo Documento Nº da base ("08" → "09"). Base nova entra no cadastro
+  ao abrir o primeiro boletim. A base se acha pela chave do nome
+  (`chave_do_nome` no banco = `chaveDoCliente` no código). Editar a base não
+  muda boletim que já existe; "Puxar dados da base" traz para o aberto.
 - **colagem**: a lista do Sisloc copiada e colada, com a linha de títulos.
 
 ## Aparência

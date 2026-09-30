@@ -1,0 +1,46 @@
+// Prova do cadastro de bases.
+
+import { strictEqual as e, deepStrictEqual } from "node:assert/strict";
+import { test } from "node:test";
+import { acharBase, dadosDoBoletimNovo, proximoDocumento } from "./bases.ts";
+
+const CLI = "AEGEA SANEAMENTO E PARTICIPAÇÕES S.A";
+
+test("acha a base pela chave, não pela grafia", () => {
+  const bases = [{ cliente: CLI, nome: "BELFORD ROXO BAIXADA I - OPERAÇÃO" }];
+  e(acharBase(bases, "AEGEA SANEAMENTO E PARTICIPAÇÕES S.A.", "belford roxo baixada i operacao")?.nome, bases[0].nome);
+  e(acharBase(bases, CLI, "BELFORD ROXO BAIXADA I - SERVIÇOS"), null);
+  e(acharBase(bases, CLI, ""), null);
+});
+
+test("o próximo documento da base: o maior mais um, com dois dígitos", () => {
+  const boletins = [
+    { cliente: CLI, base: "NORTE - MÉIER", documento: "13" },
+    { cliente: CLI, base: "Norte - Meier", documento: "14" },
+    { cliente: CLI, base: "NORTE - MÉIER", documento: "BM-0007 - AGOSTO/2026" },
+    { cliente: CLI, base: "SUL - GÁVEA", documento: "16" },
+  ];
+  e(proximoDocumento(boletins, CLI, "NORTE - MÉIER"), "15");
+  e(proximoDocumento(boletins, CLI, "BASE NOVA"), "01");
+  e(proximoDocumento([{ cliente: CLI, base: "X", documento: "8" }], CLI, "X"), "09");
+});
+
+test("o boletim novo: o cadastro manda, o último boletim completa, o modelo sai do cliente", () => {
+  deepStrictEqual(
+    dadosDoBoletimNovo(
+      CLI,
+      { responsavel: "Sra. Thaynã", email: "", telefone: null, local_obra: "Rua Oscar Soares, 1362" },
+      { contato: "Fulano", email: "fiscal@cliente.com.br", telefone: "(21) 0000-0000", modelo: "acao" },
+    ),
+    {
+      contato: "Sra. Thaynã",
+      email: "fiscal@cliente.com.br",
+      telefone: "(21) 0000-0000",
+      local_obra: "Rua Oscar Soares, 1362",
+      observacao: null,
+      modelo: "acao",
+    },
+  );
+  e(dadosDoBoletimNovo(CLI, null, null).modelo, "aguas");
+  e(dadosDoBoletimNovo("RIO + SANEAMENTO BL3 S.A", { modelo: null }, null).modelo, "rio_mais");
+});
