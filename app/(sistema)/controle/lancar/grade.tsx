@@ -17,6 +17,7 @@ import {
   ROTULO_CATEGORIA,
   lerColagemDoMes,
   lerNumero,
+  saldoQueVem,
   type Categoria,
   type Celula,
   type Periodo,
@@ -162,8 +163,11 @@ export function Grade({
 
   function partirDoAnterior() {
     if (!anterior) return;
-    setValores(dasCelulas(regioes, anterior.celulas));
-    setRecado(`Preenchido com a foto de ${anterior.rotulo}. Ajuste o que mudou e salve.`);
+    setValores(dasCelulas(regioes, saldoQueVem(anterior.celulas)));
+    setRecado(
+      `O saldo de ${anterior.rotulo} entrou no medido de cada base, e o faturado ficou vazio. ` +
+        "Some ao medido o que foi medido de novo no mês, lance o que foi faturado e salve.",
+    );
   }
 
   function salvar() {
@@ -242,7 +246,7 @@ export function Grade({
           <>
             {anterior && (
               <Botao variante="discreto" onClick={partirDoAnterior} disabled={salvando}>
-                Partir de {anterior.rotulo}
+                Trazer o saldo de {anterior.rotulo}
               </Botao>
             )}
             <Botao variante="discreto" onClick={() => setColando((c) => !c)} disabled={salvando}>
@@ -297,6 +301,13 @@ export function Grade({
         <div className="grid gap-3 p-4 md:grid-cols-2 2xl:grid-cols-3">
           {regioes.map((r) => {
             const { m, f } = linha(r);
+            // O que veio do mês anterior nesta base, para quem lança saber
+            // quanto do medido é novo.
+            const veio = anterior
+              ? saldoQueVem(anterior.celulas)
+                  .filter((x) => x.regiao_id === r.id)
+                  .reduce((t, x) => t + x.medido, 0)
+              : 0;
             const mexida = CATEGORIAS.some((c) => {
               const k = chave(r.id, c);
               return (
@@ -335,6 +346,12 @@ export function Grade({
                     </Fragment>
                   ))}
                 </div>
+                {anterior && veio !== 0 && (
+                  <p className="mt-2 border-t border-borda pt-1.5 text-[11px] text-texto-3">
+                    Veio de {anterior.rotulo}: <strong className="text-texto-2">{emReais(veio)}</strong>
+                    {" · "}novo no mês: <strong className="text-texto-2">{emReais(m - veio)}</strong>
+                  </p>
+                )}
               </section>
             );
           })}

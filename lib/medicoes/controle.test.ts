@@ -20,6 +20,7 @@ import {
   recadoDaRegiao,
   resumirPeriodo,
   saldoPorRegiao,
+  saldoQueVem,
   type Celula,
 } from "./controle.ts";
 
@@ -173,4 +174,16 @@ test("o e-mail da base não leva o negrito do WhatsApp", () => {
   e(assunto, "Medições ÁGUAS DO RIO / AEGEA — todas as bases — Setembro 2026");
   ok(!corpo.includes("*"));
   ok(corpo.startsWith("ÁGUAS DO RIO / AEGEA — Todas as bases"));
+});
+
+test("o mês novo começa com o saldo do anterior no medido, e faturado vazio", () => {
+  const agosto: Celula[] = [
+    { periodo_id: 1, regiao_id: 10, regiao: "VCG", ordem: 10, categoria: "locacao", medido: 331677.34, faturado: 48875.67 },
+    { periodo_id: 1, regiao_id: 10, regiao: "VCG", ordem: 10, categoria: "indenizacao", medido: 500, faturado: 500 },
+  ];
+  const vem = saldoQueVem(agosto);
+  e(vem.length, 1);
+  e(vem[0].categoria, "locacao");
+  e(vem[0].medido, 282801.67);
+  e(vem[0].faturado, 0);
 });

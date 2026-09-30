@@ -323,3 +323,24 @@ export function emailDaRegiao(
     corpo: recadoDaRegiao(cliente, rotulo, linha, hoje).replace(/\*/g, ""),
   };
 }
+
+/* ── O saldo que passa para o mês seguinte ─────────────────── */
+
+/**
+ * O ponto de partida do mês novo, do jeito que a planilha sempre fez: o SALDO
+ * de cada base e categoria no mês anterior entra como MEDIDO do mês novo, e o
+ * faturado começa vazio. Depois se soma ao medido o que foi medido de novo no
+ * mês, e se lança o que foi faturado.
+ *
+ * Conferido nos números de verdade: VCG locação fechou agosto com saldo de
+ * 282.801,67; setembro tem medido 580.142,67 (os 282.801,67 que vieram mais
+ * 297.341,00 novos) e faturado 282.801,67 (quitou o que veio de agosto).
+ *
+ * Copiar o faturado do mês anterior seria cobrar a mesma nota duas vezes.
+ * Célula com saldo zero não vem: não há nada a arrastar.
+ */
+export function saldoQueVem(celulas: Celula[]): Celula[] {
+  return celulas
+    .map((c) => ({ ...c, medido: Math.round((num(c.medido) - num(c.faturado)) * 100) / 100, faturado: 0 }))
+    .filter((c) => c.medido !== 0);
+}

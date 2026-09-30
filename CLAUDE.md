@@ -83,6 +83,10 @@ desfaz isso logo depois de criar.
   o boletim: é o contrato inteiro, lançado à mão ou colado da aba do mês.
 - **período**: a FOTO do saldo em aberto num mês, acumulada. **Não se somam
   períodos**: a posição atual é a foto mais recente.
+- **o saldo passa adiante**: o saldo de cada base e categoria num mês entra
+  como MEDIDO do mês seguinte, e o faturado começa vazio. Medido do mês =
+  saldo que veio + o que se mediu de novo. "Trazer o saldo" faz isso — copiar
+  o faturado do mês anterior seria cobrar a mesma nota duas vezes.
 - **colagem**: a lista do Sisloc copiada e colada, com a linha de títulos.
 
 ## Estado
