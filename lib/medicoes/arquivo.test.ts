@@ -1,12 +1,12 @@
 // Prova do arquivo por cliente.
 
-import { strictEqual as e, ok, deepStrictEqual } from "node:assert/strict";
+import { strictEqual as e, deepStrictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import {
   boletinsPorBase,
   fichasDosClientes,
-  nomeDeArquivo,
-  planilha,
+  mesesDeReferencia,
+  ordemDaReferencia,
   posicaoPorCliente,
 } from "./arquivo.ts";
 import type { BoletimAtual } from "./medicoes.ts";
@@ -83,12 +83,18 @@ test("boletins por base: sem base também aparece", () => {
   deepStrictEqual(g[0].boletins.map((b) => b.id), [3, 1]);
 });
 
-test("a planilha abre no Excel em português", () => {
-  const t = planilha(["Base", "Valor", "Obs"], [["VCG", 1234.5, 'disse "ok"; depois'], ["SUL", null, ""]]);
-  ok(t.startsWith("﻿"));
-  e(t, '﻿Base;Valor;Obs\r\nVCG;1234,50;"disse ""ok""; depois"\r\nSUL;;\r\n');
-});
-
-test("o nome do arquivo não leva barra nem acento", () => {
-  e(nomeDeArquivo("ÁGUAS DO RIO / AEGEA", "faturamento"), "AGUAS-DO-RIO-AEGEA-FATURAMENTO");
+test("o mês de referência em ordem, do mais recente", () => {
+  e(ordemDaReferencia("AGOSTO/2026"), 202608);
+  e(ordemDaReferencia("Março / 2026"), 202603);
+  e(ordemDaReferencia("sem mês"), 0);
+  deepStrictEqual(
+    mesesDeReferencia([
+      { referencia: "JULHO/2026" },
+      { referencia: "SETEMBRO/2026" },
+      { referencia: null },
+      { referencia: "AGOSTO/2026" },
+      { referencia: "SETEMBRO/2026" },
+    ]),
+    ["SETEMBRO/2026", "AGOSTO/2026", "JULHO/2026"],
+  );
 });

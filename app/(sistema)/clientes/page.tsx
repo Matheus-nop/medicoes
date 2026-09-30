@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 /**
  * O arquivo por cliente: um cartão por cliente, com o que o orçamento mediu
  * de manutenção e a posição do faturamento no painel. O cartão abre a ficha,
- * onde está tudo por base — boletins, relatórios, PDFs e planilhas.
+ * onde está tudo por base — boletins e relatórios, na tela ou em PDF.
  */
 export default async function ArquivoPorCliente() {
   const carga = await carregarClientes();
@@ -24,7 +24,7 @@ export default async function ArquivoPorCliente() {
     <div className="space-y-5">
       <Cabecalho
         titulo="Arquivo por cliente"
-        resumo="Tudo de cada cliente num lugar: a manutenção medida pelo orçamento e as medições do faturamento, por base, com os PDFs e as planilhas para baixar."
+        resumo="Tudo de cada cliente num lugar: a manutenção medida pelo orçamento e as medições do faturamento, por base — na tela ou em PDF."
       />
       {carga.fichas.length === 0 ? (
         <Vazio>Nenhum cliente ainda.</Vazio>

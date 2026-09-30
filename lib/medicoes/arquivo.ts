@@ -1,6 +1,7 @@
 // O arquivo por cliente: tudo o que a casa tem de um cliente num lugar só —
 // os boletins de manutenção (orçamento) e o controle do painel (faturamento),
-// por base. E a planilha para baixar, que é o arquivo digital que se guarda.
+// por base. Consulta-se na tela e sai em PDF; planilha, não — é dela que a
+// casa está saindo.
 
 import { chaveDoCliente, type BoletimAtual } from "./medicoes.ts";
 
@@ -119,30 +120,38 @@ export function boletinsPorBase(boletins: BoletimAtual[]): { base: string; bolet
     .sort((a, b) => b.boletins.length - a.boletins.length || a.base.localeCompare(b.base));
 }
 
-/* ── A planilha para baixar ────────────────────────────────── */
-
-type Celula = string | number | null | undefined;
+const MESES = [
+  "JANEIRO",
+  "FEVEREIRO",
+  "MARCO",
+  "ABRIL",
+  "MAIO",
+  "JUNHO",
+  "JULHO",
+  "AGOSTO",
+  "SETEMBRO",
+  "OUTUBRO",
+  "NOVEMBRO",
+  "DEZEMBRO",
+];
 
 /**
- * CSV que o Excel em português abre direto: ponto e vírgula entre colunas,
- * vírgula no decimal e o BOM na frente (sem ele o acento vira "Ã§").
+ * "AGOSTO/2026" → 202608, para pôr os meses de referência em ordem. O que não
+ * se lê como mês vai para o fim (0).
  */
-export function planilha(cabecalho: string[], linhas: Celula[][]): string {
-  const campo = (v: Celula) => {
-    if (v === null || v === undefined) return "";
-    const t = typeof v === "number" ? v.toFixed(2).replace(".", ",") : String(v);
-    return /[;"\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
-  };
-  return "﻿" + [cabecalho, ...linhas].map((l) => l.map(campo).join(";")).join("\r\n") + "\r\n";
-}
-
-/** "ÁGUAS DO RIO / AEGEA" → "AGUAS-DO-RIO-AEGEA", para o nome do arquivo. */
-export function nomeDeArquivo(...partes: string[]): string {
-  return partes
-    .join(" ")
+export function ordemDaReferencia(referencia: string | null | undefined): number {
+  const t = (referencia ?? "")
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
-    .replace(/[^A-Za-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
     .toUpperCase();
+  const m = /([A-Z]+)\s*\/?\s*(\d{4})/.exec(t);
+  if (!m) return 0;
+  const mes = MESES.findIndex((x) => x.startsWith(m[1].slice(0, 3)));
+  return mes < 0 ? 0 : Number(m[2]) * 100 + mes + 1;
+}
+
+/** Os meses de referência dos boletins, do mais recente ao mais antigo. */
+export function mesesDeReferencia(boletins: { referencia: string | null }[]): string[] {
+  const unicos = [...new Set(boletins.map((b) => b.referencia?.trim()).filter(Boolean))] as string[];
+  return unicos.sort((a, b) => ordemDaReferencia(b) - ordemDaReferencia(a) || a.localeCompare(b));
 }
