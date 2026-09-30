@@ -232,8 +232,21 @@ export function CartaoDoQuadro({
     <>
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">{titulo}</p>
-          {subtitulo && <p className="truncate text-xs text-texto-3">{subtitulo}</p>}
+          {/* Nome comprido (a base) corta, e o inteiro aparece no mouse. */}
+          <p
+            className="truncate text-sm font-semibold"
+            title={typeof titulo === "string" ? titulo : undefined}
+          >
+            {titulo}
+          </p>
+          {subtitulo && (
+            <p
+              className="truncate text-xs text-texto-3"
+              title={typeof subtitulo === "string" ? subtitulo : undefined}
+            >
+              {subtitulo}
+            </p>
+          )}
         </div>
         {selo}
       </div>

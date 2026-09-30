@@ -31,6 +31,9 @@ Cole e rode **um arquivo por vez, nesta ordem**:
     agosto. A primeira conferência tem de dar 41 boletins, 165 OMs e
     227.115,00; a segunda lista a OM que ficou de fora por já estar em outro
     boletim (vazia é o esperado).
+12. `supabase/migrations/0009_periodo_pela_chegada.sql` — o período do
+    boletim ("OMs de … a …") passa a olhar a data de chegada, que é a que os
+    boletins importados trazem.
 
 Cada uma (menos a 0000) termina numa conferência: **toda linha tem de dizer
 `✓ ok`**. Se aparecer `!!`, a colagem provavelmente chegou cortada — rode o

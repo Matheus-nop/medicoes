@@ -2,8 +2,19 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Cabecalho, CartaoDoQuadro, CartaoIndicador, Chips, Painel, Selo, Vazio } from "@/components/ui";
-import { boletinsPorBase } from "@/lib/medicoes/arquivo";
+import {
+  Botao,
+  CAMPO,
+  Cabecalho,
+  Campo,
+  CartaoDoQuadro,
+  CartaoIndicador,
+  Chips,
+  Painel,
+  Selo,
+  Vazio,
+} from "@/components/ui";
+import { basesDosBoletins, boletinsPorBase, daBase } from "@/lib/medicoes/arquivo";
 import { emReais } from "@/lib/medicoes/dinheiro";
 import {
   ROTULO_SITUACAO,
@@ -54,14 +65,21 @@ export function Medicoes({
   const [filtro, setFiltro] = useState<Filtro>("todos");
 
   const soma = (f: (c: SaldoLido) => number) => porCliente.reduce((t, c) => t + f(c), 0);
-  const conta = (s: SituacaoBoletim) => boletins.filter((b) => b.situacao === s).length;
+  const conta = (s: SituacaoBoletim, lista = boletins) => lista.filter((b) => b.situacao === s).length;
   const abertos = boletins.filter((b) => b.situacao === "aberto");
-  const visiveis = filtro === "todos" ? boletins : boletins.filter((b) => b.situacao === filtro);
+  const [base, setBase] = useState("");
+  // A base filtra primeiro: a contagem das situações é a das bases escolhidas.
+  const daBaseEscolhida = boletins.filter((b) => daBase(b.base, base));
+  const visiveis =
+    filtro === "todos" ? daBaseEscolhida : daBaseEscolhida.filter((b) => b.situacao === filtro);
+  const bases = basesDosBoletins(boletins);
+  const basesVisiveis = new Set(daBaseEscolhida.map((b) => b.base?.trim())).size;
   const [recolhidos, setRecolhidos] = useState<Set<string>>(new Set());
 
   // Um painel por cliente, os boletins por base dentro dele. O saldo do
   // cabeçalho é o do cliente inteiro, não só do filtro.
-  const saldos = saldoPorCliente(boletins);
+  // Com a base filtrada, o cabeçalho diz o saldo das bases escolhidas.
+  const saldos = saldoPorCliente(base ? daBaseEscolhida : boletins);
   const clientes = [...new Set(visiveis.map((b) => chaveDoCliente(b.cliente)))]
     .map((chave) => {
       const doCliente = visiveis.filter((b) => chaveDoCliente(b.cliente) === chave);
@@ -107,20 +125,54 @@ export function Medicoes({
       <ColarDoSisloc abertos={abertos} jaMedidas={jaMedidas} />
 
       <div className="space-y-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <Campo rotulo="Base" className="w-full max-w-md">
+            <div className="flex gap-2">
+              <input
+                value={base}
+                onChange={(e) => setBase(e.target.value)}
+                list="bases-dos-boletins"
+                placeholder="Digite parte do nome — belford, vcg, gávea…"
+                aria-label="Filtrar por base"
+                className={`${CAMPO} w-full`}
+              />
+              {base && (
+                <Botao variante="discreto" onClick={() => setBase("")}>
+                  Limpar
+                </Botao>
+              )}
+            </div>
+            <datalist id="bases-dos-boletins">
+              {bases.map((b) => (
+                <option key={b} value={b} />
+              ))}
+            </datalist>
+          </Campo>
+          {base && (
+            <p className="pb-2 text-xs text-texto-3">
+              {daBaseEscolhida.length} boletim(ns) em {basesVisiveis} base(s)
+            </p>
+          )}
+        </div>
+
         <Chips
           rotulo="Situação do boletim"
           valor={filtro}
           aoMudar={setFiltro}
           opcoes={[
-            { valor: "todos", rotulo: "Todos", contagem: boletins.length },
-            ...SITUACOES.map((s) => ({ valor: s, rotulo: ROTULO_SITUACAO[s], contagem: conta(s) })),
+            { valor: "todos", rotulo: "Todos", contagem: daBaseEscolhida.length },
+            ...SITUACOES.map((s) => ({
+              valor: s,
+              rotulo: ROTULO_SITUACAO[s],
+              contagem: conta(s, daBaseEscolhida),
+            })),
           ]}
         />
 
         {boletins.length === 0 ? (
           <Vazio>Nenhum boletim ainda. Cole as OMs do Sisloc acima para abrir o primeiro.</Vazio>
         ) : clientes.length === 0 ? (
-          <Vazio>Nenhum boletim nesta situação.</Vazio>
+          <Vazio>{base ? `Nenhum boletim com a base "${base}" nesta situação.` : "Nenhum boletim nesta situação."}</Vazio>
         ) : (
           clientes.map((c) => {
             const fechado = recolhidos.has(c.chave);

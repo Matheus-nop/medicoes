@@ -181,3 +181,35 @@ export function mesesDeReferencia(boletins: { referencia: string | null }[]): st
   const unicos = [...new Set(boletins.map((b) => b.referencia?.trim()).filter(Boolean))] as string[];
   return unicos.sort((a, b) => ordemDaReferencia(b) - ordemDaReferencia(a) || a.localeCompare(b));
 }
+
+/* ── O filtro por base ─────────────────────────────────────── */
+
+const semAcento = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toUpperCase()
+    .replace(/\s+/g, " ")
+    .trim();
+
+/**
+ * O boletim cuja base tem o que se digitou — sem acento, sem caixa, e cada
+ * palavra em qualquer ordem: "belford 4" acha "VCG - BAIXADA I - BELFORD ROXO
+ * - BLOCO 4". Vazio é tudo.
+ */
+export function daBase(base: string | null | undefined, termo: string): boolean {
+  const palavras = semAcento(termo).split(" ").filter(Boolean);
+  if (palavras.length === 0) return true;
+  const alvo = semAcento(base ?? "");
+  return palavras.every((p) => alvo.includes(p));
+}
+
+/** As bases dos boletins, sem repetir, em ordem alfabética — para a lista. */
+export function basesDosBoletins(boletins: { base: string | null }[]): string[] {
+  const vistas = new Map<string, string>();
+  for (const b of boletins) {
+    const nome = b.base?.trim();
+    if (nome && !vistas.has(semAcento(nome))) vistas.set(semAcento(nome), nome);
+  }
+  return [...vistas.values()].sort((a, b) => a.localeCompare(b, "pt-BR"));
+}

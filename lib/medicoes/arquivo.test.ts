@@ -3,7 +3,9 @@
 import { strictEqual as e, deepStrictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import {
+  basesDosBoletins,
   boletinsPorBase,
+  daBase,
   fichasDosClientes,
   mesesDeReferencia,
   ordemDaReferencia,
@@ -96,5 +98,23 @@ test("o mês de referência em ordem, do mais recente", () => {
       { referencia: "SETEMBRO/2026" },
     ]),
     ["SETEMBRO/2026", "AGOSTO/2026", "JULHO/2026"],
+  );
+});
+
+test("o filtro por base: sem acento, sem caixa, palavras em qualquer ordem", () => {
+  const base = "VCG - BAIXADA I - BELFORD ROXO - BLOCO 4";
+  e(daBase(base, ""), true);
+  e(daBase(base, "belford 4"), true);
+  e(daBase(base, "bloco belford"), true);
+  e(daBase(base, "baixada ii"), false);
+  e(daBase("CAMPO GRANDE — GSO", "campo grande"), true);
+  e(daBase("SÃO GONÇALO", "sao goncalo"), true);
+  e(daBase(null, "vcg"), false);
+});
+
+test("as bases da lista, sem repetir", () => {
+  deepStrictEqual(
+    basesDosBoletins([{ base: "SUL - GÁVEA" }, { base: "sul - gávea " }, { base: null }, { base: "NORTE - MÉIER" }]),
+    ["NORTE - MÉIER", "SUL - GÁVEA"],
   );
 });
