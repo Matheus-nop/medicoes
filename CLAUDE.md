@@ -63,7 +63,9 @@ desfaz isso logo depois de criar.
 ## Estado
 - [~] Fase 1 — a base: schema `medicoes`, perfis e papéis, boletim de medição
       de manutenção (vindo do Estoque), papel no modelo TESTE 2, comprovantes da
-      OS e do Roteiros. Migrações `0000` a `0003` **a aplicar**.
+      OS e do Roteiros. Migrações `0000` a `0003` **aplicadas** no projeto
+      compartilhado, com as conferências em `✓ ok`. Falta a primeira semana de
+      uso com o faturamento.
 - [ ] Fase 2 — contratos e medições de locação (medido, faturado, saldo),
       quando chegar a planilha atual.
 - [ ] Fase 3 — painéis e relatórios da diretoria.
