@@ -456,9 +456,12 @@ export function Grade({
 }
 
 /** Abre o período de um mês — ou o controle de um cliente novo. */
-export function NovoPeriodo({ cliente }: { cliente: string }) {
+export function NovoPeriodo({ cliente, clientes }: { cliente: string; clientes: string[] }) {
   const router = useRouter();
+  // O cliente se ESCOLHE na lista: digitado à mão, qualquer diferença abria
+  // um cliente novo, sem bases, e o mês nascia sem nada para lançar.
   const [nome, setNome] = useState(cliente);
+  const [novo, setNovo] = useState(false);
   const [mes, setMes] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -486,11 +489,30 @@ export function NovoPeriodo({ cliente }: { cliente: string }) {
         }}
       >
         <Campo rotulo="Cliente" className="min-w-[14rem] flex-1">
-          <input
-            value={nome}
-            onChange={(e) => setNome(e.target.value.toUpperCase())}
-            className={`${CAMPO} w-full`}
-          />
+          {novo ? (
+            <input
+              value={nome}
+              onChange={(e) => setNome(e.target.value.toUpperCase())}
+              placeholder="NOME DO CLIENTE NOVO"
+              className={`${CAMPO} w-full`}
+            />
+          ) : (
+            <select
+              value={nome}
+              onChange={(e) => {
+                if (e.target.value === "__novo__") {
+                  setNovo(true);
+                  setNome("");
+                } else setNome(e.target.value);
+              }}
+              className={`${CAMPO} w-full`}
+            >
+              {[...new Set([cliente, ...clientes])].map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+              <option value="__novo__">+ Cliente novo…</option>
+            </select>
+          )}
         </Campo>
         <Campo rotulo="Mês">
           <input
