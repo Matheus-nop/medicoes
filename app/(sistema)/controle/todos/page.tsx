@@ -38,9 +38,11 @@ export default async function TodosOsClientes() {
 
   const comPainel = carga.fichas.filter((f) => f.faturamento);
   const comManutencao = carga.fichas.filter((f) => f.manutencao.boletins > 0);
+  const anterior = comPainel.reduce((t, f) => t + f.faturamento!.anterior, 0);
   const medido = comPainel.reduce((t, f) => t + f.faturamento!.medido, 0);
   const faturado = comPainel.reduce((t, f) => t + f.faturamento!.faturado, 0);
-  const fracao = medido > 0 ? faturado / medido : null;
+  const saldo = comPainel.reduce((t, f) => t + f.faturamento!.saldo, 0);
+  const fracao = anterior + medido > 0 ? faturado / (anterior + medido) : null;
   const emMedicao = comManutencao.reduce((t, f) => t + f.manutencao.emMedicao, 0);
 
   // O gráfico de barras fala "região"; aqui cada barra é um cliente.
@@ -70,14 +72,19 @@ export default async function TodosOsClientes() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <CartaoIndicador compacto rotulo="Medido" valor={emReais(medido)} detalhe={`${comPainel.length} cliente(s) no painel`} />
-            <CartaoIndicador compacto rotulo="Faturado" valor={emReais(faturado)} cor="bg-disponivel">
+            <CartaoIndicador
+              compacto
+              rotulo="Medido no mês"
+              valor={emReais(medido)}
+              detalhe={`saldo anterior ${emReais(anterior, false)} · ${comPainel.length} cliente(s)`}
+            />
+            <CartaoIndicador compacto rotulo="Faturado no mês" valor={emReais(faturado)} cor="bg-disponivel">
               <Progresso fracao={fracao} cor="bg-disponivel" />
             </CartaoIndicador>
             <CartaoIndicador
               compacto
               rotulo="Saldo a faturar"
-              valor={<span className="text-saldo">{emReais(medido - faturado)}</span>}
+              valor={<span className="text-saldo">{emReais(saldo)}</span>}
               cor="bg-saldo"
               detalhe={fracao === null ? undefined : `${emPorcento(fracao)} faturado`}
             />
@@ -98,7 +105,7 @@ export default async function TodosOsClientes() {
                 <div className="grid gap-3 p-4 sm:grid-cols-2">
                   {comPainel.map((f) => {
                     const p = f.faturamento!;
-                    const fr = p.medido > 0 ? p.faturado / p.medido : null;
+                    const fr = p.anterior + p.medido > 0 ? p.faturado / (p.anterior + p.medido) : null;
                     return (
                       <CartaoDoQuadro
                         key={f.chave}
@@ -107,8 +114,9 @@ export default async function TodosOsClientes() {
                         subtitulo={`posição de ${p.rotulo}`}
                         selo={<Selo tom={TOM_FAIXA[faixaDoFaturado(fr)]}>{fr === null ? "—" : emPorcento(fr)}</Selo>}
                         linhas={[
-                          { rotulo: "Medido", valor: emReais(p.medido) },
-                          { rotulo: "Faturado", valor: emReais(p.faturado) },
+                          { rotulo: "Saldo anterior", valor: emReais(p.anterior) },
+                          { rotulo: "Medido no mês", valor: emReais(p.medido) },
+                          { rotulo: "Faturado no mês", valor: emReais(p.faturado) },
                         ]}
                         destaque={{ rotulo: "Saldo", valor: emReais(p.saldo) }}
                         fracao={fr}

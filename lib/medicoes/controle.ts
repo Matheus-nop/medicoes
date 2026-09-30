@@ -1,11 +1,15 @@
 // O controle de medições: manutenção, locação e indenização, região por
 // região, mês a mês. É a planilha "CONTROLE DE MEDIÇÕES" — e não o boletim.
 //
-// A regra que a planilha escrevia no topo continua valendo: cada período é a
-// FOTO do saldo em aberto naquele mês, acumulada. NÃO se somam períodos. A
-// posição atual é a foto mais recente, e toda conta aqui é de UM período.
+// Cada mês guarda o que aconteceu NELE — o medido e o faturado do mês —, e o
+// saldo passa adiante sozinho:
 //
-// A mesma conta vive na view `controle_por_periodo` (0005).
+//   Agosto:   medido 100, faturado 30             → saldo 70
+//   Setembro: saldo de agosto 70, medido e faturado do mês
+//             → saldo = 70 + medido − faturado
+//
+// O saldo anterior não se digita: vem da view `controle_posicao` (0006), que
+// soma os meses de antes. A posição atual é o saldo do mês mais recente.
 
 import { emReais } from "./dinheiro.ts";
 
@@ -22,14 +26,18 @@ export const ROTULO_CATEGORIA: Record<Categoria, string> = {
 /** O cliente da planilha de hoje. O controle nasce por ele. */
 export const CLIENTE_PADRAO = "ÁGUAS DO RIO / AEGEA";
 
-/** Uma linha de `controle_atual`: o valor que vale numa célula. */
+/** Uma linha de `controle_posicao`: uma base, uma categoria, um mês. */
 export interface Celula {
   periodo_id: number;
   regiao_id: number;
   regiao: string;
   ordem: number;
   categoria: Categoria;
+  /** O saldo que veio dos meses anteriores. Calculado, nunca digitado. */
+  saldo_anterior?: number;
+  /** Medido NO MÊS. */
   medido: number;
+  /** Faturado NO MÊS. */
   faturado: number;
 }
 
@@ -47,10 +55,15 @@ export interface Periodo {
 }
 
 export interface Soma {
+  /** O saldo que veio do mês anterior. */
+  anterior: number;
   medido: number;
   faturado: number;
+  /** O que havia para faturar no mês: o saldo anterior mais o medido. */
+  aFaturar: number;
+  /** anterior + medido − faturado. É o que passa para o mês seguinte. */
   saldo: number;
-  /** Faturado sobre medido. Null quando nada foi medido. */
+  /** Faturado sobre o que havia para faturar. Null quando não havia nada. */
   fracao: number | null;
 }
 
@@ -70,49 +83,64 @@ const num = (v: unknown) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-function soma(medido: number, faturado: number): Soma {
-  // Arredonda no centavo: a planilha soma em float e deixa 0,4800000000032.
-  const m = Math.round(medido * 100) / 100;
-  const f = Math.round(faturado * 100) / 100;
-  return { medido: m, faturado: f, saldo: Math.round((m - f) * 100) / 100, fracao: m > 0 ? f / m : null };
+// Arredonda no centavo: a planilha soma em float e deixa 0,4800000000032.
+const centavo = (v: number) => Math.round(v * 100) / 100;
+
+export function soma(anterior: number, medido: number, faturado: number): Soma {
+  const a = centavo(anterior);
+  const m = centavo(medido);
+  const f = centavo(faturado);
+  const aFaturar = centavo(a + m);
+  return {
+    anterior: a,
+    medido: m,
+    faturado: f,
+    aFaturar,
+    saldo: centavo(aFaturar - f),
+    fracao: aFaturar > 0 ? f / aFaturar : null,
+  };
 }
 
-const vazia = (): Record<Categoria, { medido: number; faturado: number }> => ({
-  manutencao: { medido: 0, faturado: 0 },
-  locacao: { medido: 0, faturado: 0 },
-  indenizacao: { medido: 0, faturado: 0 },
+type Conta = { anterior: number; medido: number; faturado: number };
+type PorCategoria = Record<Categoria, Conta>;
+
+const vazia = (): PorCategoria => ({
+  manutencao: { anterior: 0, medido: 0, faturado: 0 },
+  locacao: { anterior: 0, medido: 0, faturado: 0 },
+  indenizacao: { anterior: 0, medido: 0, faturado: 0 },
 });
 
-const fechar = (c: Record<Categoria, { medido: number; faturado: number }>) =>
-  Object.fromEntries(CATEGORIAS.map((k) => [k, soma(c[k].medido, c[k].faturado)])) as Record<
-    Categoria,
-    Soma
-  >;
+const fechar = (c: PorCategoria) =>
+  Object.fromEntries(
+    CATEGORIAS.map((k) => [k, soma(c[k].anterior, c[k].medido, c[k].faturado)]),
+  ) as Record<Categoria, Soma>;
+
+const somaDe = (c: PorCategoria) =>
+  soma(
+    CATEGORIAS.reduce((t, k) => t + c[k].anterior, 0),
+    CATEGORIAS.reduce((t, k) => t + c[k].medido, 0),
+    CATEGORIAS.reduce((t, k) => t + c[k].faturado, 0),
+  );
 
 /**
  * Um período inteiro: o total, as três categorias e cada região. As regiões
- * cadastradas sem valor entram zeradas, na ordem da planilha — região que some
- * da tabela porque não teve medição parece região que ninguém olhou.
+ * cadastradas sem valor entram zeradas, na ordem — região que some da tabela
+ * porque não teve medição parece região que ninguém olhou.
  */
 export function resumirPeriodo(celulas: Celula[], regioes: Regiao[] = []): ResumoDoPeriodo {
   const total = vazia();
-  const porRegiao = new Map<string, { ordem: number; c: ReturnType<typeof vazia> }>();
+  const porRegiao = new Map<string, { ordem: number; c: PorCategoria }>();
   for (const r of regioes) porRegiao.set(r.nome, { ordem: r.ordem, c: vazia() });
 
   for (const x of celulas) {
     const r = porRegiao.get(x.regiao) ?? { ordem: x.ordem, c: vazia() };
-    r.c[x.categoria].medido += num(x.medido);
-    r.c[x.categoria].faturado += num(x.faturado);
+    for (const alvo of [r.c[x.categoria], total[x.categoria]]) {
+      alvo.anterior += num(x.saldo_anterior);
+      alvo.medido += num(x.medido);
+      alvo.faturado += num(x.faturado);
+    }
     porRegiao.set(x.regiao, r);
-    total[x.categoria].medido += num(x.medido);
-    total[x.categoria].faturado += num(x.faturado);
   }
-
-  const somaDe = (c: ReturnType<typeof vazia>) =>
-    soma(
-      CATEGORIAS.reduce((t, k) => t + c[k].medido, 0),
-      CATEGORIAS.reduce((t, k) => t + c[k].faturado, 0),
-    );
 
   return {
     ...somaDe(total),
@@ -122,6 +150,10 @@ export function resumirPeriodo(celulas: Celula[], regioes: Regiao[] = []): Resum
       .sort((a, b) => a.ordem - b.ordem || a.regiao.localeCompare(b.regiao)),
   };
 }
+
+/** Tem algum número nesta soma? (saldo que veio, medido ou faturado) */
+export const temValor = (s: Pick<Soma, "anterior" | "medido" | "faturado">) =>
+  s.anterior !== 0 || s.medido !== 0 || s.faturado !== 0;
 
 /** "Maior → menor": só quem tem saldo em aberto, para o gráfico de barras. */
 export function saldoPorRegiao(r: ResumoDoPeriodo): LinhaDaRegiao[] {
@@ -264,15 +296,17 @@ export function historicoDaRegiao(
     .sort((a, b) => a.mes.localeCompare(b.mes))
     .flatMap((p) => {
       const doPeriodo = minhas.filter((c) => c.periodo_id === p.id);
-      if (!doPeriodo.some((c) => num(c.medido) !== 0 || num(c.faturado) !== 0)) return [];
       const r = resumirPeriodo(doPeriodo);
+      if (!temValor(r)) return [];
       return [
         {
           periodo_id: p.id,
           rotulo: p.rotulo,
           mes: p.mes,
+          anterior: r.anterior,
           medido: r.medido,
           faturado: r.faturado,
+          aFaturar: r.aFaturar,
           saldo: r.saldo,
           fracao: r.fracao,
           categorias: r.categorias,
@@ -296,9 +330,10 @@ export function recadoDaRegiao(
   const pct = (f: number | null) => (f === null ? "0%" : `${Math.round(f * 100)}%`);
   const quem = linha.regiao === TODAS ? "Todas as bases" : `Base ${linha.regiao}`;
   let t = `*${cliente} — ${quem}*\nPosição: ${rotulo}\n\n`;
-  t += `Medido: ${emReais(linha.medido)}\nFaturado: ${emReais(linha.faturado)}\n`;
+  t += `Saldo do mês anterior: ${emReais(linha.anterior)}\n`;
+  t += `Medido no mês: ${emReais(linha.medido)}\nFaturado no mês: ${emReais(linha.faturado)}\n`;
   t += `*Saldo a faturar: ${emReais(linha.saldo)}* (${pct(linha.fracao)} faturado)\n`;
-  const abertas = CATEGORIAS.filter((c) => linha.categorias[c].medido > 0);
+  const abertas = CATEGORIAS.filter((c) => temValor(linha.categorias[c]));
   if (abertas.length) {
     t += "\nPor categoria:\n";
     for (const c of abertas) {
@@ -322,4 +357,86 @@ export function emailDaRegiao(
     assunto: `Medições ${cliente} — ${quem} — ${rotulo}`,
     corpo: recadoDaRegiao(cliente, rotulo, linha, hoje).replace(/\*/g, ""),
   };
+}
+
+/* ── A importação da planilha ──────────────────────────────── */
+
+const ABREV = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+
+/**
+ * A aba da planilha que é deste mês: "SET 2026" para setembro, e "JUN-JUL 2025"
+ * serve a julho (o mês de um período de dois é o último). Null se não houver.
+ */
+export function abaDoMes(abas: string[], mes: string): string | null {
+  const [ano, m] = mes.split("-");
+  const abrev = ABREV[Number(m) - 1];
+  const limpa = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().trim();
+  return (
+    abas.find((a) => limpa(a) === `${abrev} ${ano}`) ??
+    abas.find((a) => new RegExp(`(^|-)${abrev}\\s+${ano}$`).test(limpa(a))) ??
+    null
+  );
+}
+
+/**
+ * As linhas de uma aba lida do .xlsx viram o texto que a colagem já entende:
+ * número com vírgula e duas casas (o Excel guarda 46857.11000000001).
+ */
+export function abaComoTexto(linhas: unknown[][]): string {
+  return linhas
+    .map((l) =>
+      l
+        .map((v) =>
+          v === null || v === undefined
+            ? ""
+            : typeof v === "number"
+              ? v.toFixed(2).replace(".", ",")
+              : String(v),
+        )
+        .join("\t"),
+    )
+    .join("\n");
+}
+
+export interface CelulaImportada {
+  regiao: string;
+  categoria: Categoria;
+  /** O saldo que o sistema já tem do mês anterior. */
+  anterior: number;
+  /** Medido NO MÊS: o da planilha menos o saldo anterior. */
+  medido: number;
+  faturado: number;
+  /** O saldo que fica — o mesmo da planilha. */
+  saldo: number;
+}
+
+/**
+ * A aba da planilha no formato do sistema.
+ *
+ * A planilha guarda a FOTO: o medido dela já traz o saldo do mês anterior
+ * dentro. O sistema guarda o mês: medido do mês = medido da planilha − saldo
+ * anterior; o faturado é o mesmo. Assim o saldo que fica é exatamente o da
+ * planilha.
+ *
+ * Quando a planilha zera uma base que tinha saldo, sem faturar ("-" no mês),
+ * o medido do mês sai negativo: é o ajuste que a planilha fez calada, e a tela
+ * mostra para alguém conferir.
+ */
+export function daPlanilhaParaOMes(
+  linhas: LinhaColada[],
+  saldoAnterior: (regiao: string, categoria: Categoria) => number,
+): CelulaImportada[] {
+  return linhas.flatMap((l) =>
+    CATEGORIAS.flatMap((c) => {
+      const par = l.valores[c];
+      const foto = par?.medido ?? 0;
+      const faturado = par?.faturado ?? 0;
+      const anterior = saldoAnterior(l.regiao, c);
+      if (foto === 0 && faturado === 0 && anterior === 0) return [];
+      const medido = centavo(foto - anterior);
+      return [
+        { regiao: l.regiao, categoria: c, anterior, medido, faturado, saldo: centavo(foto - faturado) },
+      ];
+    }),
+  );
 }

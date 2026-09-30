@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Cabecalho, ESTILO_BOTAO } from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
-import type { Celula } from "@/lib/medicoes/controle";
 import { carregarControle } from "../dados";
 import { EscolherPeriodo } from "../vivo";
 import { Grade, NovoPeriodo, NovaRegiao, type Lancamento } from "./grade";
@@ -38,22 +37,10 @@ export default async function LancarMedicoes({
 
   const { cliente, clientes, periodos, periodo, regioes, celulas } = carga;
 
-  // O período anterior: o ponto de partida da foto nova, que é acumulada.
+  // O mês anterior, só para dizer de onde veio o saldo — o valor vem da view.
   const anterior = periodo ? [...periodos].reverse().find((p) => p.mes < periodo.mes) : undefined;
-  let celulasAnteriores: Celula[] = [];
   let historico: Lancamento[] = [];
   const supabase = await createClient();
-  if (anterior) {
-    const { data } = await supabase
-      .from("controle_atual")
-      .select("periodo_id, regiao_id, regiao, ordem, categoria, medido, faturado")
-      .eq("periodo_id", anterior.id);
-    celulasAnteriores = ((data ?? []) as Celula[]).map((c) => ({
-      ...c,
-      medido: Number(c.medido),
-      faturado: Number(c.faturado),
-    }));
-  }
   if (periodo) {
     // Os últimos lançamentos deste período, com o nome de quem lançou.
     const { data } = await supabase
@@ -93,9 +80,9 @@ export default async function LancarMedicoes({
             ) : (
               " · nenhum período aberto ainda"
             )}
-            . Time de faturamento: o medido e o faturado de manutenção, locação e indenização de
-            cada região, conforme o faturamento anda — é o que aparece no painel. O saldo é conta,
-            e sai sozinho.
+            . Time de faturamento: o saldo do mês anterior vem sozinho; lance o que foi medido e o
+            que foi faturado no mês, em cada base. O saldo é conta, passa para o mês seguinte e é o
+            que aparece no painel.
           </>
         }
         acoes={
@@ -124,7 +111,7 @@ export default async function LancarMedicoes({
           periodo={periodo}
           regioes={regioes}
           celulas={celulas}
-          anterior={anterior ? { rotulo: anterior.rotulo, celulas: celulasAnteriores } : null}
+          anterior={anterior?.rotulo ?? null}
           historico={historico}
         />
       ) : (

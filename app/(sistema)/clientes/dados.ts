@@ -12,8 +12,8 @@ export async function carregarClientes(): Promise<CargaDosClientes> {
   const [boletins, periodos] = await Promise.all([
     supabase.from("boletins_atual").select("*").order("id", { ascending: false }),
     supabase
-      .from("controle_por_periodo")
-      .select("cliente, periodo_id, rotulo, mes, medido, faturado, saldo"),
+      .from("controle_mes")
+      .select("cliente, periodo_id, rotulo, mes, saldo_anterior, medido, faturado, saldo"),
   ]);
   const falha = boletins.error ?? periodos.error;
   if (falha) return { ok: false, erro: falha.message };

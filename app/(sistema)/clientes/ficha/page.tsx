@@ -18,6 +18,7 @@ import {
   TODAS,
   faixaDoFaturado,
   resumirPeriodo,
+  temValor,
 } from "@/lib/medicoes/controle";
 import {
   ROTULO_SITUACAO,
@@ -213,8 +214,13 @@ async function Faturamento({ cliente }: { cliente: string }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <CartaoIndicador compacto rotulo="Medido" valor={emReais(r.medido)} detalhe={`posição de ${periodo.rotulo}`} />
-        <CartaoIndicador compacto rotulo="Faturado" valor={emReais(r.faturado)} cor="bg-disponivel">
+        <CartaoIndicador
+          compacto
+          rotulo="Medido no mês"
+          valor={emReais(r.medido)}
+          detalhe={`${periodo.rotulo} · saldo anterior ${emReais(r.anterior, false)}`}
+        />
+        <CartaoIndicador compacto rotulo="Faturado no mês" valor={emReais(r.faturado)} cor="bg-disponivel">
           <Progresso fracao={r.fracao} cor="bg-disponivel" />
         </CartaoIndicador>
         <CartaoIndicador compacto rotulo="Saldo a faturar" valor={<span className="text-saldo">{emReais(r.saldo)}</span>} cor="bg-saldo" />
@@ -245,7 +251,7 @@ async function Faturamento({ cliente }: { cliente: string }) {
                   {x.fracao === null ? "—" : emPorcento(x.fracao)}
                 </Selo>
               }
-              linhas={CATEGORIAS.filter((c) => x.categorias[c].medido || x.categorias[c].faturado).map((c) => ({
+              linhas={CATEGORIAS.filter((c) => temValor(x.categorias[c])).map((c) => ({
                 rotulo: ROTULO_CATEGORIA[c],
                 valor: emReais(x.categorias[c].saldo),
               }))}
@@ -267,7 +273,7 @@ async function Faturamento({ cliente }: { cliente: string }) {
       >
         <div className="grid gap-2 p-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
           {[...serie].reverse().map((s) => {
-            const fracao = s.medido > 0 ? s.faturado / s.medido : null;
+            const fracao = s.aFaturar > 0 ? s.faturado / s.aFaturar : null;
             return (
               <Link
                 key={s.periodo_id}

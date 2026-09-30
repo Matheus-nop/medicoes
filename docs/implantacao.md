@@ -18,6 +18,10 @@ Cole e rode **um arquivo por vez, nesta ordem**:
 7. `supabase/scripts/semear-controle-aguas-do-rio.sql` — o histórico da
    planilha. A conferência do fim lista cada período: tem de bater com o
    RESUMO EXECUTIVO (setembro/2026: 1.558.887,59 medido, 566.982,35 faturado).
+8. `supabase/migrations/0006_saldo_que_passa.sql` — o mês passa a guardar só
+   o medido e o faturado dele, e o saldo anterior vem sozinho. Converte o
+   histórico (uma vez só) sem mudar nenhum saldo: a lista do fim tem de dar
+   setembro/2026 com saldo 991.905,24.
 
 Cada uma (menos a 0000) termina numa conferência: **toda linha tem de dizer
 `✓ ok`**. Se aparecer `!!`, a colagem provavelmente chegou cortada — rode o

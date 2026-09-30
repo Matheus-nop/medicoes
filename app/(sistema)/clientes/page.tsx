@@ -60,8 +60,8 @@ export default async function ArquivoPorCliente() {
                     : []),
                   ...(p
                     ? [
-                        { rotulo: "Painel · medido", valor: emReais(p.medido) },
-                        { rotulo: "Painel · faturado", valor: emReais(p.faturado) },
+                        { rotulo: "Painel · medido no mês", valor: emReais(p.medido) },
+                        { rotulo: "Painel · faturado no mês", valor: emReais(p.faturado) },
                       ]
                     : []),
                 ]}
