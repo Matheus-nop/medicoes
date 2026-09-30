@@ -7,13 +7,18 @@ import {
   type Regiao,
 } from "@/lib/medicoes/controle";
 
-/** Uma linha de `controle_por_periodo`: o total de um período. */
+/** Uma linha de `controle_mes`: o total de um período. */
 export interface TotalDoPeriodo {
   periodo_id: number;
   mes: string;
   rotulo: string;
+  /** O saldo que veio do mês anterior. */
+  anterior: number;
+  /** Medido e faturado NO MÊS. */
   medido: number;
   faturado: number;
+  /** anterior + medido: o que havia para faturar no mês. */
+  aFaturar: number;
   saldo: number;
 }
 
@@ -36,8 +41,8 @@ const n = (v: unknown) => Number(v ?? 0);
 /**
  * O controle de um cliente num período — o que o painel e a grade leem.
  *
- * Sem período pedido, vale a FOTO MAIS RECENTE que tem valor: é a posição
- * atual, e é a regra da planilha ("não somar meses").
+ * Sem período pedido, vale o mês mais recente que tem algum número (o saldo
+ * que veio conta): é a posição atual.
  */
 export async function carregarControle(
   clientePedido?: string,
@@ -72,14 +77,28 @@ export async function carregarControle(
     .map(({ id, nome, ordem }) => ({ id, nome, ordem }));
 
   const { data: totais, error: e3 } = await supabase
-    .from("controle_por_periodo")
-    .select("periodo_id, mes, rotulo, medido, faturado, saldo")
+    .from("controle_mes")
+    .select("periodo_id, mes, rotulo, saldo_anterior, medido, faturado, saldo, a_faturar")
     .eq("cliente", cliente)
     .order("mes");
   if (e3) return { ok: false, erro: e3.message, faltaMigracao: e3.code === "42P01" };
-  const serie = ((totais ?? []) as TotalDoPeriodo[])
-    .map((t) => ({ ...t, medido: n(t.medido), faturado: n(t.faturado), saldo: n(t.saldo) }))
-    .filter((t) => t.medido !== 0 || t.faturado !== 0);
+  const serie = (
+    (totais ?? []) as (Omit<TotalDoPeriodo, "anterior" | "aFaturar"> & {
+      saldo_anterior: unknown;
+      a_faturar: unknown;
+    })[]
+  )
+    .map((t) => ({
+      periodo_id: t.periodo_id,
+      mes: t.mes,
+      rotulo: t.rotulo,
+      anterior: n(t.saldo_anterior),
+      medido: n(t.medido),
+      faturado: n(t.faturado),
+      aFaturar: n(t.a_faturar),
+      saldo: n(t.saldo),
+    }))
+    .filter((t) => t.anterior !== 0 || t.medido !== 0 || t.faturado !== 0);
 
   const pedido = periodos.find((p) => p.id === periodoPedido);
   const maisRecente = serie.length
@@ -91,13 +110,14 @@ export async function carregarControle(
   let celulas: Celula[] = [];
   if (periodo) {
     const { data, error } = await supabase
-      .from("controle_atual")
-      .select("periodo_id, regiao_id, regiao, ordem, categoria, medido, faturado")
+      .from("controle_posicao")
+      .select("periodo_id, regiao_id, regiao, ordem, categoria, saldo_anterior, medido, faturado")
       .eq("periodo_id", periodo.id);
     if (error) return { ok: false, erro: error.message, faltaMigracao: error.code === "42P01" };
     celulas = ((data ?? []) as Celula[]).map((c) => ({
       ...c,
       categoria: c.categoria as Categoria,
+      saldo_anterior: n(c.saldo_anterior),
       medido: n(c.medido),
       faturado: n(c.faturado),
     }));

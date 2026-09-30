@@ -27,8 +27,9 @@ function noEixo(rotulo: string): string {
 }
 
 /**
- * Medido e faturado de cada foto, período a período. Não é soma: cada ponto é
- * a posição daquele mês, e a distância entre as linhas é o saldo em aberto.
+ * Medido e faturado de cada mês, em linhas, e o saldo que ficou, em área. O
+ * saldo de um mês é o anterior do seguinte — por isso a área sobe quando se
+ * mede mais do que se fatura.
  */
 export function GraficoEvolucao({
   serie,
@@ -48,20 +49,14 @@ export function GraficoEvolucao({
   const pb = 30;
   const iw = W - pl - pr;
   const ih = H - pt - pb;
-  const max = Math.max(...serie.flatMap((s) => [s.medido, s.faturado]), 1) * 1.08;
+  const max = Math.max(...serie.flatMap((s) => [s.medido, s.faturado, s.saldo]), 1) * 1.08;
   const x = (i: number) => pl + (serie.length <= 1 ? iw / 2 : (iw * i) / (serie.length - 1));
   const y = (v: number) => pt + ih - (Math.max(0, v) / max) * ih;
   const linha = (f: (s: TotalDoPeriodo) => number) =>
     serie.map((s, i) => `${i ? "L" : "M"} ${x(i).toFixed(1)} ${y(f(s)).toFixed(1)}`).join(" ");
   const area =
-    serie.map((s, i) => `${i ? "L" : "M"} ${x(i).toFixed(1)} ${y(s.medido).toFixed(1)}`).join(" ") +
-    " " +
-    [...serie]
-      .map((s, i) => ({ s, i }))
-      .reverse()
-      .map(({ s, i }) => `L ${x(i).toFixed(1)} ${y(s.faturado).toFixed(1)}`)
-      .join(" ") +
-    " Z";
+    serie.map((s, i) => `${i ? "L" : "M"} ${x(i).toFixed(1)} ${y(s.saldo).toFixed(1)}`).join(" ") +
+    ` L ${x(serie.length - 1).toFixed(1)} ${y(0).toFixed(1)} L ${x(0).toFixed(1)} ${y(0).toFixed(1)} Z`;
   const passo = serie.length > 12 ? 2 : 1;
 
   return (
@@ -93,7 +88,8 @@ export function GraficoEvolucao({
             </text>
           ) : null,
         )}
-        <path d={area} fill="var(--saldo)" opacity={0.12} />
+        <path d={area} fill="var(--saldo)" opacity={0.16} />
+        <path d={linha((s) => s.saldo)} fill="none" stroke="var(--saldo)" strokeWidth={1.4} strokeDasharray="4 3" />
         <path d={linha((s) => s.medido)} fill="none" stroke="var(--acento)" strokeWidth={2.4} strokeLinejoin="round" />
         <path d={linha((s) => s.faturado)} fill="none" stroke="var(--disponivel)" strokeWidth={2.4} strokeLinejoin="round" />
         {serie.map((s, i) => (
@@ -105,16 +101,16 @@ export function GraficoEvolucao({
             <circle cx={x(i)} cy={y(s.faturado)} r={3} fill="var(--disponivel)" stroke="var(--superficie)" strokeWidth={1.5} />
             <rect x={x(i) - iw / serie.length / 2} y={pt} width={iw / serie.length} height={ih} fill="transparent">
               <title>
-                {`${s.rotulo}\nMedido: ${emReais(s.medido)}\nFaturado: ${emReais(s.faturado)}\nSaldo: ${emReais(s.saldo)}`}
+                {`${s.rotulo}\nSaldo anterior: ${emReais(s.anterior)}\nMedido no mês: ${emReais(s.medido)}\nFaturado no mês: ${emReais(s.faturado)}\nSaldo: ${emReais(s.saldo)}`}
               </title>
             </rect>
           </g>
         ))}
       </svg>
       <div className="flex flex-wrap gap-4 px-2 pb-2 text-xs text-texto-2">
-        <Legenda cor="bg-acento">Medido</Legenda>
-        <Legenda cor="bg-disponivel">Faturado</Legenda>
-        <Legenda cor="bg-saldo/40">Saldo em aberto</Legenda>
+        <Legenda cor="bg-acento">Medido no mês</Legenda>
+        <Legenda cor="bg-disponivel">Faturado no mês</Legenda>
+        <Legenda cor="bg-saldo/40">Saldo que ficou</Legenda>
       </div>
     </div>
   );

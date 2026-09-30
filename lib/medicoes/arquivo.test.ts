@@ -40,11 +40,11 @@ const boletim = (p: Partial<BoletimAtual>): BoletimAtual => ({
   ...p,
 });
 
-test("a posição do cliente é a foto mais recente com valor, sem somar", () => {
+test("a posição do cliente é o mês mais recente com número", () => {
   const p = posicaoPorCliente([
-    { cliente: "A", periodo_id: 1, rotulo: "Agosto 2026", mes: "2026-08-01", medido: "100", faturado: "40", saldo: "60" },
-    { cliente: "A", periodo_id: 2, rotulo: "Setembro 2026", mes: "2026-09-01", medido: "150", faturado: "50", saldo: "100" },
-    { cliente: "A", periodo_id: 3, rotulo: "Outubro 2026", mes: "2026-10-01", medido: "0", faturado: "0", saldo: "0" },
+    { cliente: "A", periodo_id: 1, rotulo: "Agosto 2026", mes: "2026-08-01", saldo_anterior: "0", medido: "100", faturado: "40", saldo: "60" },
+    { cliente: "A", periodo_id: 2, rotulo: "Setembro 2026", mes: "2026-09-01", saldo_anterior: "60", medido: "90", faturado: "50", saldo: "100" },
+    { cliente: "A", periodo_id: 3, rotulo: "Outubro 2026", mes: "2026-10-01", saldo_anterior: "0", medido: "0", faturado: "0", saldo: "0" },
   ]);
   e(p.length, 1);
   e(p[0].rotulo, "Setembro 2026");
@@ -58,7 +58,7 @@ test("a ficha junta boletim e controle pelo nome, e conta as bases", () => {
       boletim({ id: 2, cliente: "RIO + SANEAMENTO BL3 S.A.", base: "VASSOURAS", situacao: "aberto", valor: 300, criado_em: "2026-09-10" }),
       boletim({ id: 3, cliente: "RIO + SANEAMENTO BL3 S.A", base: "pirai", situacao: "faturado", valor: 200, criado_em: "2026-08-01" }),
     ],
-    [{ cliente: "ÁGUAS DO RIO / AEGEA", periodo_id: 9, rotulo: "Setembro 2026", mes: "2026-09-01", medido: 10, faturado: 0, saldo: 10 }],
+    [{ cliente: "ÁGUAS DO RIO / AEGEA", periodo_id: 9, rotulo: "Setembro 2026", mes: "2026-09-01", anterior: 0, medido: 10, faturado: 0, saldo: 10 }],
   );
   e(f.nome, "RIO + SANEAMENTO BL3 S.A.");
   e(f.manutencao.boletins, 3);

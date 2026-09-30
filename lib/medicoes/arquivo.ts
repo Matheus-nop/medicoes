@@ -5,12 +5,15 @@
 
 import { chaveDoCliente, type BoletimAtual } from "./medicoes.ts";
 
-/** A posição atual de um cliente no controle: a foto mais recente com valor. */
+/** A posição atual de um cliente no controle: o mês mais recente com número. */
 export interface PosicaoDoControle {
   cliente: string;
   periodo_id: number;
   rotulo: string;
   mes: string;
+  /** O saldo que veio do mês anterior. */
+  anterior: number;
+  /** Medido e faturado NO MÊS. */
   medido: number;
   faturado: number;
   saldo: number;
@@ -40,17 +43,35 @@ const n = (v: unknown) => {
 };
 
 /**
- * A posição atual de cada cliente no controle, das linhas de
- * `controle_por_periodo`: a do mês mais recente que tem algum valor. Não soma
- * meses — cada período é uma foto.
+ * A posição atual de cada cliente no controle, das linhas de `controle_mes`:
+ * a do mês mais recente que tem algum número. O saldo já traz os meses de
+ * antes — não se somam meses aqui.
  */
 export function posicaoPorCliente(
-  linhas: { cliente: string; periodo_id: number; rotulo: string; mes: string; medido: unknown; faturado: unknown; saldo: unknown }[],
+  linhas: {
+    cliente: string;
+    periodo_id: number;
+    rotulo: string;
+    mes: string;
+    saldo_anterior: unknown;
+    medido: unknown;
+    faturado: unknown;
+    saldo: unknown;
+  }[],
 ): PosicaoDoControle[] {
   const mapa = new Map<string, PosicaoDoControle>();
   for (const l of linhas) {
-    const p = { ...l, medido: n(l.medido), faturado: n(l.faturado), saldo: n(l.saldo) };
-    if (p.medido === 0 && p.faturado === 0) continue;
+    const p = {
+      cliente: l.cliente,
+      periodo_id: l.periodo_id,
+      rotulo: l.rotulo,
+      mes: l.mes,
+      anterior: n(l.saldo_anterior),
+      medido: n(l.medido),
+      faturado: n(l.faturado),
+      saldo: n(l.saldo),
+    };
+    if (p.anterior === 0 && p.medido === 0 && p.faturado === 0) continue;
     const atual = mapa.get(l.cliente);
     if (!atual || p.mes > atual.mes) mapa.set(l.cliente, p);
   }

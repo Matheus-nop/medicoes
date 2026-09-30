@@ -11,13 +11,12 @@ import {
   Painel,
   Progresso,
 } from "@/components/ui";
-import { emPorcento, emReais } from "@/lib/medicoes/dinheiro";
+import { emReais } from "@/lib/medicoes/dinheiro";
 import {
   CATEGORIAS,
   ROTULO_CATEGORIA,
-  lerColagemDoMes,
   lerNumero,
-  saldoQueVem,
+  soma,
   type Categoria,
   type Celula,
   type Periodo,
@@ -73,31 +72,42 @@ const quando = (iso: string) =>
   });
 
 /**
- * A grade do período: uma linha por região, medido e faturado de cada
- * categoria. Salva só o que mudou — cada célula alterada é um lançamento novo,
- * e o anterior fica no histórico (a tabela é append-only).
+ * O quadro do mês: um cartão por base e, em cada categoria, o saldo que veio
+ * do mês anterior (calculado, só leitura) e os dois campos do mês — medido e
+ * faturado. O saldo do cartão é anterior + medido − faturado, e é ele que
+ * passa para o mês seguinte.
+ *
+ * Salva só o que mudou — cada campo alterado é um lançamento novo, e o anterior
+ * fica no histórico (a tabela é append-only).
  */
 export function Grade({
   periodo,
+  anterior,
   regioes,
   celulas,
-  anterior,
   historico,
 }: {
   periodo: Periodo;
+  /** O rótulo do mês anterior ("Agosto 2026"), para dizer de onde veio o saldo. */
+  anterior: string | null;
   regioes: Regiao[];
   celulas: Celula[];
-  anterior: { rotulo: string; celulas: Celula[] } | null;
   historico: Lancamento[];
 }) {
   const router = useRouter();
   const inicial = useMemo(() => dasCelulas(regioes, celulas), [regioes, celulas]);
   const [valores, setValores] = useState<Valores>(inicial);
-  const [colando, setColando] = useState(false);
-  const [colagem, setColagem] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [recado, setRecado] = useState<string | null>(null);
   const [salvando, iniciar] = useTransition();
+
+  // O saldo que veio: é da view, não se digita.
+  const veio = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const x of celulas) m.set(chave(x.regiao_id, x.categoria), Number(x.saldo_anterior ?? 0));
+    return m;
+  }, [celulas]);
+  const veioDe = (k: string) => veio.get(k) ?? 0;
 
   const mudadas: CelulaLancada[] = regioes.flatMap((r) =>
     CATEGORIAS.flatMap((c) => {
@@ -109,65 +119,31 @@ export function Grade({
     }),
   );
   const invalidas = Object.values(valores).filter(
-    (p) => (p.medido.trim() && lerNumero(p.medido) === null) || (p.faturado.trim() && lerNumero(p.faturado) === null),
+    (p) =>
+      (p.medido.trim() && lerNumero(p.medido) === null) ||
+      (p.faturado.trim() && lerNumero(p.faturado) === null),
   ).length;
 
-  const linha = (r: Regiao) => {
-    const m = CATEGORIAS.reduce((t, c) => t + valor(valores[chave(r.id, c)].medido), 0);
-    const f = CATEGORIAS.reduce((t, c) => t + valor(valores[chave(r.id, c)].faturado), 0);
-    return { m, f };
+  // A conta viva de uma base, ou do mês inteiro, com o que está digitado.
+  const conta = (ids: number[], cats: Categoria[] = CATEGORIAS) => {
+    let a = 0;
+    let m = 0;
+    let f = 0;
+    for (const id of ids) {
+      for (const c of cats) {
+        const k = chave(id, c);
+        a += veioDe(k);
+        m += valor(valores[k].medido);
+        f += valor(valores[k].faturado);
+      }
+    }
+    return soma(a, m, f);
   };
-  const totalCat = (c: Categoria, campo: keyof Par) =>
-    regioes.reduce((t, r) => t + valor(valores[chave(r.id, c)][campo]), 0);
-  const totalM = CATEGORIAS.reduce((t, c) => t + totalCat(c, "medido"), 0);
-  const totalF = CATEGORIAS.reduce((t, c) => t + totalCat(c, "faturado"), 0);
+  const todas = regioes.map((r) => r.id);
+  const total = conta(todas);
 
   function mudar(k: string, campo: keyof Par, texto: string) {
     setValores((v) => ({ ...v, [k]: { ...v[k], [campo]: texto } }));
-  }
-
-  function aplicarColagem() {
-    const { linhas, desconhecidas } = lerColagemDoMes(
-      colagem,
-      regioes.map((r) => r.nome),
-    );
-    if (linhas.length === 0) {
-      setErro(
-        "Não achei nenhuma região na colagem. Copie da planilha as linhas das regiões (a coluna REGIÃO até a de indenização).",
-      );
-      return;
-    }
-    const porNome = new Map(regioes.map((r) => [r.nome, r.id]));
-    setValores((v) => {
-      const novo = { ...v };
-      for (const l of linhas) {
-        const id = porNome.get(l.regiao)!;
-        for (const c of CATEGORIAS) {
-          const par = l.valores[c];
-          if (!par) continue;
-          novo[chave(id, c)] = { medido: noCampo(par.medido), faturado: noCampo(par.faturado) };
-        }
-      }
-      return novo;
-    });
-    setColando(false);
-    setColagem("");
-    setErro(null);
-    setRecado(
-      `${linhas.length} região(ões) preenchida(s) da colagem. Confira e salve.` +
-        (desconhecidas.length
-          ? ` Ficaram de fora, por não estarem cadastradas: ${desconhecidas.join(", ")}.`
-          : ""),
-    );
-  }
-
-  function partirDoAnterior() {
-    if (!anterior) return;
-    setValores(dasCelulas(regioes, saldoQueVem(anterior.celulas)));
-    setRecado(
-      `O saldo de ${anterior.rotulo} entrou no medido de cada base, e o faturado ficou vazio. ` +
-        "Some ao medido o que foi medido de novo no mês, lance o que foi faturado e salve.",
-    );
   }
 
   function salvar() {
@@ -178,7 +154,7 @@ export function Grade({
         setErro(res.erro ?? "Não deu certo.");
         return;
       }
-      setRecado(`${res.lancadas} célula(s) lançada(s). O painel já mostra.`);
+      setRecado(`${res.lancadas} campo(s) lançado(s). O painel já mostra.`);
       router.refresh();
     });
   }
@@ -202,7 +178,7 @@ export function Grade({
     );
   };
 
-  const fracaoTotal = totalM > 0 ? totalF / totalM : null;
+  const deOnde = anterior ? `Saldo de ${anterior.split(" ")[0].toLowerCase()}` : "Saldo anterior";
 
   return (
     <div className="space-y-4">
@@ -217,41 +193,32 @@ export function Grade({
         </Aviso>
       )}
 
-      {/* ── O total do período, ao vivo enquanto se digita ─── */}
+      {/* ── O mês inteiro, ao vivo enquanto se digita ────────── */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <CartaoIndicador compacto rotulo="Medido" valor={emReais(totalM)} detalhe={periodo.rotulo} />
-        <CartaoIndicador compacto rotulo="Faturado" valor={emReais(totalF)} cor="bg-disponivel">
-          <Progresso fracao={fracaoTotal} cor="bg-disponivel" />
+        <CartaoIndicador
+          compacto
+          rotulo={deOnde}
+          valor={emReais(total.anterior)}
+          detalhe="vem sozinho do mês anterior"
+        />
+        <CartaoIndicador compacto rotulo="Medido no mês" valor={emReais(total.medido)} cor="bg-acento" />
+        <CartaoIndicador compacto rotulo="Faturado no mês" valor={emReais(total.faturado)} cor="bg-disponivel">
+          <Progresso fracao={total.fracao} cor="bg-disponivel" />
         </CartaoIndicador>
         <CartaoIndicador
           compacto
           rotulo="Saldo a faturar"
-          valor={<span className="text-saldo">{emReais(totalM - totalF)}</span>}
+          valor={<span className="text-saldo">{emReais(total.saldo)}</span>}
           cor="bg-saldo"
-        />
-        <CartaoIndicador
-          compacto
-          rotulo="Por categoria"
-          valor={fracaoTotal === null ? "—" : emPorcento(fracaoTotal)}
-          detalhe={CATEGORIAS.map(
-            (c) => `${ROTULO_CATEGORIA[c]} ${emReais(totalCat(c, "medido") - totalCat(c, "faturado"), false)}`,
-          ).join(" · ")}
+          detalhe="passa para o mês seguinte"
         />
       </div>
 
       <Painel
         titulo={`Medições de ${periodo.rotulo}`}
-        descricao="A foto do mês, acumulada: o que está medido e o que está faturado nesta data, base a base."
+        descricao={`${deOnde} + medido no mês − faturado no mês = saldo, base a base.`}
         acoes={
           <>
-            {anterior && (
-              <Botao variante="discreto" onClick={partirDoAnterior} disabled={salvando}>
-                Trazer o saldo de {anterior.rotulo}
-              </Botao>
-            )}
-            <Botao variante="discreto" onClick={() => setColando((c) => !c)} disabled={salvando}>
-              Colar da planilha
-            </Botao>
             <Botao
               variante="discreto"
               onClick={() => setValores(inicial)}
@@ -273,41 +240,10 @@ export function Grade({
           </>
         }
       >
-        {colando && (
-          <div className="space-y-2 border-b border-borda bg-superficie-2 p-4">
-            <p className="text-xs text-texto-2">
-              Na aba do mês da planilha, selecione das regiões (coluna REGIÃO) até a indenização,
-              copie e cole aqui. Saldo e totais que vierem junto são ignorados — são conta.
-            </p>
-            <textarea
-              value={colagem}
-              onChange={(e) => setColagem(e.target.value)}
-              rows={6}
-              placeholder={"NORTE\t24.338,00\t7.732,00\t16.606,00\t92.934,85\t…"}
-              className="w-full rounded-lg border border-borda bg-superficie p-2 font-mono text-xs outline-none focus:border-acento"
-            />
-            <div className="flex gap-2">
-              <Botao variante="primario" onClick={aplicarColagem} disabled={!colagem.trim()}>
-                Preencher o quadro
-              </Botao>
-              <Botao variante="discreto" onClick={() => setColando(false)}>
-                Cancelar
-              </Botao>
-            </div>
-          </div>
-        )}
-
         {/* ── O quadro: um cartão por base ──────────────────── */}
-        <div className="grid gap-3 p-4 md:grid-cols-2 2xl:grid-cols-3">
+        <div className="grid gap-3 p-4 lg:grid-cols-2 2xl:grid-cols-3">
           {regioes.map((r) => {
-            const { m, f } = linha(r);
-            // O que veio do mês anterior nesta base, para quem lança saber
-            // quanto do medido é novo.
-            const veio = anterior
-              ? saldoQueVem(anterior.celulas)
-                  .filter((x) => x.regiao_id === r.id)
-                  .reduce((t, x) => t + x.medido, 0)
-              : 0;
+            const b = conta([r.id]);
             const mexida = CATEGORIAS.some((c) => {
               const k = chave(r.id, c);
               return (
@@ -325,33 +261,36 @@ export function Grade({
               >
                 <header className="flex items-baseline gap-2">
                   <h3 className="min-w-0 flex-1 truncate text-sm font-semibold">{r.nome}</h3>
-                  <span className="text-sm font-semibold text-saldo tabular-nums">{emReais(m - f)}</span>
-                  <span className="w-12 text-right text-xs text-texto-3 tabular-nums">
-                    {m > 0 ? emPorcento(f / m) : "—"}
-                  </span>
+                  <span className="text-[11px] text-texto-3">saldo</span>
+                  <span className="text-sm font-semibold text-saldo tabular-nums">{emReais(b.saldo)}</span>
                 </header>
-                <Progresso fracao={m > 0 ? f / m : null} cor="bg-disponivel" />
-                <div className="mt-3 grid grid-cols-[minmax(0,6.5rem)_1fr_1fr] items-center gap-x-2 gap-y-1.5 text-xs">
+                <Progresso fracao={b.fracao} cor="bg-disponivel" />
+                <div className="mt-3 grid grid-cols-[minmax(0,5.5rem)_minmax(0,6rem)_1fr_1fr] items-center gap-x-2 gap-y-1.5 text-xs">
                   <span />
+                  <span className="text-right text-[11px] text-texto-3">{deOnde}</span>
                   <span className="text-right text-[11px] text-texto-3">Medido</span>
                   <span className="text-right text-[11px] text-texto-3">Faturado</span>
-                  {CATEGORIAS.map((c) => (
-                    <Fragment key={c}>
-                      <span className="flex items-center gap-1.5 truncate text-texto-2">
-                        <span className={`size-2 shrink-0 rounded-full ${COR_CATEGORIA[c]}`} />
-                        {ROTULO_CATEGORIA[c]}
-                      </span>
-                      {entrada(chave(r.id, c), "medido", `${ROTULO_CATEGORIA[c]} medido — ${r.nome}`)}
-                      {entrada(chave(r.id, c), "faturado", `${ROTULO_CATEGORIA[c]} faturado — ${r.nome}`)}
-                    </Fragment>
-                  ))}
+                  {CATEGORIAS.map((c) => {
+                    const k = chave(r.id, c);
+                    const v = veioDe(k);
+                    return (
+                      <Fragment key={c}>
+                        <span className="flex items-center gap-1.5 truncate text-texto-2">
+                          <span className={`size-2 shrink-0 rounded-full ${COR_CATEGORIA[c]}`} />
+                          {ROTULO_CATEGORIA[c]}
+                        </span>
+                        <span
+                          className={`truncate text-right tabular-nums ${v ? "font-medium text-texto" : "text-texto-3"}`}
+                          title="Calculado: o saldo desta categoria no mês anterior"
+                        >
+                          {v ? emReais(v) : "—"}
+                        </span>
+                        {entrada(k, "medido", `${ROTULO_CATEGORIA[c]} medido no mês — ${r.nome}`)}
+                        {entrada(k, "faturado", `${ROTULO_CATEGORIA[c]} faturado no mês — ${r.nome}`)}
+                      </Fragment>
+                    );
+                  })}
                 </div>
-                {anterior && veio !== 0 && (
-                  <p className="mt-2 border-t border-borda pt-1.5 text-[11px] text-texto-3">
-                    Veio de {anterior.rotulo}: <strong className="text-texto-2">{emReais(veio)}</strong>
-                    {" · "}novo no mês: <strong className="text-texto-2">{emReais(m - veio)}</strong>
-                  </p>
-                )}
               </section>
             );
           })}

@@ -39,12 +39,13 @@ export default async function Relatorio({ searchParams }: { searchParams: Promis
   // A história inteira do cliente: é dela que sai a evolução da base.
   const supabase = await createClient();
   const { data } = await supabase
-    .from("controle_atual")
-    .select("periodo_id, regiao_id, regiao, ordem, categoria, medido, faturado")
+    .from("controle_posicao")
+    .select("periodo_id, regiao_id, regiao, ordem, categoria, saldo_anterior, medido, faturado")
     .eq("cliente", carga.cliente);
   const historia = ((data ?? []) as Celula[]).map((c) => ({
     ...c,
     categoria: c.categoria as Categoria,
+    saldo_anterior: Number(c.saldo_anterior),
     medido: Number(c.medido),
     faturado: Number(c.faturado),
   }));

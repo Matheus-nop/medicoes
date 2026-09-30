@@ -16,6 +16,7 @@ import {
   faixaDoFaturado,
   resumirPeriodo,
   saldoPorRegiao,
+  temValor,
   type Categoria,
   type Soma,
 } from "@/lib/medicoes/controle";
@@ -96,11 +97,15 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
       </div>
       <dl className="mt-3 space-y-1 text-sm tabular-nums">
         <div className="flex justify-between">
-          <dt className="text-texto-2">Medido</dt>
+          <dt className="text-texto-2">Saldo anterior</dt>
+          <dd className="font-medium">{emReais(s.anterior)}</dd>
+        </div>
+        <div className="flex justify-between">
+          <dt className="text-texto-2">Medido no mês</dt>
           <dd className="font-medium">{emReais(s.medido)}</dd>
         </div>
         <div className="flex justify-between">
-          <dt className="text-texto-2">Faturado</dt>
+          <dt className="text-texto-2">Faturado no mês</dt>
           <dd className="font-medium">{emReais(s.faturado)}</dd>
         </div>
         <div className="flex justify-between border-t border-borda pt-1">
@@ -118,8 +123,8 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
         titulo="Painel executivo"
         resumo={
           <>
-            {cliente} · posição de <strong>{periodo.rotulo}</strong>. Cada período é a foto do
-            saldo em aberto naquele mês — não se somam meses.
+            {cliente} · posição de <strong>{periodo.rotulo}</strong>. Saldo anterior + medido no
+            mês − faturado no mês = saldo, que passa para o mês seguinte.
           </>
         }
         acoes={
@@ -144,13 +149,25 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
       <AbasDoPainel atual="cliente" />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <CartaoIndicador compacto rotulo="Medido" valor={emReais(r.medido)} detalhe={antes ? variacao(r.medido, antes.medido) : "total do período"} />
         <CartaoIndicador
           compacto
-          rotulo="Faturado"
+          rotulo={antes ? `Saldo de ${antes.rotulo}` : "Saldo anterior"}
+          valor={emReais(r.anterior)}
+          detalhe="veio do mês anterior"
+        />
+        <CartaoIndicador
+          compacto
+          rotulo="Medido no mês"
+          valor={emReais(r.medido)}
+          cor="bg-acento"
+          detalhe={antes ? variacao(r.medido, antes.medido) : undefined}
+        />
+        <CartaoIndicador
+          compacto
+          rotulo="Faturado no mês"
           valor={emReais(r.faturado)}
           cor="bg-disponivel"
-          detalhe={antes ? variacao(r.faturado, antes.faturado) : undefined}
+          detalhe={r.fracao === null ? undefined : `${emPorcento(r.fracao)} do que havia a faturar`}
         >
           <Progresso fracao={r.fracao} cor="bg-disponivel" />
         </CartaoIndicador>
@@ -159,13 +176,7 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
           rotulo="Saldo a faturar"
           valor={<span className="text-saldo">{emReais(r.saldo)}</span>}
           cor="bg-saldo"
-          detalhe={antes ? variacao(r.saldo, antes.saldo) : "pendente de faturamento"}
-        />
-        <CartaoIndicador
-          compacto
-          rotulo="% faturado"
-          valor={r.fracao === null ? "—" : emPorcento(r.fracao)}
-          detalhe={`${serie.length} período(s) no histórico`}
+          detalhe={antes ? variacao(r.saldo, antes.saldo) : "passa para o mês seguinte"}
         />
       </div>
 
@@ -174,7 +185,7 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Painel titulo="Evolução" descricao="Medido e faturado de cada foto mensal">
+        <Painel titulo="Evolução" descricao="Medido e faturado de cada mês, e o saldo que ficou">
           <GraficoEvolucao serie={serie} selecionado={periodo.id} />
         </Painel>
         <Painel titulo="Saldo a faturar por região" descricao={`${periodo.rotulo} · maior → menor`}>
@@ -187,7 +198,7 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
         descricao={`Saldo de cada categoria em ${periodo.rotulo} — clique na região para o relatório dela`}
       >
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[52rem] text-left text-xs tabular-nums">
+          <table className="w-full min-w-[58rem] text-left text-xs tabular-nums">
             <thead className="text-texto-3">
               <tr className="border-b border-borda">
                 <th className="px-4 py-2 font-medium">Região</th>
@@ -197,6 +208,7 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
                     {ROTULO_CATEGORIA[c]}
                   </th>
                 ))}
+                <th className="py-2 pr-3 text-right font-medium">Saldo ant.</th>
                 <th className="py-2 pr-3 text-right font-medium">Medido</th>
                 <th className="py-2 pr-3 text-right font-medium">Faturado</th>
                 <th className="py-2 pr-3 text-right font-medium">Saldo</th>
@@ -213,11 +225,12 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
                   </td>
                   {CATEGORIAS.map((c) => (
                     <td key={c} className="py-2 pr-3 text-right text-texto-2">
-                      {l.categorias[c].medido || l.categorias[c].faturado
+                      {temValor(l.categorias[c])
                         ? emReais(l.categorias[c].saldo)
                         : "—"}
                     </td>
                   ))}
+                  <td className="py-2 pr-3 text-right text-texto-2">{emReais(l.anterior)}</td>
                   <td className="py-2 pr-3 text-right">{emReais(l.medido)}</td>
                   <td className="py-2 pr-3 text-right">{emReais(l.faturado)}</td>
                   <td className="py-2 pr-3 text-right font-semibold text-saldo">{emReais(l.saldo)}</td>
@@ -233,6 +246,7 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
                     {emReais(r.categorias[c].saldo)}
                   </td>
                 ))}
+                <td className="py-2 pr-3 text-right">{emReais(r.anterior)}</td>
                 <td className="py-2 pr-3 text-right">{emReais(r.medido)}</td>
                 <td className="py-2 pr-3 text-right">{emReais(r.faturado)}</td>
                 <td className="py-2 pr-3 text-right text-saldo">{emReais(r.saldo)}</td>
@@ -257,13 +271,16 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
         >
           <RecadoDaBase cliente={cliente} rotulo={periodo.rotulo} regioes={r.regioes} periodoId={periodo.id} />
         </Painel>
+      </div>
 
-        <Painel titulo="Histórico" descricao="Cada linha é a foto daquele mês — não somar">
+
+        <Painel titulo="Histórico" descricao="Mês a mês: o saldo de cada um é o anterior do seguinte">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs tabular-nums">
               <thead className="text-texto-3">
                 <tr className="border-b border-borda">
                   <th className="px-4 py-2 font-medium">Período</th>
+                  <th className="py-2 pr-3 text-right font-medium">Saldo ant.</th>
                   <th className="py-2 pr-3 text-right font-medium">Medido</th>
                   <th className="py-2 pr-3 text-right font-medium">Faturado</th>
                   <th className="py-2 pr-3 text-right font-medium">Saldo</th>
@@ -272,7 +289,7 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
               </thead>
               <tbody>
                 {[...serie].reverse().map((s) => {
-                  const fracao = s.medido > 0 ? s.faturado / s.medido : null;
+                  const fracao = s.aFaturar > 0 ? s.faturado / s.aFaturar : null;
                   const faixa = faixaDoFaturado(fracao);
                   const atual = s.periodo_id === periodo.id;
                   return (
@@ -288,6 +305,7 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
                           {s.rotulo}
                         </Link>
                       </td>
+                      <td className="py-1.5 pr-3 text-right text-texto-2">{emReais(s.anterior)}</td>
                       <td className="py-1.5 pr-3 text-right">{emReais(s.medido)}</td>
                       <td className="py-1.5 pr-3 text-right">{emReais(s.faturado)}</td>
                       <td className="py-1.5 pr-3 text-right font-semibold text-saldo">
@@ -305,7 +323,6 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
             </table>
           </div>
         </Painel>
-      </div>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
   TODAS,
   historicoDaRegiao,
   resumirPeriodo,
+  temValor,
   type Categoria,
   type Celula,
   type LinhaDaRegiao,
@@ -172,10 +173,10 @@ export function RelatorioDaBase({
 
           {/* ── Os quatro números ──────────────────────────── */}
           <div className="mt-[3mm] grid grid-cols-4 gap-[2mm]">
-            <Caixa rotulo="Medido" valor={emReais(linha.medido)} />
-            <Caixa rotulo="Faturado" valor={emReais(linha.faturado)} cor="text-[#1E7B4A]" />
+            <Caixa rotulo="Saldo anterior" valor={emReais(linha.anterior)} />
+            <Caixa rotulo="Medido no mês" valor={emReais(linha.medido)} />
+            <Caixa rotulo="Faturado no mês" valor={emReais(linha.faturado)} cor="text-[#1E7B4A]" />
             <Caixa rotulo="Saldo a faturar" valor={emReais(linha.saldo)} cor="text-[#C2683B]" />
-            <Caixa rotulo="% faturado" valor={pct(linha.fracao)} />
           </div>
 
           {/* ── Por categoria ──────────────────────────────── */}
@@ -186,6 +187,7 @@ export function RelatorioDaBase({
             <thead>
               <tr className="bg-[#16365C] text-[7pt] text-white">
                 <th className={th1}>Categoria</th>
+                <th className={th}>Saldo ant.</th>
                 <th className={th}>Medido</th>
                 <th className={th}>Faturado</th>
                 <th className={th}>Saldo</th>
@@ -201,6 +203,7 @@ export function RelatorioDaBase({
                       <span className={`mr-[1.5mm] inline-block size-[2mm] rounded-full ${COR[c]}`} />
                       {ROTULO_CATEGORIA[c]}
                     </td>
+                    <td className={td}>{emReais(s.anterior)}</td>
                     <td className={td}>{emReais(s.medido)}</td>
                     <td className={td}>{emReais(s.faturado)}</td>
                     <td className={`${td} font-bold text-[#C2683B]`}>
@@ -212,6 +215,7 @@ export function RelatorioDaBase({
               })}
               <tr className="bg-[#F5F7FA] font-bold">
                 <td className={td1}>TOTAL</td>
+                <td className={td}>{emReais(linha.anterior)}</td>
                 <td className={td}>{emReais(linha.medido)}</td>
                 <td className={td}>{emReais(linha.faturado)}</td>
                 <td className={`${td} text-[#C2683B]`}>
@@ -237,7 +241,8 @@ export function RelatorioDaBase({
                         {ROTULO_CATEGORIA[c]}
                       </th>
                     ))}
-                    <th className={th}>Medido</th>
+                    <th className={th}>Saldo ant.</th>
+                <th className={th}>Medido</th>
                     <th className={th}>Faturado</th>
                     <th className={th}>Saldo</th>
                     <th className={th}>% fat.</th>
@@ -249,9 +254,10 @@ export function RelatorioDaBase({
                       <td className={`${td1} font-semibold`}>{x.regiao}</td>
                       {CATEGORIAS.map((c) => (
                         <td key={c} className={td}>
-                          {x.categorias[c].medido || x.categorias[c].faturado ? emReais(x.categorias[c].saldo) : "—"}
+                          {temValor(x.categorias[c]) ? emReais(x.categorias[c].saldo) : "—"}
                         </td>
                       ))}
+                      <td className={td}>{emReais(x.anterior)}</td>
                       <td className={td}>{emReais(x.medido)}</td>
                       <td className={td}>{emReais(x.faturado)}</td>
                       <td className={`${td} font-bold text-[#C2683B]`}>
@@ -269,18 +275,18 @@ export function RelatorioDaBase({
           {fotos.length > 0 && (
             <div className="break-inside-avoid">
               <p className="mt-[4mm] text-[8pt] font-bold text-[#16365C]">
-                EVOLUÇÃO — CADA LINHA É A FOTO DAQUELE MÊS (NÃO SOMAR)
+                EVOLUÇÃO — O SALDO DE CADA MÊS É O ANTERIOR DO SEGUINTE
               </p>
               <div className="mt-[1mm] grid grid-cols-[1fr] gap-[2mm]">
                 <BarrasDoSaldo fotos={fotos} />
                 <p className="-mt-[1mm] flex gap-[4mm] text-[6.5pt] text-[#8A8A93]">
                   <span>
                     <span className="mr-1 inline-block size-[2mm] bg-[#C2683B]/35" />
-                    medido
+                    medido no mês
                   </span>
                   <span>
                     <span className="mr-1 inline-block size-[2mm] bg-[#1E7B4A]" />
-                    faturado
+                    faturado no mês
                   </span>
                 </p>
               </div>
@@ -293,7 +299,8 @@ export function RelatorioDaBase({
                         Saldo {ROTULO_CATEGORIA[c].toLowerCase()}
                       </th>
                     ))}
-                    <th className={th}>Medido</th>
+                    <th className={th}>Saldo ant.</th>
+                <th className={th}>Medido</th>
                     <th className={th}>Faturado</th>
                     <th className={th}>Saldo</th>
                     <th className={th}>% fat.</th>
@@ -305,9 +312,10 @@ export function RelatorioDaBase({
                       <td className={td1}>{f.rotulo}</td>
                       {CATEGORIAS.map((c) => (
                         <td key={c} className={td}>
-                          {f.categorias[c].medido || f.categorias[c].faturado ? emReais(f.categorias[c].saldo) : "—"}
+                          {temValor(f.categorias[c]) ? emReais(f.categorias[c].saldo) : "—"}
                         </td>
                       ))}
+                      <td className={td}>{emReais(f.anterior)}</td>
                       <td className={td}>{emReais(f.medido)}</td>
                       <td className={td}>{emReais(f.faturado)}</td>
                       <td className={`${td} font-bold text-[#C2683B]`}>
@@ -322,8 +330,8 @@ export function RelatorioDaBase({
           )}
 
           <p className="mt-[4mm] border-t border-[#D8DBE4] pt-[1.5mm] text-[6.5pt] text-[#8A8A93]">
-            Grupo Nova Opção · Medições e Contratos. Cada período é a foto do saldo em aberto
-            naquele mês, acumulada — os meses não se somam.
+            Grupo Nova Opção · Medições e Contratos. Saldo anterior + medido no mês − faturado no
+            mês = saldo, que passa para o mês seguinte.
           </p>
         </div>
       </div>

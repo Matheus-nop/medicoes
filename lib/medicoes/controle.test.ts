@@ -20,7 +20,6 @@ import {
   recadoDaRegiao,
   resumirPeriodo,
   saldoPorRegiao,
-  saldoQueVem,
   type Celula,
 } from "./controle.ts";
 
@@ -176,14 +175,17 @@ test("o e-mail da base não leva o negrito do WhatsApp", () => {
   ok(corpo.startsWith("ÁGUAS DO RIO / AEGEA — Todas as bases"));
 });
 
-test("o mês novo começa com o saldo do anterior no medido, e faturado vazio", () => {
-  const agosto: Celula[] = [
-    { periodo_id: 1, regiao_id: 10, regiao: "VCG", ordem: 10, categoria: "locacao", medido: 331677.34, faturado: 48875.67 },
-    { periodo_id: 1, regiao_id: 10, regiao: "VCG", ordem: 10, categoria: "indenizacao", medido: 500, faturado: 500 },
-  ];
-  const vem = saldoQueVem(agosto);
-  e(vem.length, 1);
-  e(vem[0].categoria, "locacao");
-  e(vem[0].medido, 282801.67);
-  e(vem[0].faturado, 0);
+test("agosto 100 medido e 30 faturado: setembro começa com 70", () => {
+  const base = { regiao_id: 1, regiao: "VCG", ordem: 1, categoria: "locacao" as const };
+  const agosto = resumirPeriodo([{ ...base, periodo_id: 1, medido: 100, faturado: 30 }]);
+  e(agosto.saldo, 70);
+  const setembro = resumirPeriodo([{ ...base, periodo_id: 2, saldo_anterior: 70, medido: 50, faturado: 20 }]);
+  e(setembro.anterior, 70);
+  e(setembro.aFaturar, 120);
+  e(setembro.saldo, 100);
+  e(setembro.fracao, 20 / 120);
+  // Base que só trouxe saldo, sem lançamento no mês, continua no total.
+  const outubro = resumirPeriodo([{ ...base, periodo_id: 3, saldo_anterior: 100, medido: 0, faturado: 0 }]);
+  e(outubro.saldo, 100);
+  e(outubro.regioes[0].saldo, 100);
 });
