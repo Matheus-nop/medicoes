@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { IconeArquivo, IconeLancar, IconeMedicoes, IconePainel, IconeUsuarios } from "./icones";
+import {
+  IconeArquivo,
+  IconeLancar,
+  IconeMedicoes,
+  IconePainel,
+  IconeReceber,
+  IconeUsuarios,
+} from "./icones";
 
 // Uma seção por time, porque são dois trabalhos diferentes:
 //
@@ -26,6 +33,10 @@ const SECOES = [
       { href: "/controle/lancar", rotulo: "Lançar medições", Icone: IconeLancar },
       { href: "/controle", rotulo: "Painel executivo", Icone: IconePainel },
     ],
+  },
+  {
+    titulo: "Financeiro",
+    itens: [{ href: "/controle/receber", rotulo: "Lançar recebimentos", Icone: IconeReceber }],
   },
   {
     titulo: "Consulta",

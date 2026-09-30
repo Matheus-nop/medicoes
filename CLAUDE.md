@@ -57,9 +57,12 @@ desfaz isso logo depois de criar.
 - **OM**: a ordem de manutenção do Sisloc. Três momentos, três números:
   entrada (recibo de retirada), corretiva (a que se cobra), retorno
   (comprovante de entrega).
-- **modelo**: o papel que o cliente recebe. `acao` (TESTE 2) é do Águas do Rio /
-  AEGEA; `rio_mais` é o da Rio+ Saneamento — a base no topo, sem recibos e com
-  o STATUS (PENDENTE/FATURADO) de cada OM. Nasce do nome do cliente e se troca.
+- **modelo**: o papel que o cliente recebe. `aguas` é o "Águas do Rio padrão
+  2026" (0008): a base no topo e os recibos de retirada e entrega. `rio_mais` é
+  o da Rio+ Saneamento — a base no topo, sem recibos e com o STATUS
+  (PENDENTE/FATURADO) de cada OM. Os dois moram em `papel-2026.tsx`. `acao` é o
+  TESTE 2, o anterior, para o que já saiu nele. Nasce do nome do cliente e se
+  troca no boletim.
 - **OM faturada**: a Rio+ fatura OM por OM (`om_faturadas`, 0004). Só com o
   boletim fechado ou enviado; o boletim inteiro faturado conta todas.
 - **medido**: o que saiu num boletim fechado. **saldo**: medido e não faturado.
@@ -94,6 +97,20 @@ desfaz isso logo depois de criar.
   quadro — medido do mês = medido da planilha − saldo anterior do sistema, e o
   saldo que fica é o da planilha. Não salva sozinho; saldo zerado sem faturar
   aparece como aviso para conferir.
+- **recebimento** (financeiro, `/controle/receber`, 0007): faturado não é
+  pago. O mês guarda o recebido nele, numa tabela própria
+  (`controle_recebimentos`) — na mesma linha do medido, o faturamento
+  apagaria o que o financeiro lançou. a receber = abertura + faturado −
+  recebido, e passa sozinho de um mês para o outro. Começa num **mês de
+  início** por cliente (`controle_recebimento_inicio`): antes dele nada conta,
+  porque o histórico não tem o que foi pago; no mês de início, a **abertura**
+  de cada base é o que já estava a receber. Só financeiro e diretoria lançam
+  (a RLS confere o papel).
+- **idade do aberto**: de que mês é cada real do saldo a faturar e do a
+  receber. O que sai abate primeiro o mais antigo (é como se cobra); o que
+  sai a mais vira crédito e abate o que entrar depois — assim a idade soma
+  exatamente o saldo. Faixas: do mês, 1 mês, 2 meses, 3 ou mais. A abertura
+  do recebimento conta como velha. Conta em `lib/medicoes/controle.ts`.
 - **colagem**: a lista do Sisloc copiada e colada, com a linha de títulos.
 
 ## Aparência
@@ -121,3 +138,9 @@ desfaz isso logo depois de criar.
       contra a foto anterior. O relatório (`/controle/relatorio`), de uma base
       ou de todas, sai em PDF A4 e vai por e-mail (o e-mail abre pronto; o PDF
       se anexa à mão — link de e-mail não leva arquivo). Contratos ainda não.
+- [~] Os boletins de agosto/2026 do Águas do Rio / AEGEA (41, 165 OMs,
+      R$ 227.115,00) entram por `supabase/scripts/importar-boletins-agosto-2026.sql`,
+      depois da `0008`.
+- [~] Fase 4 — o financeiro: recebimento (`0007`) com mês de início e
+      abertura, e a idade do saldo a faturar e do a receber no painel. Falta
+      aplicar a `0007` e o financeiro definir o início de cada cliente.

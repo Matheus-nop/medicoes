@@ -14,12 +14,12 @@ import {
   type ItemDoBoletim,
 } from "@/lib/medicoes/medicoes";
 import { dataCurta } from "../../../formato";
-import { PapelRioMais } from "./papel-rio-mais";
+import { Papel2026 } from "./papel-2026";
 
 /**
  * O boletim no modelo da casa — "Boletim de medição 2026 — TESTE 2", da Ação
  * Serviços e Máquinas. É o papel do Águas do Rio / AEGEA; a Rio+ Saneamento
- * tem o dela (`papel-rio-mais.tsx`), e o boletim diz qual (`modelo`).
+ * e o Águas do Rio padrão 2026 têm o deles (`papel-2026.tsx`), e o boletim diz qual (`modelo`).
  *
  * É cópia do modelo, de propósito: o mesmo cabeçalho em três caixas, os
  * mesmos rótulos, as mesmas nove colunas na mesma proporção (as larguras são
@@ -100,8 +100,8 @@ export function Folha({ boletim, itens }: { boletim: BoletimAtual; itens: ItemDo
       </div>
 
       <div className="overflow-x-auto print:overflow-visible">
-        {boletim.modelo === "rio_mais" ? (
-          <PapelRioMais boletim={boletim} itens={itens} />
+        {boletim.modelo === "rio_mais" || boletim.modelo === "aguas" ? (
+          <Papel2026 boletim={boletim} itens={itens} variante={boletim.modelo} />
         ) : (
           <div
             id="folha"

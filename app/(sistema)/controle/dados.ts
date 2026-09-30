@@ -32,7 +32,12 @@ export type CargaDoControle =
       serie: TotalDoPeriodo[];
       periodo: Periodo | null;
       regioes: Regiao[];
+      /** As células do período escolhido. */
       celulas: Celula[];
+      /** Todas as células do cliente, de todos os meses — para a idade. */
+      historia: Celula[];
+      /** O mês em que o recebimento começou a ser acompanhado, ou null. */
+      inicioRecebimento: string | null;
     }
   | { ok: false; erro: string; faltaMigracao: boolean };
 
@@ -107,21 +112,45 @@ export async function carregarControle(
   const periodo =
     pedido ?? maisRecente ?? (vazioVale ? periodos[periodos.length - 1] : undefined) ?? null;
 
-  let celulas: Celula[] = [];
-  if (periodo) {
-    const { data, error } = await supabase
+  // A história inteira do cliente numa leitura só: dela saem as células do
+  // mês e a idade do que está em aberto. São umas centenas de linhas.
+  const [hist, ini] = await Promise.all([
+    supabase
       .from("controle_posicao")
-      .select("periodo_id, regiao_id, regiao, ordem, categoria, saldo_anterior, medido, faturado")
-      .eq("periodo_id", periodo.id);
-    if (error) return { ok: false, erro: error.message, faltaMigracao: error.code === "42P01" };
-    celulas = ((data ?? []) as Celula[]).map((c) => ({
-      ...c,
-      categoria: c.categoria as Categoria,
-      saldo_anterior: n(c.saldo_anterior),
-      medido: n(c.medido),
-      faturado: n(c.faturado),
-    }));
+      .select(
+        "periodo_id, regiao_id, regiao, ordem, categoria, saldo_anterior, medido, faturado, acompanha, abertura, recebido, a_receber_anterior",
+      )
+      .eq("cliente", cliente),
+    supabase.from("controle_inicio_atual").select("mes").eq("cliente", cliente).maybeSingle(),
+  ]);
+  if (hist.error) {
+    return { ok: false, erro: hist.error.message, faltaMigracao: hist.error.code === "42P01" };
   }
+  const historia = ((hist.data ?? []) as Celula[]).map((c) => ({
+    ...c,
+    categoria: c.categoria as Categoria,
+    saldo_anterior: n(c.saldo_anterior),
+    medido: n(c.medido),
+    faturado: n(c.faturado),
+    acompanha: Boolean(c.acompanha),
+    abertura: n(c.abertura),
+    recebido: n(c.recebido),
+    a_receber_anterior: n(c.a_receber_anterior),
+  }));
+  const celulas = periodo ? historia.filter((c) => c.periodo_id === periodo.id) : [];
+  // Sem a 0007 a view de início não existe: o recebimento fica desligado.
+  const inicioRecebimento = ini.error ? null : ((ini.data?.mes as string | undefined) ?? null);
 
-  return { ok: true, clientes, cliente, periodos, serie, periodo, regioes, celulas };
+  return {
+    ok: true,
+    clientes,
+    cliente,
+    periodos,
+    serie,
+    periodo,
+    regioes,
+    celulas,
+    historia,
+    inicioRecebimento,
+  };
 }

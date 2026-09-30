@@ -39,6 +39,12 @@ export interface Celula {
   medido: number;
   /** Faturado NO MÊS. */
   faturado: number;
+  /** O recebimento (0007): só conta do mês de início do cliente em diante. */
+  acompanha?: boolean;
+  /** O a receber que já vinha de antes do início (só no mês de início). */
+  abertura?: number;
+  recebido?: number;
+  a_receber_anterior?: number;
 }
 
 export interface Regiao {
@@ -439,4 +445,189 @@ export function daPlanilhaParaOMes(
       ];
     }),
   );
+}
+
+/* ── O recebimento ─────────────────────────────────────────── */
+
+export interface Recebimento {
+  /** O a receber que veio do mês anterior (ou a abertura, no mês de início). */
+  anterior: number;
+  faturado: number;
+  recebido: number;
+  /** anterior + faturado − recebido. Passa para o mês seguinte. */
+  aReceber: number;
+  /** Recebido sobre o que havia a receber. Null quando não havia nada. */
+  fracao: number | null;
+}
+
+function recebimento(anterior: number, faturado: number, recebido: number): Recebimento {
+  const a = centavo(anterior);
+  const f = centavo(faturado);
+  const r = centavo(recebido);
+  const total = centavo(a + f);
+  return { anterior: a, faturado: f, recebido: r, aReceber: centavo(total - r), fracao: total > 0 ? r / total : null };
+}
+
+/**
+ * O recebimento de um mês — do cliente inteiro e de cada base. Só entra a
+ * célula acompanhada (do mês de início em diante); a abertura conta como a
+ * receber que veio de antes.
+ */
+export function resumirRecebimento(celulas: Celula[]): Recebimento & {
+  acompanha: boolean;
+  regioes: (Recebimento & { regiao: string; ordem: number })[];
+} {
+  const conta = new Map<string, { ordem: number; a: number; f: number; r: number }>();
+  let a = 0;
+  let f = 0;
+  let r = 0;
+  let acompanha = false;
+  for (const c of celulas) {
+    if (!c.acompanha) continue;
+    acompanha = true;
+    const ant = num(c.a_receber_anterior) + num(c.abertura);
+    const x = conta.get(c.regiao) ?? { ordem: c.ordem, a: 0, f: 0, r: 0 };
+    x.a += ant;
+    x.f += num(c.faturado);
+    x.r += num(c.recebido);
+    conta.set(c.regiao, x);
+    a += ant;
+    f += num(c.faturado);
+    r += num(c.recebido);
+  }
+  return {
+    ...recebimento(a, f, r),
+    acompanha,
+    regioes: [...conta.entries()]
+      .map(([regiao, x]) => ({ regiao, ordem: x.ordem, ...recebimento(x.a, x.f, x.r) }))
+      .sort((p, q) => p.ordem - q.ordem || p.regiao.localeCompare(q.regiao)),
+  };
+}
+
+/* ── A idade do que está em aberto ─────────────────────────── */
+
+export interface ParcelaEmAberto {
+  mes: string;
+  rotulo: string;
+  valor: number;
+  /** Faturado (ou recebido) a mais do que havia: valor negativo, sem idade. */
+  credito?: boolean;
+}
+
+/**
+ * De que mês é cada real ainda em aberto. O que sai (faturado, ou recebido)
+ * abate primeiro o mais antigo — é assim que se cobra. Entrada negativa (a
+ * planilha zerando um saldo) conta como saída.
+ *
+ * `movimentos` é uma célula (base + categoria) mês a mês, em qualquer ordem.
+ */
+export function idadeDaCelula(
+  movimentos: { mes: string; rotulo: string; entra: number; sai: number }[],
+): ParcelaEmAberto[] {
+  const fila: ParcelaEmAberto[] = [];
+  // O que saiu a mais do que havia (faturou mais do que mediu): fica como
+  // crédito e abate o que entrar depois. Sem isso a idade somaria mais que o
+  // saldo.
+  let credito = 0;
+  for (const m of [...movimentos].sort((a, b) => a.mes.localeCompare(b.mes))) {
+    let sai = num(m.sai) + Math.max(0, -num(m.entra));
+    let entra = Math.max(0, num(m.entra));
+    const usa = Math.min(credito, entra);
+    credito -= usa;
+    entra -= usa;
+    if (entra > 0.004) fila.push({ mes: m.mes, rotulo: m.rotulo, valor: entra });
+    while (sai > 0.004 && fila.length) {
+      const abate = Math.min(fila[0].valor, sai);
+      fila[0].valor -= abate;
+      sai -= abate;
+      if (fila[0].valor <= 0.004) fila.shift();
+    }
+    if (sai > 0.004) credito += sai;
+  }
+  const abertas = fila.map((p) => ({ ...p, valor: centavo(p.valor) })).filter((p) => p.valor > 0);
+  return credito > 0.004
+    ? [...abertas, { mes: "crédito", rotulo: "Faturado a mais que o medido", valor: -centavo(credito), credito: true }]
+    : abertas;
+}
+
+/**
+ * A idade do saldo a faturar (medido que não virou nota) ou do a receber
+ * (nota que não virou dinheiro), até um mês, de uma base ou do cliente todo.
+ * Célula a célula e depois somado por mês de origem.
+ */
+export function idadeDoAberto(
+  historia: Celula[],
+  periodos: Periodo[],
+  ate: string,
+  tipo: "faturar" | "receber",
+  regiao?: string,
+): ParcelaEmAberto[] {
+  const rotulo = new Map(periodos.map((p) => [p.id, p]));
+  const porCelula = new Map<string, { mes: string; rotulo: string; entra: number; sai: number }[]>();
+  for (const c of historia) {
+    const p = rotulo.get(c.periodo_id);
+    if (!p || p.mes > ate || (regiao && c.regiao !== regiao)) continue;
+    if (tipo === "receber" && !c.acompanha) continue;
+    const k = `${c.regiao_id}:${c.categoria}`;
+    const lista = porCelula.get(k) ?? [];
+    if (tipo === "faturar") {
+      lista.push({ mes: p.mes, rotulo: p.rotulo, entra: num(c.medido), sai: num(c.faturado) });
+    } else {
+      // A abertura é o que já vinha de antes do início: fica numa parcela
+      // própria, anterior ao mês ("2026-09-00"), e conta como velha.
+      if (num(c.abertura)) {
+        lista.push({ mes: p.mes.slice(0, 8) + "00", rotulo: `Antes de ${p.rotulo}`, entra: num(c.abertura), sai: 0 });
+      }
+      lista.push({ mes: p.mes, rotulo: p.rotulo, entra: num(c.faturado), sai: num(c.recebido) });
+    }
+    porCelula.set(k, lista);
+  }
+  const porMes = new Map<string, ParcelaEmAberto>();
+  for (const lista of porCelula.values()) {
+    for (const parcela of idadeDaCelula(lista)) {
+      const x = porMes.get(parcela.mes) ?? {
+        mes: parcela.mes,
+        rotulo:
+          parcela.credito && tipo === "receber" ? "Recebido a mais que o faturado" : parcela.rotulo,
+        valor: 0,
+        credito: parcela.credito,
+      };
+      x.valor = centavo(x.valor + parcela.valor);
+      porMes.set(parcela.mes, x);
+    }
+  }
+  // Do mais novo ao mais velho, e o crédito por último.
+  return [...porMes.values()].sort(
+    (a, b) => Number(Boolean(a.credito)) - Number(Boolean(b.credito)) || b.mes.localeCompare(a.mes),
+  );
+}
+
+export type Faixa = "mes" | "um" | "dois" | "velho";
+
+export const ROTULO_FAIXA: Record<Faixa, string> = {
+  mes: "do mês",
+  um: "1 mês",
+  dois: "2 meses",
+  velho: "3 meses ou mais",
+};
+
+/** Quantos meses entre a origem e a posição: 0 é do próprio mês. */
+export function mesesEntre(origem: string, ate: string): number {
+  const [a1, m1] = origem.split("-").map(Number);
+  const [a2, m2] = ate.split("-").map(Number);
+  return (a2 - a1) * 12 + (m2 - m1);
+}
+
+export function faixaDaIdade(origem: string, ate: string): Faixa {
+  // A abertura do recebimento ("…-00") é de antes do controle: idade velha.
+  if (origem.endsWith("-00")) return "velho";
+  const n = mesesEntre(origem, ate);
+  return n <= 0 ? "mes" : n === 1 ? "um" : n === 2 ? "dois" : "velho";
+}
+
+/** O aberto somado por faixa de idade, na ordem do mais novo ao mais velho. */
+export function porFaixa(parcelas: ParcelaEmAberto[], ate: string): Record<Faixa, number> {
+  const f: Record<Faixa, number> = { mes: 0, um: 0, dois: 0, velho: 0 };
+  for (const p of parcelas.filter((x) => !x.credito)) f[faixaDaIdade(p.mes, ate)] = centavo(f[faixaDaIdade(p.mes, ate)] + p.valor);
+  return f;
 }

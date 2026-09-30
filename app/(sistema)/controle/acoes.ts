@@ -20,6 +20,7 @@ function recado(erro: { code?: string; message: string }, oQue: string): string 
 function refazer() {
   revalidatePath("/controle");
   revalidatePath("/controle/lancar");
+  revalidatePath("/controle/receber");
 }
 
 /**
@@ -110,6 +111,67 @@ export async function lancar(periodoId: number, celulas: CelulaLancada[]): Promi
     })),
   );
   if (error) return { ok: false, erro: recado(error, "lançar os valores") };
+  refazer();
+  return { ok: true, lancadas: validas.length };
+}
+
+/* ── O recebimento (financeiro) ────────────────────────────── */
+
+/**
+ * O mês em que o recebimento do cliente passa a ser acompanhado. Antes dele
+ * nada conta — o histórico não tem o que foi recebido. Financeiro e diretoria.
+ */
+export async function definirInicio(cliente: string, anoMes: string): Promise<Resultado> {
+  const p = periodoDoMes(anoMes);
+  if (!cliente.trim() || !p) return { ok: false, erro: "Escolha o mês de início." };
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { ok: false, erro: "Sessão expirada. Entre de novo." };
+  const { error } = await supabase
+    .from("controle_recebimento_inicio")
+    .insert({ cliente: cliente.trim(), mes: p.mes, quem: auth.user.id });
+  if (error) {
+    if (error.code === "42501") return { ok: false, erro: "Só o financeiro e a diretoria definem o início." };
+    if (error.code === "42P01") return { ok: false, erro: "Falta aplicar a migração 0007_recebimento.sql no Supabase." };
+    return { ok: false, erro: recado(error, "definir o início") };
+  }
+  refazer();
+  return { ok: true };
+}
+
+export interface RecebimentoLancado {
+  regiaoId: number;
+  categoria: Categoria;
+  recebido: number;
+  abertura: number;
+}
+
+/** Grava o que mudou no recebimento. Append-only, como o resto. */
+export async function lancarRecebimentos(
+  periodoId: number,
+  celulas: RecebimentoLancado[],
+): Promise<Resultado> {
+  const validas = celulas.filter(
+    (c) => CATEGORIAS.includes(c.categoria) && Number.isFinite(c.recebido) && Number.isFinite(c.abertura),
+  );
+  if (validas.length === 0) return { ok: false, erro: "Nada mudou." };
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { ok: false, erro: "Sessão expirada. Entre de novo." };
+  const { error } = await supabase.from("controle_recebimentos").insert(
+    validas.map((c) => ({
+      periodo_id: periodoId,
+      regiao_id: c.regiaoId,
+      categoria: c.categoria,
+      recebido: Math.round(c.recebido * 100) / 100,
+      abertura: Math.round(c.abertura * 100) / 100,
+      quem: auth.user!.id,
+    })),
+  );
+  if (error) {
+    if (error.code === "42501") return { ok: false, erro: "Só o financeiro e a diretoria lançam recebimento." };
+    return { ok: false, erro: recado(error, "lançar os recebimentos") };
+  }
   refazer();
   return { ok: true, lancadas: validas.length };
 }

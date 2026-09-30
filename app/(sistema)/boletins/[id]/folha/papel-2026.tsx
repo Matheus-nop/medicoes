@@ -12,36 +12,56 @@ import {
 import { dataCurta } from "../../../formato";
 
 /**
- * O boletim no modelo da Rio+ Saneamento — "BM Manutenção Rio Saneamento
- * padrão 2026".
+ * Os papéis do padrão 2026 — o "BM Manutenção Rio Saneamento padrão 2026" e o
+ * "BM Manutenção Águas do Rio padrão 2026". O mesmo desenho: quatro caixas no
+ * topo (a quarta é a base, porque o cliente confere por base), os dados do
+ * fornecedor e do cliente, as dezesseis linhas mesmo vazias e a faixa do total.
  *
- * Cópia do modelo, como o TESTE 2: quatro caixas no topo (a quarta é a base,
- * porque a Rio+ confere por base), os dados do fornecedor e do cliente, as oito
- * colunas na proporção das colunas B a I da planilha, as dezesseis linhas mesmo
- * vazias, a faixa do total e a contagem de lançados, pendentes e faturados.
+ * O que muda entre os dois são as colunas:
  *
- * O que muda do TESTE 2: não há recibo de retirada nem de entrega, e há o
- * STATUS de cada OM — PENDENTE ou FATURADO. O status sai de `om_faturadas`
- * (ou do boletim inteiro faturado), e nunca se digita no papel.
+ *   rio_mais — STATUS de cada OM (PENDENTE ou FATURADO, de `om_faturadas`),
+ *              e a contagem de pendentes e faturados no pé. Sem recibos.
+ *   aguas    — RECIBO RETIRADA e RECIBO ENTREGA, como o TESTE 2. Sem status.
  *
- * As cores são as do modelo, não os tokens do sistema: o papel é do cliente.
+ * As proporções são as das colunas B em diante de cada planilha. As cores são
+ * as do modelo, não os tokens do sistema: o papel é do cliente.
  */
 
-// As larguras das colunas B..I da planilha, em proporção.
-const COLUNAS = [8, 62, 20, 16, 14, 22, 20, 42];
-const TOTAL_COLUNAS = COLUNAS.reduce((t, c) => t + c, 0);
-const largura = (c: number) => `${((c / TOTAL_COLUNAS) * 100).toFixed(2)}%`;
+type Variante = "rio_mais" | "aguas";
 
-const CABECALHO = [
-  "ITEM",
-  "DESCRIÇÃO DO EQUIPAMENTO / SERVIÇO",
-  "Nº PATRIMÔNIO",
-  "DATA",
-  "Nº OM",
-  "VALOR (R$)",
-  "STATUS",
-  "OBSERVAÇÃO",
-];
+const COLUNAS: Record<Variante, number[]> = {
+  rio_mais: [8, 62, 20, 16, 14, 22, 20, 42],
+  aguas: [6, 59, 20, 15, 15, 19, 19, 19, 33],
+};
+
+const CABECALHO: Record<Variante, string[]> = {
+  rio_mais: [
+    "ITEM",
+    "DESCRIÇÃO DO EQUIPAMENTO / SERVIÇO",
+    "Nº PATRIMÔNIO",
+    "DATA",
+    "Nº OM",
+    "VALOR (R$)",
+    "STATUS",
+    "OBSERVAÇÃO",
+  ],
+  aguas: [
+    "ITEM",
+    "DESCRIÇÃO DO EQUIPAMENTO / SERVIÇO",
+    "Nº PATRIMÔNIO",
+    "DATA",
+    "Nº OM",
+    "RECIBO\nRETIRADA",
+    "VALOR (R$)",
+    "RECIBO\nENTREGA",
+    "OBSERVAÇÃO",
+  ],
+};
+
+const SUBTITULO: Record<Variante, string> = {
+  rio_mais: "MANUTENÇÃO DE EQUIPAMENTOS · RIO+ SANEAMENTO",
+  aguas: "MANUTENÇÃO DE EQUIPAMENTOS · ÁGUAS DO RIO / AEGEA",
+};
 
 function Rotulo({ children }: { children: React.ReactNode }) {
   return (
@@ -60,20 +80,26 @@ function Dado({ rotulo, valor }: { rotulo: string; valor: React.ReactNode }) {
   );
 }
 
-export function PapelRioMais({
+export function Papel2026({
   boletim,
   itens,
+  variante,
 }: {
   boletim: BoletimAtual;
   itens: ItemDoBoletim[];
+  variante: Variante;
 }) {
+  const colunas = COLUNAS[variante];
+  const soma = colunas.reduce((t, c) => t + c, 0);
+  const largura = (c: number) => `${((c / soma) * 100).toFixed(2)}%`;
+  const comStatus = variante === "rio_mais";
   const aberto = boletim.situacao === "aberto";
   const total = itens.reduce((t, i) => t + i.valor, 0);
   const vazias = Math.max(0, LINHAS_NO_PAPEL - itens.length);
   const contatoCliente = [boletim.contato, boletim.email].filter(Boolean).join(" — ");
   const emissao = boletim.fechado_em ? dataCurta(boletim.fechado_em) : "";
   const faturados = itens.filter((i) => i.faturada).length;
-  // "SETEMBRO/2026" no boletim; a Rio+ escreve "SETEMBRO / 2026".
+  // "SETEMBRO/2026" no boletim; o padrão 2026 escreve "SETEMBRO / 2026".
   const referencia = (boletim.referencia ?? "").replace(/\s*\/\s*/, " / ");
 
   const caixas: [string, string][] = [
@@ -101,7 +127,7 @@ export function PapelRioMais({
         <div className="relative text-right">
           <p className="text-[21pt] leading-tight font-bold text-[#1F2647]">BOLETIM DE MEDIÇÃO</p>
           <p className="text-[10pt] font-bold text-[#8A8A93]">
-            MANUTENÇÃO DE EQUIPAMENTOS · RIO+ SANEAMENTO
+            {SUBTITULO[variante]}
           </p>
           {aberto && (
             <p className="absolute top-0 right-full mr-4 border-2 border-[#C0392B] px-2 py-0.5 text-[8pt] font-bold whitespace-nowrap text-[#C0392B]">
@@ -145,14 +171,17 @@ export function PapelRioMais({
       {/* ── As OMs ───────────────────────────────────────── */}
       <table className="mt-[3mm] w-full table-fixed border-collapse text-[8pt]">
         <colgroup>
-          {COLUNAS.map((c, n) => (
+          {colunas.map((c, n) => (
             <col key={n} style={{ width: largura(c) }} />
           ))}
         </colgroup>
         <thead>
           <tr className="bg-[#1F2647] text-white">
-            {CABECALHO.map((c) => (
-              <th key={c} className="px-1 py-[1.8mm] text-center text-[7.5pt] leading-tight font-bold">
+            {CABECALHO[variante].map((c) => (
+              <th
+                key={c}
+                className="px-1 py-[1.8mm] text-center text-[7.5pt] leading-tight font-bold whitespace-pre-line"
+              >
                 {c}
               </th>
             ))}
@@ -169,16 +198,23 @@ export function PapelRioMais({
               <td className="border border-[#D8DBE4] text-center">{i.patrimonio ?? ""}</td>
               <td className="border border-[#D8DBE4] text-center">{dataCurta(dataDaOm(i))}</td>
               <td className="border border-[#D8DBE4] text-center">{i.om}</td>
+              {!comStatus && (
+                <td className="border border-[#D8DBE4] text-center">{i.om_retirada ?? ""}</td>
+              )}
               <td className="border border-[#D8DBE4] px-1 text-center tabular-nums">
                 {emReais(i.valor)}
               </td>
-              <td
-                className={`border border-[#D8DBE4] text-center text-[7.5pt] font-bold ${
-                  i.faturada ? "text-[#1E7B4A]" : "text-[#2B2B2B]"
-                }`}
-              >
-                {statusDaOm(i)}
-              </td>
+              {comStatus ? (
+                <td
+                  className={`border border-[#D8DBE4] text-center text-[7.5pt] font-bold ${
+                    i.faturada ? "text-[#1E7B4A]" : "text-[#2B2B2B]"
+                  }`}
+                >
+                  {statusDaOm(i)}
+                </td>
+              ) : (
+                <td className="border border-[#D8DBE4] text-center">{i.recibo_entrega ?? ""}</td>
+              )}
               <td className="border border-[#D8DBE4] px-1 text-[7pt] leading-tight">
                 {i.observacao ?? ""}
               </td>
@@ -189,7 +225,7 @@ export function PapelRioMais({
             return (
               <tr key={`v${k}`} className={`h-[5mm] ${n % 2 ? "bg-[#F7F8FB]" : "bg-white"}`}>
                 <td className="border border-[#D8DBE4] text-center text-[#8A8A93]">{n + 1}</td>
-                {COLUNAS.slice(1).map((_, c) => (
+                {colunas.slice(1).map((_, c) => (
                   <td key={c} className="border border-[#D8DBE4]" />
                 ))}
               </tr>
@@ -198,7 +234,7 @@ export function PapelRioMais({
           {/* O total no corpo, e não num <tfoot>, pelo mesmo motivo do TESTE 2:
               o rodapé da tabela se repete em toda folha impressa. */}
           <tr className="h-[7mm] break-inside-avoid bg-[#16203E] text-[10.5pt] font-bold text-white">
-            <td colSpan={5} className="pl-2 text-left">
+            <td colSpan={comStatus ? 5 : 6} className="pl-2 text-left">
               TOTAL DA MEDIÇÃO
             </td>
             <td className="px-1 text-center tabular-nums whitespace-nowrap">{emReais(total)}</td>
@@ -212,14 +248,18 @@ export function PapelRioMais({
           <span className="font-bold text-[#8A8A93]">Itens lançados:</span>{" "}
           <span className="ml-2">{itens.length}</span>
         </span>
-        <span>
-          <span className="font-bold text-[#8A8A93]">Pendentes:</span>{" "}
-          <span className="ml-2">{itens.length - faturados}</span>
-        </span>
-        <span>
-          <span className="font-bold text-[#8A8A93]">Faturados:</span>{" "}
-          <span className="ml-2">{faturados}</span>
-        </span>
+        {comStatus && (
+          <>
+            <span>
+              <span className="font-bold text-[#8A8A93]">Pendentes:</span>{" "}
+              <span className="ml-2">{itens.length - faturados}</span>
+            </span>
+            <span>
+              <span className="font-bold text-[#8A8A93]">Faturados:</span>{" "}
+              <span className="ml-2">{faturados}</span>
+            </span>
+          </>
+        )}
       </p>
 
       <div className="mt-[2mm] break-inside-avoid">

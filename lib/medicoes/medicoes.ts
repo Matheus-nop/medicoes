@@ -846,19 +846,21 @@ export function arquivoDoBoletim(b: {
 /* ── O papel de cada cliente ───────────────────────────────── */
 
 /**
- * Dois papéis. `acao` é o modelo TESTE 2 (Águas do Rio / AEGEA e o resto):
- * recibo de retirada e de entrega. `rio_mais` é o "BM Manutenção Rio
- * Saneamento padrão 2026": a base no topo, sem recibos, e o STATUS de cada OM.
+ * Três papéis. `aguas` é o "BM Manutenção Águas do Rio padrão 2026" (base no
+ * topo, recibos de retirada e entrega). `rio_mais` é o da Rio+ (base no topo,
+ * sem recibos, STATUS de cada OM). `acao` é o TESTE 2, o anterior — continua
+ * para o boletim que já saiu nele e para cliente sem padrão próprio.
  */
-export type ModeloDoPapel = "acao" | "rio_mais";
+export type ModeloDoPapel = "acao" | "rio_mais" | "aguas";
 
 export const ROTULO_MODELO: Record<ModeloDoPapel, string> = {
-  acao: "Ação — Águas do Rio / AEGEA (TESTE 2)",
-  rio_mais: "Rio+ Saneamento",
+  aguas: "Águas do Rio / AEGEA — padrão 2026",
+  rio_mais: "Rio+ Saneamento — padrão 2026",
+  acao: "Ação — TESTE 2 (o anterior)",
 };
 
 export function modeloLido(cru: unknown): ModeloDoPapel {
-  return cru === "rio_mais" ? "rio_mais" : "acao";
+  return cru === "rio_mais" || cru === "aguas" ? cru : "acao";
 }
 
 /**
@@ -867,8 +869,11 @@ export function modeloLido(cru: unknown): ModeloDoPapel {
  * assim e se troca à mão no boletim.
  */
 export function modeloDoCliente(cliente: string): ModeloDoPapel {
+  const c = cliente.toUpperCase();
   // O `normalizar` apaga o "+", que é justamente o que distingue.
-  return /\bRIO\s*(\+|MAIS\b)/.test(cliente.toUpperCase()) ? "rio_mais" : "acao";
+  if (/\bRIO\s*(\+|MAIS\b)/.test(c)) return "rio_mais";
+  if (/\b(AGUAS|ÁGUAS)\s+DO\s+RIO\b|\bAEGEA\b/.test(c)) return "aguas";
+  return "acao";
 }
 
 /** PENDENTE ou FATURADO — a coluna STATUS do papel da Rio+. */

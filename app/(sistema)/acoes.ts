@@ -10,6 +10,7 @@ import {
   descricaoDoEquipamento,
   mesDeReferencia,
   modeloDoCliente,
+  modeloLido,
   type DemandaDoRoteiros,
   type ModeloDoPapel,
   type OmLida,
@@ -490,7 +491,7 @@ export async function editarBoletim(
       telefone: t(campos.telefone),
       local_obra: t(campos.localObra),
       observacao: t(campos.observacao),
-      modelo: campos.modelo === "rio_mais" ? "rio_mais" : "acao",
+      modelo: modeloLido(campos.modelo),
       documento: t(campos.documento.toUpperCase()),
     })
     .eq("id", boletimId)
