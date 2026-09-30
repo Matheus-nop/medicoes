@@ -48,6 +48,7 @@ export function ColarDoSisloc({
   jaMedidas,
   bases = [],
   todos = [],
+  recolhido = false,
 }: {
   /** Dentro de um boletim: só entra o cliente dele. */
   boletim?: BoletimAberto;
@@ -59,11 +60,13 @@ export function ColarDoSisloc({
   bases?: Base[];
   /** Todos os boletins (cliente, base, documento): o próximo Documento Nº. */
   todos?: { cliente: string; base: string | null; documento: string | null }[];
+  /** Começa fechado — dentro do boletim que já tem OMs, colar é o de menos. */
+  recolhido?: boolean;
 }) {
   const router = useRouter();
   const [texto, setTexto] = useState("");
   const [leitura, setLeitura] = useState<LeituraDaMedicao | null>(null);
-  const [aberto, setAberto] = useState(true);
+  const [aberto, setAberto] = useState(!recolhido);
   const [erro, setErro] = useState<string | null>(null);
   const [feito, setFeito] = useState<string | null>(null);
   const [enviando, iniciar] = useTransition();
@@ -379,8 +382,12 @@ export function ColarDoSisloc({
 
   return (
     <Painel
-      titulo="Colar do Sisloc"
-      descricao="A lista de OMs com a linha de títulos. Cliente, base, equipamento, recibo e valor saem das colunas."
+      titulo={boletim ? "Colar mais OMs do Sisloc" : "Colar do Sisloc"}
+      descricao={
+        boletim
+          ? "Só as desta base entram aqui. As de outra base vão pela tela inicial."
+          : "A lista de OMs com a linha de títulos. Cliente, base, equipamento, recibo e valor saem das colunas."
+      }
       recolhido={!aberto}
       aoRecolher={() => setAberto((a) => !a)}
     >
