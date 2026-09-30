@@ -25,6 +25,12 @@ Cole e rode **um arquivo por vez, nesta ordem**:
 9. `supabase/migrations/0007_recebimento.sql` — o recebimento do financeiro.
    Não muda nenhum saldo. Depois dela, o financeiro abre "Lançar
    recebimentos", escolhe o mês de início e informa a abertura de cada base.
+10. `supabase/migrations/0008_papel_aguas_2026.sql` — o papel do Águas do Rio
+    padrão 2026.
+11. `supabase/scripts/importar-boletins-agosto-2026.sql` — os 41 boletins de
+    agosto. A primeira conferência tem de dar 41 boletins, 165 OMs e
+    227.115,00; a segunda lista a OM que ficou de fora por já estar em outro
+    boletim (vazia é o esperado).
 
 Cada uma (menos a 0000) termina numa conferência: **toda linha tem de dizer
 `✓ ok`**. Se aparecer `!!`, a colagem provavelmente chegou cortada — rode o

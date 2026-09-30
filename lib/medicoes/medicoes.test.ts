@@ -377,8 +377,9 @@ test("o papel de cada cliente", async () => {
   e(modeloDoCliente("RIO + SANEAMENTO BL3 S.A"), "rio_mais");
   e(modeloDoCliente("Rio+ Saneamento"), "rio_mais");
   e(modeloDoCliente("RIO MAIS SANEAMENTO"), "rio_mais");
-  e(modeloDoCliente("AGUAS DO RIO 4 SPE S.A"), "acao");
-  e(modeloDoCliente("AEGEA SANEAMENTO"), "acao");
+  e(modeloDoCliente("AGUAS DO RIO 4 SPE S.A"), "aguas");
+  e(modeloDoCliente("AEGEA SANEAMENTO E PARTICIPAÇÕES S.A"), "aguas");
+  e(modeloDoCliente("CONSTRUTORA QUALQUER"), "acao");
   e(modeloDoCliente("RIO MAIS"), "rio_mais");
   e(statusDaOm({ faturada: true }), "FATURADO");
   e(statusDaOm({ faturada: false }), "PENDENTE");
