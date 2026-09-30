@@ -37,6 +37,18 @@ export const IconeMedicoes = svg(
   </>,
 );
 
+export const IconePainel = svg(
+  <>
+    <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+  </>,
+);
+
+export const IconeLancar = svg(
+  <>
+    <rect x="3.5" y="4" width="17" height="16" rx="1.5" />
+    <path d="M3.5 9h17M3.5 14.5h17M9.5 4v16M15 4v16" />
+  </>,
+);
 
 export const IconeUsuarios = svg(
   <>

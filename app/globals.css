@@ -35,6 +35,13 @@
   --locado: #6d28d9;
   --manutencao: #be123c;
 
+  /* As três categorias do controle de medições, e o saldo a faturar. As da
+     planilha e do painel que a diretoria já lê. */
+  --cat-manutencao: #2f6fb0;
+  --cat-locacao: #b0862f;
+  --cat-indenizacao: #9b3b52;
+  --saldo: #c2683b;
+
   --sombra: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
   --sombra-alta: 0 12px 32px rgb(16 24 40 / 0.14);
 }
@@ -65,6 +72,11 @@
     --expedicao: #60a5fa;
     --locado: #a78bfa;
     --manutencao: #fb7185;
+
+    --cat-manutencao: #6fa8e6;
+    --cat-locacao: #e0b85e;
+    --cat-indenizacao: #d97a92;
+    --saldo: #e8905f;
 
     --sombra: 0 1px 2px rgb(0 0 0 / 0.45);
     --sombra-alta: 0 12px 32px rgb(0 0 0 / 0.55);
@@ -97,6 +109,11 @@
   --locado: #a78bfa;
   --manutencao: #fb7185;
 
+  --cat-manutencao: #6fa8e6;
+  --cat-locacao: #e0b85e;
+  --cat-indenizacao: #d97a92;
+  --saldo: #e8905f;
+
   --sombra: 0 1px 2px rgb(0 0 0 / 0.45);
   --sombra-alta: 0 12px 32px rgb(0 0 0 / 0.55);
 }
@@ -122,6 +139,10 @@
   --color-expedicao: var(--expedicao);
   --color-locado: var(--locado);
   --color-manutencao: var(--manutencao);
+  --color-cat-manutencao: var(--cat-manutencao);
+  --color-cat-locacao: var(--cat-locacao);
+  --color-cat-indenizacao: var(--cat-indenizacao);
+  --color-saldo: var(--saldo);
   --shadow-cartao: var(--sombra);
   --shadow-alta: var(--sombra-alta);
 }

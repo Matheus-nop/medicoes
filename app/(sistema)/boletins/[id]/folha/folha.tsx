@@ -14,10 +14,12 @@ import {
   type ItemDoBoletim,
 } from "@/lib/medicoes/medicoes";
 import { dataCurta } from "../../../formato";
+import { PapelRioMais } from "./papel-rio-mais";
 
 /**
  * O boletim no modelo da casa — "Boletim de medição 2026 — TESTE 2", da Ação
- * Serviços e Máquinas.
+ * Serviços e Máquinas. É o papel do Águas do Rio / AEGEA; a Rio+ Saneamento
+ * tem o dela (`papel-rio-mais.tsx`), e o boletim diz qual (`modelo`).
  *
  * É cópia do modelo, de propósito: o mesmo cabeçalho em três caixas, os
  * mesmos rótulos, as mesmas nove colunas na mesma proporção (as larguras são
@@ -98,29 +100,32 @@ export function Folha({ boletim, itens }: { boletim: BoletimAtual; itens: ItemDo
       </div>
 
       <div className="overflow-x-auto print:overflow-visible">
-        <div
-          id="folha"
-          className="mx-auto w-[277mm] min-w-[277mm] border border-[#2B2B2B] bg-white px-[3mm] pt-[2mm] pb-[1mm] font-sans text-[#2B2B2B] [-webkit-print-color-adjust:exact] [print-color-adjust:exact] print:w-[325mm] print:min-w-0 print:[zoom:0.84]"
-        >
-          {/* ── Topo: a marca e o título ─────────────────────── */}
-          <div className="flex items-start justify-between border-b border-[#2D3560] pb-[1.5mm]">
-            <Image
-              src="/medicoes/logo-acao.png"
-              alt="Ação Vendas e Serviços"
-              width={263}
-              height={120}
-              priority
-              className="h-[12mm] w-auto"
-            />
-            <div className="relative text-right">
-              <p className="text-[20pt] leading-tight font-bold text-[#2D3560]">
-                BOLETIM DE MEDIÇÃO
-              </p>
-              <p className="text-[10pt] font-bold text-[#8A8A93]">MANUTENÇÃO DE EQUIPAMENTOS</p>
-              {aberto && (
-                <p className="absolute top-0 right-full mr-4 border-2 border-[#C0392B] px-2 py-0.5 text-[8pt] font-bold whitespace-nowrap text-[#C0392B]">
-                  PRÉVIA — EM MEDIÇÃO
+        {boletim.modelo === "rio_mais" ? (
+          <PapelRioMais boletim={boletim} itens={itens} />
+        ) : (
+          <div
+            id="folha"
+            className="mx-auto w-[277mm] min-w-[277mm] border border-[#2B2B2B] bg-white px-[3mm] pt-[2mm] pb-[1mm] font-sans text-[#2B2B2B] [-webkit-print-color-adjust:exact] [print-color-adjust:exact] print:w-[325mm] print:min-w-0 print:[zoom:0.84]"
+          >
+            {/* ── Topo: a marca e o título ─────────────────────── */}
+            <div className="flex items-start justify-between border-b border-[#2D3560] pb-[1.5mm]">
+              <Image
+                src="/medicoes/logo-acao.png"
+                alt="Ação Vendas e Serviços"
+                width={263}
+                height={120}
+                priority
+                className="h-[12mm] w-auto"
+              />
+              <div className="relative text-right">
+                <p className="text-[20pt] leading-tight font-bold text-[#2D3560]">
+                  BOLETIM DE MEDIÇÃO
                 </p>
+                <p className="text-[10pt] font-bold text-[#8A8A93]">MANUTENÇÃO DE EQUIPAMENTOS</p>
+                {aberto && (
+                  <p className="absolute top-0 right-full mr-4 border-2 border-[#C0392B] px-2 py-0.5 text-[8pt] font-bold whitespace-nowrap text-[#C0392B]">
+                    PRÉVIA — EM MEDIÇÃO
+                  </p>
               )}
             </div>
           </div>
@@ -255,6 +260,7 @@ export function Folha({ boletim, itens }: { boletim: BoletimAtual; itens: ItemDo
             className="mt-[1.5mm] h-auto w-[72%]"
           />
         </div>
+        )}
       </div>
     </div>
   );

@@ -2,13 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { IconeMedicoes, IconeUsuarios } from "./icones";
+import { IconeLancar, IconeMedicoes, IconePainel, IconeUsuarios } from "./icones";
 
 // Começa pequeno de propósito: o painel da manutenção é a tela inicial, e o
-// boletim abre a partir dele. Contratos, locação e os relatórios da diretoria
-// entram aqui como seções próprias quando existirem — item de menu que leva a
-// tela vazia ensina a não clicar.
+// boletim abre a partir dele. O controle é a outra metade — manutenção,
+// locação e indenização do contrato inteiro, região por região. Contratos
+// entram aqui quando existirem: item de menu que leva a tela vazia ensina a
+// não clicar.
 const SECOES = [
+  {
+    titulo: "Controle",
+    itens: [
+      { href: "/controle", rotulo: "Painel de medições", Icone: IconePainel },
+      { href: "/controle/lancar", rotulo: "Lançar medições", Icone: IconeLancar },
+    ],
+  },
   {
     titulo: "Manutenção",
     itens: [{ href: "/", rotulo: "Boletins de medição", Icone: IconeMedicoes }],
@@ -45,7 +53,9 @@ export function BarraLateral({
           </p>
           <ul className="space-y-0.5">
             {secao.itens.map(({ href, rotulo, Icone }) => {
-              const ativo = href === "/" ? caminho === "/" : caminho.startsWith(href);
+              // "/" e "/controle" têm filhos com item próprio no menu: só a própria.
+              const exato = href === "/" || href === "/controle";
+              const ativo = exato ? caminho === href : caminho.startsWith(href);
               const n = pendencias?.[href] ?? 0;
               return (
                 <li key={href}>

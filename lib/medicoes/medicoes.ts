@@ -482,6 +482,10 @@ export interface ItemDoBoletim {
   chegada_em: string | null;
   /** A coluna "O" do Sisloc no instante da colagem. */
   etapa_om: string | null;
+  /** Faturada: marcada uma a uma (`om_faturadas`) ou o boletim inteiro. */
+  faturada?: boolean;
+  nota_fiscal?: string | null;
+  faturada_em?: string | null;
 }
 
 /**
@@ -580,6 +584,13 @@ export interface BoletimAtual {
   local_obra: string | null;
   /** Quando fechou pela última vez. É a DATA DE EMISSÃO do papel. */
   fechado_em: string | null;
+  /** O papel que o cliente recebe. */
+  modelo: ModeloDoPapel;
+  /** O DOCUMENTO Nº escrito à mão. Vazio, vale o da casa. */
+  documento: string | null;
+  /** O que já se faturou: tudo, se faturado inteiro; senão as OMs marcadas. */
+  faturado: number;
+  oms_faturadas: number;
 }
 
 export interface SaldoDoCliente {
@@ -620,7 +631,7 @@ export function saldoPorCliente(boletins: BoletimAtual[]): SaldoDoCliente[] {
     const v = n(b.valor);
     if (b.situacao === "aberto") s.emMedicao += v;
     else s.medido += v;
-    if (b.situacao === "faturado") s.faturado += v;
+    if (b.situacao !== "aberto") s.faturado += b.situacao === "faturado" ? v : n(b.faturado);
     s.saldo = s.medido - s.faturado;
     mapa.set(chave, s);
   }
@@ -803,7 +814,12 @@ export function acharComprovantes(
  * "BM-0001 - AGOSTO/2026": o número da casa com o mês de referência, como o
  * antigo dizia "Nº 01 - AGOSTO / 2026". É o DOCUMENTO Nº do papel.
  */
-export function documentoDoBoletim(b: { numero: string; referencia: string | null }): string {
+export function documentoDoBoletim(b: {
+  numero: string;
+  referencia: string | null;
+  documento?: string | null;
+}): string {
+  if (b.documento?.trim()) return b.documento.trim();
   return b.referencia?.trim() ? `${b.numero} - ${b.referencia.trim()}` : b.numero;
 }
 
@@ -826,3 +842,35 @@ export function arquivoDoBoletim(b: {
     .replace(/[/\\:*?"<>|]+/g, "-")
     .replace(/\s+/g, " ");
 }
+
+/* ── O papel de cada cliente ───────────────────────────────── */
+
+/**
+ * Dois papéis. `acao` é o modelo TESTE 2 (Águas do Rio / AEGEA e o resto):
+ * recibo de retirada e de entrega. `rio_mais` é o "BM Manutenção Rio
+ * Saneamento padrão 2026": a base no topo, sem recibos, e o STATUS de cada OM.
+ */
+export type ModeloDoPapel = "acao" | "rio_mais";
+
+export const ROTULO_MODELO: Record<ModeloDoPapel, string> = {
+  acao: "Ação — Águas do Rio / AEGEA (TESTE 2)",
+  rio_mais: "Rio+ Saneamento",
+};
+
+export function modeloLido(cru: unknown): ModeloDoPapel {
+  return cru === "rio_mais" ? "rio_mais" : "acao";
+}
+
+/**
+ * O papel que o cliente recebe, pelo nome que o Sisloc escreve: "RIO + SANEAMENTO
+ * BL3 S.A", "RIO+ SANEAMENTO", "RIO MAIS". O resto é o modelo da Ação. Nasce
+ * assim e se troca à mão no boletim.
+ */
+export function modeloDoCliente(cliente: string): ModeloDoPapel {
+  // O `normalizar` apaga o "+", que é justamente o que distingue.
+  return /\bRIO\s*(\+|MAIS\b)/.test(cliente.toUpperCase()) ? "rio_mais" : "acao";
+}
+
+/** PENDENTE ou FATURADO — a coluna STATUS do papel da Rio+. */
+export const statusDaOm = (i: Pick<ItemDoBoletim, "faturada">) =>
+  i.faturada ? "FATURADO" : "PENDENTE";
