@@ -116,11 +116,6 @@ export default async function LancarMedicoes({
         }
       />
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <NovoPeriodo cliente={cliente} />
-        <NovaRegiao cliente={cliente} />
-      </div>
-
       {periodo && regioes.length > 0 ? (
         <Grade
           // A grade renasce quando o período muda ou alguém lança: o que ela
@@ -139,6 +134,12 @@ export default async function LancarMedicoes({
             : "Abra o período do mês para lançar."}
         </p>
       )}
+
+      {/* Abrir mês e cadastrar base ficam no pé: é o que se faz uma vez. */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <NovoPeriodo cliente={cliente} />
+        <NovaRegiao cliente={cliente} />
+      </div>
     </div>
   );
 }

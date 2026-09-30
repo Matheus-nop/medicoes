@@ -1,8 +1,16 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
-import { Aviso, Botao, CAMPO, Campo, Painel } from "@/components/ui";
+import { Fragment, useMemo, useState, useTransition } from "react";
+import {
+  Aviso,
+  Botao,
+  CAMPO,
+  Campo,
+  CartaoIndicador,
+  Painel,
+  Progresso,
+} from "@/components/ui";
 import { emPorcento, emReais } from "@/lib/medicoes/dinheiro";
 import {
   CATEGORIAS,
@@ -32,6 +40,12 @@ type Par = { medido: string; faturado: string };
 type Valores = Record<string, Par>;
 
 const chave = (regiaoId: number, c: Categoria) => `${regiaoId}:${c}`;
+
+const COR_CATEGORIA: Record<Categoria, string> = {
+  manutencao: "bg-cat-manutencao",
+  locacao: "bg-cat-locacao",
+  indenizacao: "bg-cat-indenizacao",
+};
 
 /** Como o campo mostra o número: "78.537,00"; zero é vazio. */
 const noCampo = (v: number | null | undefined) =>
@@ -177,12 +191,14 @@ export function Grade({
         aria-label={rotulo}
         aria-invalid={ruim}
         placeholder="—"
-        className={`${CAMPO} h-8 w-28 px-2 text-right text-xs tabular-nums ${
+        className={`${CAMPO} h-8 w-full min-w-0 px-2 text-right text-xs tabular-nums ${
           ruim ? "border-manutencao" : mudou ? "border-acento bg-acento-fraco" : ""
         }`}
       />
     );
   };
+
+  const fracaoTotal = totalM > 0 ? totalF / totalM : null;
 
   return (
     <div className="space-y-4">
@@ -197,9 +213,31 @@ export function Grade({
         </Aviso>
       )}
 
+      {/* ── O total do período, ao vivo enquanto se digita ─── */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <CartaoIndicador compacto rotulo="Medido" valor={emReais(totalM)} detalhe={periodo.rotulo} />
+        <CartaoIndicador compacto rotulo="Faturado" valor={emReais(totalF)} cor="bg-disponivel">
+          <Progresso fracao={fracaoTotal} cor="bg-disponivel" />
+        </CartaoIndicador>
+        <CartaoIndicador
+          compacto
+          rotulo="Saldo a faturar"
+          valor={<span className="text-saldo">{emReais(totalM - totalF)}</span>}
+          cor="bg-saldo"
+        />
+        <CartaoIndicador
+          compacto
+          rotulo="Por categoria"
+          valor={fracaoTotal === null ? "—" : emPorcento(fracaoTotal)}
+          detalhe={CATEGORIAS.map(
+            (c) => `${ROTULO_CATEGORIA[c]} ${emReais(totalCat(c, "medido") - totalCat(c, "faturado"), false)}`,
+          ).join(" · ")}
+        />
+      </div>
+
       <Painel
         titulo={`Medições de ${periodo.rotulo}`}
-        descricao="A foto do mês, acumulada: o que está medido e o que está faturado nesta data."
+        descricao="A foto do mês, acumulada: o que está medido e o que está faturado nesta data, base a base."
         acoes={
           <>
             {anterior && (
@@ -246,7 +284,7 @@ export function Grade({
             />
             <div className="flex gap-2">
               <Botao variante="primario" onClick={aplicarColagem} disabled={!colagem.trim()}>
-                Preencher a grade
+                Preencher o quadro
               </Botao>
               <Botao variante="discreto" onClick={() => setColando(false)}>
                 Cancelar
@@ -255,76 +293,51 @@ export function Grade({
           </div>
         )}
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[62rem] text-left text-xs tabular-nums">
-            <thead className="text-texto-3">
-              <tr className="border-b border-borda">
-                <th rowSpan={2} className="px-4 py-2 align-bottom font-medium">
-                  Região
-                </th>
-                {CATEGORIAS.map((c) => (
-                  <th key={c} colSpan={2} className="px-1 pt-2 text-center font-semibold text-texto-2">
-                    {ROTULO_CATEGORIA[c]}
-                  </th>
-                ))}
-                <th rowSpan={2} className="py-2 pr-3 text-right align-bottom font-medium">
-                  Saldo
-                </th>
-                <th rowSpan={2} className="py-2 pr-4 text-right align-bottom font-medium">
-                  % fat.
-                </th>
-              </tr>
-              <tr className="border-b border-borda">
-                {CATEGORIAS.flatMap((c) => [
-                  <th key={`${c}m`} className="px-1 pb-2 text-right font-medium">
-                    Medido
-                  </th>,
-                  <th key={`${c}f`} className="px-1 pb-2 text-right font-medium">
-                    Faturado
-                  </th>,
-                ])}
-              </tr>
-            </thead>
-            <tbody>
-              {regioes.map((r) => {
-                const { m, f } = linha(r);
-                return (
-                  <tr key={r.id} className="border-b border-borda/50">
-                    <td className="px-4 py-1.5 font-medium whitespace-nowrap">{r.nome}</td>
-                    {CATEGORIAS.flatMap((c) => [
-                      <td key={`${c}m`} className="px-1 py-1.5 text-right">
-                        {entrada(chave(r.id, c), "medido", `${ROTULO_CATEGORIA[c]} medido — ${r.nome}`)}
-                      </td>,
-                      <td key={`${c}f`} className="px-1 py-1.5 text-right">
-                        {entrada(chave(r.id, c), "faturado", `${ROTULO_CATEGORIA[c]} faturado — ${r.nome}`)}
-                      </td>,
-                    ])}
-                    <td className="py-1.5 pr-3 text-right font-semibold whitespace-nowrap text-saldo">
-                      {emReais(m - f)}
-                    </td>
-                    <td className="py-1.5 pr-4 text-right text-texto-2">
-                      {m > 0 ? emPorcento(f / m) : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-              <tr className="bg-superficie-2 font-semibold">
-                <td className="px-4 py-2">TOTAL</td>
-                {CATEGORIAS.flatMap((c) => [
-                  <td key={`${c}m`} className="px-2 py-2 text-right whitespace-nowrap">
-                    {emReais(totalCat(c, "medido"))}
-                  </td>,
-                  <td key={`${c}f`} className="px-2 py-2 text-right whitespace-nowrap">
-                    {emReais(totalCat(c, "faturado"))}
-                  </td>,
-                ])}
-                <td className="py-2 pr-3 text-right whitespace-nowrap text-saldo">
-                  {emReais(totalM - totalF)}
-                </td>
-                <td className="py-2 pr-4 text-right">{totalM > 0 ? emPorcento(totalF / totalM) : "—"}</td>
-              </tr>
-            </tbody>
-          </table>
+        {/* ── O quadro: um cartão por base ──────────────────── */}
+        <div className="grid gap-3 p-4 md:grid-cols-2 2xl:grid-cols-3">
+          {regioes.map((r) => {
+            const { m, f } = linha(r);
+            const mexida = CATEGORIAS.some((c) => {
+              const k = chave(r.id, c);
+              return (
+                valor(valores[k].medido) !== valor(inicial[k].medido) ||
+                valor(valores[k].faturado) !== valor(inicial[k].faturado)
+              );
+            });
+            return (
+              <section
+                key={r.id}
+                aria-label={r.nome}
+                className={`rounded-xl border bg-superficie p-3 shadow-cartao ${
+                  mexida ? "border-acento" : "border-borda"
+                }`}
+              >
+                <header className="flex items-baseline gap-2">
+                  <h3 className="min-w-0 flex-1 truncate text-sm font-semibold">{r.nome}</h3>
+                  <span className="text-sm font-semibold text-saldo tabular-nums">{emReais(m - f)}</span>
+                  <span className="w-12 text-right text-xs text-texto-3 tabular-nums">
+                    {m > 0 ? emPorcento(f / m) : "—"}
+                  </span>
+                </header>
+                <Progresso fracao={m > 0 ? f / m : null} cor="bg-disponivel" />
+                <div className="mt-3 grid grid-cols-[minmax(0,6.5rem)_1fr_1fr] items-center gap-x-2 gap-y-1.5 text-xs">
+                  <span />
+                  <span className="text-right text-[11px] text-texto-3">Medido</span>
+                  <span className="text-right text-[11px] text-texto-3">Faturado</span>
+                  {CATEGORIAS.map((c) => (
+                    <Fragment key={c}>
+                      <span className="flex items-center gap-1.5 truncate text-texto-2">
+                        <span className={`size-2 shrink-0 rounded-full ${COR_CATEGORIA[c]}`} />
+                        {ROTULO_CATEGORIA[c]}
+                      </span>
+                      {entrada(chave(r.id, c), "medido", `${ROTULO_CATEGORIA[c]} medido — ${r.nome}`)}
+                      {entrada(chave(r.id, c), "faturado", `${ROTULO_CATEGORIA[c]} faturado — ${r.nome}`)}
+                    </Fragment>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
         </div>
       </Painel>
 

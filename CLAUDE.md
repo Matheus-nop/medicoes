@@ -67,6 +67,16 @@ desfaz isso logo depois de criar.
   **orçamento**: o boletim, OM por OM, colado do Sisloc. "Lançar medições"
   (`/controle/lancar`) é do **faturamento**: o controle por região, conforme o
   faturamento anda, e é o que o painel mostra. Um não alimenta o outro sozinho.
+- **arquivo por cliente** (`/clientes`): a ficha de cada cliente, com a
+  manutenção (boletins por base, cada um com o seu papel) e o faturamento (as
+  bases e os meses do controle, cada um com o seu relatório), e as planilhas
+  para baixar (CSV que o Excel abre). O nome do boletim vem do Sisloc e o do
+  controle é digitado: quando não batem, são duas fichas — de propósito.
+- **painel executivo** (`/controle`): a aba "Por cliente" e a aba "Todos os
+  clientes", onde cada um entra com a SUA posição mais recente.
+- **padrão das telas**: cartões em quadro e painéis que recolhem
+  (`CartaoDoQuadro`, `Painel`), não tabela linha a linha. Tabela fica para o
+  papel e para o histórico.
 - **controle**: a planilha "CONTROLE DE MEDIÇÕES" — manutenção, locação e
   indenização (extravios) de um cliente, por **região**, num **período**. Não é
   o boletim: é o contrato inteiro, lançado à mão ou colado da aba do mês.

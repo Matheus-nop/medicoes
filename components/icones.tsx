@@ -50,6 +50,14 @@ export const IconeLancar = svg(
   </>,
 );
 
+export const IconeArquivo = svg(
+  <>
+    <path d="M3.5 7.5h17v11a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5z" />
+    <path d="M2.5 4.5h19v3h-19z" />
+    <path d="M10 11.5h4" />
+  </>,
+);
+
 export const IconeUsuarios = svg(
   <>
     <circle cx="9" cy="8" r="3.2" />

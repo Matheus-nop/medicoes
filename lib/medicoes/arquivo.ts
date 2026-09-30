@@ -1,0 +1,148 @@
+// O arquivo por cliente: tudo o que a casa tem de um cliente num lugar só —
+// os boletins de manutenção (orçamento) e o controle do painel (faturamento),
+// por base. E a planilha para baixar, que é o arquivo digital que se guarda.
+
+import { chaveDoCliente, type BoletimAtual } from "./medicoes.ts";
+
+/** A posição atual de um cliente no controle: a foto mais recente com valor. */
+export interface PosicaoDoControle {
+  cliente: string;
+  periodo_id: number;
+  rotulo: string;
+  mes: string;
+  medido: number;
+  faturado: number;
+  saldo: number;
+}
+
+export interface FichaDoCliente {
+  /** A chave do nome: "S.A." e "S.A" são o mesmo cliente. */
+  chave: string;
+  /** O nome como está escrito (o do boletim mais recente, ou o do controle). */
+  nome: string;
+  manutencao: {
+    boletins: number;
+    bases: number;
+    emMedicao: number;
+    medido: number;
+    faturado: number;
+    saldo: number;
+    ultimo: string | null;
+  };
+  /** Null quando o cliente não tem controle lançado. */
+  faturamento: PosicaoDoControle | null;
+}
+
+const n = (v: unknown) => {
+  const x = Number(v);
+  return Number.isFinite(x) ? x : 0;
+};
+
+/**
+ * A posição atual de cada cliente no controle, das linhas de
+ * `controle_por_periodo`: a do mês mais recente que tem algum valor. Não soma
+ * meses — cada período é uma foto.
+ */
+export function posicaoPorCliente(
+  linhas: { cliente: string; periodo_id: number; rotulo: string; mes: string; medido: unknown; faturado: unknown; saldo: unknown }[],
+): PosicaoDoControle[] {
+  const mapa = new Map<string, PosicaoDoControle>();
+  for (const l of linhas) {
+    const p = { ...l, medido: n(l.medido), faturado: n(l.faturado), saldo: n(l.saldo) };
+    if (p.medido === 0 && p.faturado === 0) continue;
+    const atual = mapa.get(l.cliente);
+    if (!atual || p.mes > atual.mes) mapa.set(l.cliente, p);
+  }
+  return [...mapa.values()];
+}
+
+/**
+ * Uma ficha por cliente, juntando o boletim e o controle pelo nome. O nome do
+ * boletim vem do Sisloc e o do controle é digitado: quando não batem, são duas
+ * fichas — melhor que juntar dois clientes que não são o mesmo.
+ */
+export function fichasDosClientes(
+  boletins: BoletimAtual[],
+  posicoes: PosicaoDoControle[],
+): FichaDoCliente[] {
+  const mapa = new Map<string, FichaDoCliente & { _bases: Set<string> }>();
+  const ficha = (nome: string) => {
+    const chave = chaveDoCliente(nome);
+    let f = mapa.get(chave);
+    if (!f) {
+      f = {
+        chave,
+        nome,
+        manutencao: { boletins: 0, bases: 0, emMedicao: 0, medido: 0, faturado: 0, saldo: 0, ultimo: null },
+        faturamento: null,
+        _bases: new Set(),
+      };
+      mapa.set(chave, f);
+    }
+    return f;
+  };
+
+  // Do mais novo para o mais velho: o nome que fica é o do boletim mais recente.
+  for (const b of [...boletins].sort((a, c) => c.criado_em.localeCompare(a.criado_em))) {
+    const f = ficha(b.cliente);
+    const m = f.manutencao;
+    m.boletins += 1;
+    f._bases.add((b.base ?? "").trim().toUpperCase());
+    m.ultimo ??= b.criado_em;
+    if (b.situacao === "aberto") m.emMedicao += n(b.valor);
+    else {
+      m.medido += n(b.valor);
+      m.faturado += b.situacao === "faturado" ? n(b.valor) : n(b.faturado);
+    }
+    m.saldo = m.medido - m.faturado;
+  }
+  for (const p of posicoes) ficha(p.cliente).faturamento = p;
+
+  return [...mapa.values()]
+    .map(({ _bases, ...f }) => ({ ...f, manutencao: { ...f.manutencao, bases: _bases.size } }))
+    .sort(
+      (a, b) =>
+        b.manutencao.saldo + (b.faturamento?.saldo ?? 0) - (a.manutencao.saldo + (a.faturamento?.saldo ?? 0)) ||
+        a.nome.localeCompare(b.nome),
+    );
+}
+
+/** Os boletins de um cliente agrupados por base, a base mais movimentada antes. */
+export function boletinsPorBase(boletins: BoletimAtual[]): { base: string; boletins: BoletimAtual[] }[] {
+  const mapa = new Map<string, BoletimAtual[]>();
+  for (const b of boletins) {
+    const base = b.base?.trim() || "Sem base";
+    mapa.set(base, [...(mapa.get(base) ?? []), b]);
+  }
+  return [...mapa.entries()]
+    .map(([base, lista]) => ({ base, boletins: lista.sort((a, b) => b.id - a.id) }))
+    .sort((a, b) => b.boletins.length - a.boletins.length || a.base.localeCompare(b.base));
+}
+
+/* ── A planilha para baixar ────────────────────────────────── */
+
+type Celula = string | number | null | undefined;
+
+/**
+ * CSV que o Excel em português abre direto: ponto e vírgula entre colunas,
+ * vírgula no decimal e o BOM na frente (sem ele o acento vira "Ã§").
+ */
+export function planilha(cabecalho: string[], linhas: Celula[][]): string {
+  const campo = (v: Celula) => {
+    if (v === null || v === undefined) return "";
+    const t = typeof v === "number" ? v.toFixed(2).replace(".", ",") : String(v);
+    return /[;"\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+  };
+  return "﻿" + [cabecalho, ...linhas].map((l) => l.map(campo).join(";")).join("\r\n") + "\r\n";
+}
+
+/** "ÁGUAS DO RIO / AEGEA" → "AGUAS-DO-RIO-AEGEA", para o nome do arquivo. */
+export function nomeDeArquivo(...partes: string[]): string {
+  return partes
+    .join(" ")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^A-Za-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toUpperCase();
+}
