@@ -60,8 +60,8 @@ export function Medicoes({
   return (
     <div className="space-y-5">
       <Cabecalho
-        titulo="Medições"
-        resumo="Boletim de medição de manutenção, um por cliente e base: cole as OMs do Sisloc, confira, feche e mande ao cliente."
+        titulo="Lançar medições de manutenção"
+        resumo="Time de orçamento. Um boletim por cliente e base: cole as OMs do Sisloc, confira o valor, feche e mande ao cliente. O painel de medições é lançado à parte, pelo faturamento."
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

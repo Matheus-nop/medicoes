@@ -93,8 +93,9 @@ export default async function LancarMedicoes({
             ) : (
               " · nenhum período aberto ainda"
             )}
-            . Manutenção, locação e indenização: o medido e o faturado de cada região. O saldo é
-            conta, e sai sozinho.
+            . Time de faturamento: o medido e o faturado de manutenção, locação e indenização de
+            cada região, conforme o faturamento anda — é o que aparece no painel. O saldo é conta,
+            e sai sozinho.
           </>
         }
         acoes={

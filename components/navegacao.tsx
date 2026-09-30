@@ -4,22 +4,28 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { IconeLancar, IconeMedicoes, IconePainel, IconeUsuarios } from "./icones";
 
-// Começa pequeno de propósito: o painel da manutenção é a tela inicial, e o
-// boletim abre a partir dele. O controle é a outra metade — manutenção,
-// locação e indenização do contrato inteiro, região por região. Contratos
-// entram aqui quando existirem: item de menu que leva a tela vazia ensina a
+// Uma seção por time, porque são dois trabalhos diferentes:
+//
+//   Orçamento — a medição de MANUTENÇÃO, OM por OM, colada do Sisloc. Vira o
+//     boletim que vai ao cliente. É a tela inicial.
+//   Faturamento — as medições do contrato inteiro (manutenção, locação e
+//     indenização) por região, conforme o faturamento anda. É o que aparece
+//     no painel da diretoria.
+//
+// Os dois não se misturam: o boletim não alimenta o painel sozinho. Contratos
+// entram aqui quando existirem — item de menu que leva a tela vazia ensina a
 // não clicar.
 const SECOES = [
   {
-    titulo: "Controle",
-    itens: [
-      { href: "/controle", rotulo: "Painel de medições", Icone: IconePainel },
-      { href: "/controle/lancar", rotulo: "Lançar medições", Icone: IconeLancar },
-    ],
+    titulo: "Orçamento · manutenção",
+    itens: [{ href: "/", rotulo: "Lançar medições de manutenção", Icone: IconeMedicoes }],
   },
   {
-    titulo: "Manutenção",
-    itens: [{ href: "/", rotulo: "Boletins de medição", Icone: IconeMedicoes }],
+    titulo: "Faturamento · painel",
+    itens: [
+      { href: "/controle/lancar", rotulo: "Lançar medições", Icone: IconeLancar },
+      { href: "/controle", rotulo: "Painel de medições", Icone: IconePainel },
+    ],
   },
   {
     titulo: "Administração",

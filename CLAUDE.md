@@ -63,6 +63,10 @@ desfaz isso logo depois de criar.
 - **OM faturada**: a Rio+ fatura OM por OM (`om_faturadas`, 0004). Só com o
   boletim fechado ou enviado; o boletim inteiro faturado conta todas.
 - **medido**: o que saiu num boletim fechado. **saldo**: medido e não faturado.
+- **Dois lançamentos, dois times.** "Lançar medições de manutenção" (`/`) é do
+  **orçamento**: o boletim, OM por OM, colado do Sisloc. "Lançar medições"
+  (`/controle/lancar`) é do **faturamento**: o controle por região, conforme o
+  faturamento anda, e é o que o painel mostra. Um não alimenta o outro sozinho.
 - **controle**: a planilha "CONTROLE DE MEDIÇÕES" — manutenção, locação e
   indenização (extravios) de um cliente, por **região**, num **período**. Não é
   o boletim: é o contrato inteiro, lançado à mão ou colado da aba do mês.
