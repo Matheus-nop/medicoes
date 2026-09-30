@@ -80,7 +80,8 @@ desfaz isso logo depois de criar.
   papel e para o histórico.
 - **controle**: a planilha "CONTROLE DE MEDIÇÕES" — manutenção, locação e
   indenização (extravios) de um cliente, por **região**, num **período**. Não é
-  o boletim: é o contrato inteiro, lançado à mão ou colado da aba do mês.
+  o boletim: é o contrato inteiro, lançado no sistema ou importado da aba do
+  mês enquanto a planilha existir.
 - **período**: um mês. Guarda o medido e o faturado DO MÊS; o saldo anterior
   não se digita nem se grava — sai da soma dos meses de antes
   (`controle_posicao`, 0006). Agosto: medido 100, faturado 30 → saldo 70.
@@ -93,31 +94,13 @@ desfaz isso logo depois de criar.
   quadro — medido do mês = medido da planilha − saldo anterior do sistema, e o
   saldo que fica é o da planilha. Não salva sozinho; saldo zerado sem faturar
   aparece como aviso para conferir.
-- **Dois lançamentos, dois times.** "Lançar medições de manutenção" (`/`) é do
-  **orçamento**: o boletim, OM por OM, colado do Sisloc. "Lançar medições"
-  (`/controle/lancar`) é do **faturamento**: o controle por região, conforme o
-  faturamento anda, e é o que o painel mostra. Um não alimenta o outro sozinho.
-- **arquivo por cliente** (`/clientes`): a ficha de cada cliente, com a
-  manutenção (boletins por base, cada um com o seu papel) e o faturamento (as
-  bases e os meses do controle, cada um com o seu relatório), e o extrato de
-  manutenção do cliente (`/clientes/extrato`, por mês). Tudo na tela ou em
-  PDF — planilha não, que é dela que a casa está saindo. O nome do boletim vem do Sisloc e o do
-  controle é digitado: quando não batem, são duas fichas — de propósito.
-- **painel executivo** (`/controle`): a aba "Por cliente" e a aba "Todos os
-  clientes", onde cada um entra com a SUA posição mais recente.
-- **padrão das telas**: cartões em quadro e painéis que recolhem
-  (`CartaoDoQuadro`, `Painel`), não tabela linha a linha. Tabela fica para o
-  papel e para o histórico.
-- **controle**: a planilha "CONTROLE DE MEDIÇÕES" — manutenção, locação e
-  indenização (extravios) de um cliente, por **região**, num **período**. Não é
-  o boletim: é o contrato inteiro, lançado à mão ou colado da aba do mês.
-- **período**: a FOTO do saldo em aberto num mês, acumulada. **Não se somam
-  períodos**: a posição atual é a foto mais recente.
-- **o saldo passa adiante**: o saldo de cada base e categoria num mês entra
-  como MEDIDO do mês seguinte, e o faturado começa vazio. Medido do mês =
-  saldo que veio + o que se mediu de novo. "Trazer o saldo" faz isso — copiar
-  o faturado do mês anterior seria cobrar a mesma nota duas vezes.
 - **colagem**: a lista do Sisloc copiada e colada, com a linha de títulos.
+
+## Aparência
+- App instalável (PWA): `app/manifest.ts`, `public/sw.js` e o convite de
+  `components/instalar.tsx`. O ícone é próprio — a prancheta do boletim com
+  barras de medição, traço branco no marinho da casa (`public/icone.svg`, e os
+  PNGs gerados dele). Ícone novo pede subir o nome do cache no `sw.js`.
 
 ## Estado
 - [~] Fase 1 — a base: schema `medicoes`, perfis e papéis, boletim de medição
@@ -130,7 +113,8 @@ desfaz isso logo depois de criar.
       indenização por região e período, append-only, com o saldo em view. O
       histórico da planilha (abr/2025 a set/2026, 305 células) entra por
       `supabase/scripts/semear-controle-aguas-do-rio.sql`, e os totais batem
-      com o RESUMO EXECUTIVO. Falta aplicar no Supabase e rodar um mês.
+      com o RESUMO EXECUTIVO. `0004` a `0006` e a semente **aplicadas**. Falta
+      rodar um mês lançando no sistema.
 - [~] Fase 3 — o painel do controle (`/controle`): indicadores, as três
       categorias, evolução, saldo por região, relatório por base para o
       WhatsApp e o histórico — ao vivo, relendo a cada minuto, com a variação
