@@ -13,8 +13,9 @@ Next.js App Router · TypeScript · Supabase (Postgres, Auth) · Tailwind · Ver
 - **O mesmo projeto Supabase** do Roteiros e do Estoque, no schema **`medicoes`**.
   `public` é do Roteiros, `estoque` é do Estoque. Não se cria tabela fora de
   `medicoes`, e não se escreve no schema dos outros.
-- O login é o mesmo `auth.users` dos três apps, e a sessão vale nos três
-  (cookie no domínio pai, `NEXT_PUBLIC_COOKIE_DOMAIN`).
+- O login é o mesmo `auth.users` dos três apps. A sessão é dividida com o
+  Estoque (cookie no domínio pai, `NEXT_PUBLIC_COOKIE_DOMAIN`); o Roteiros
+  guarda a dele em localStorage, e lá se entra de novo.
 - O que se lê dos outros apps passa por função `security definer` curta, que
   devolve só as colunas que o boletim usa e só a usuário ativo daqui. Nunca
   por grant direto na tabela deles.
