@@ -57,7 +57,17 @@ desfaz isso logo depois de criar.
 - **OM**: a ordem de manutenção do Sisloc. Três momentos, três números:
   entrada (recibo de retirada), corretiva (a que se cobra), retorno
   (comprovante de entrega).
+- **modelo**: o papel que o cliente recebe. `acao` (TESTE 2) é do Águas do Rio /
+  AEGEA; `rio_mais` é o da Rio+ Saneamento — a base no topo, sem recibos e com
+  o STATUS (PENDENTE/FATURADO) de cada OM. Nasce do nome do cliente e se troca.
+- **OM faturada**: a Rio+ fatura OM por OM (`om_faturadas`, 0004). Só com o
+  boletim fechado ou enviado; o boletim inteiro faturado conta todas.
 - **medido**: o que saiu num boletim fechado. **saldo**: medido e não faturado.
+- **controle**: a planilha "CONTROLE DE MEDIÇÕES" — manutenção, locação e
+  indenização (extravios) de um cliente, por **região**, num **período**. Não é
+  o boletim: é o contrato inteiro, lançado à mão ou colado da aba do mês.
+- **período**: a FOTO do saldo em aberto num mês, acumulada. **Não se somam
+  períodos**: a posição atual é a foto mais recente.
 - **colagem**: a lista do Sisloc copiada e colada, com a linha de títulos.
 
 ## Estado
@@ -66,6 +76,13 @@ desfaz isso logo depois de criar.
       OS e do Roteiros. Migrações `0000` a `0003` **aplicadas** no projeto
       compartilhado, com as conferências em `✓ ok`. Falta a primeira semana de
       uso com o faturamento.
-- [ ] Fase 2 — contratos e medições de locação (medido, faturado, saldo),
-      quando chegar a planilha atual.
-- [ ] Fase 3 — painéis e relatórios da diretoria.
+- [~] Fase 2 — um papel por cliente (TESTE 2 e Rio+) com a OM faturada uma a
+      uma (`0004`), e o controle de medições (`0005`): manutenção, locação e
+      indenização por região e período, append-only, com o saldo em view. O
+      histórico da planilha (abr/2025 a set/2026, 305 células) entra por
+      `supabase/scripts/semear-controle-aguas-do-rio.sql`, e os totais batem
+      com o RESUMO EXECUTIVO. Falta aplicar no Supabase e rodar um mês.
+- [~] Fase 3 — o painel do controle (`/controle`): indicadores, as três
+      categorias, evolução, saldo por região, relatório por base para o
+      WhatsApp e o histórico — ao vivo, relendo a cada minuto. Contratos
+      ainda não.

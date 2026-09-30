@@ -241,6 +241,10 @@ const boletim = (p: Partial<BoletimAtual>): BoletimAtual => ({
   telefone: null,
   local_obra: null,
   fechado_em: null,
+  modelo: "acao",
+  documento: null,
+  faturado: 0,
+  oms_faturadas: 0,
   ...p,
 });
 
@@ -256,6 +260,17 @@ test("medido é o que saiu fechado; o aberto fica à parte; saldo é o que falta
   e(s.medido, 1500);
   e(s.faturado, 1000);
   e(s.saldo, 500);
+});
+
+test("a OM faturada sozinha entra no faturado do cliente", () => {
+  const [s] = saldoPorCliente([
+    boletim({ id: 1, situacao: "enviado", valor: 1000, faturado: 400, oms_faturadas: 2 }),
+    // Aberto não conta, mesmo que alguém tenha marcado antes de reabrir.
+    boletim({ id: 2, situacao: "aberto", valor: 300, faturado: 300 }),
+  ]);
+  e(s.medido, 1000);
+  e(s.faturado, 400);
+  e(s.saldo, 600);
 });
 
 test("o valor digitado aceita vírgula e ponto sem multiplicar por cem", () => {
@@ -355,4 +370,24 @@ test("o documento leva o mês, e o arquivo tem nome de arquivo", () => {
     "BM-0001 - BM MANUTENÇÃO - VCG - NOVA IGUAÇU - BAIXADA 2 - BLOCO 4 - AGOSTO-2026",
   );
   e(arquivoDoBoletim({ numero: "BM-0002", referencia: null, base: null, cliente: "AEGEA S.A." }), "BM-0002 - BM MANUTENÇÃO - AEGEA S.A.");
+});
+
+test("o papel de cada cliente", async () => {
+  const { modeloDoCliente, statusDaOm } = await import("./medicoes.ts");
+  e(modeloDoCliente("RIO + SANEAMENTO BL3 S.A"), "rio_mais");
+  e(modeloDoCliente("Rio+ Saneamento"), "rio_mais");
+  e(modeloDoCliente("RIO MAIS SANEAMENTO"), "rio_mais");
+  e(modeloDoCliente("AGUAS DO RIO 4 SPE S.A"), "acao");
+  e(modeloDoCliente("AEGEA SANEAMENTO"), "acao");
+  e(modeloDoCliente("RIO MAIS"), "rio_mais");
+  e(statusDaOm({ faturada: true }), "FATURADO");
+  e(statusDaOm({ faturada: false }), "PENDENTE");
+});
+
+test("o documento escrito à mão vence o da casa", () => {
+  e(documentoDoBoletim({ numero: "BM-0007", referencia: "SETEMBRO/2026", documento: "12" }), "12");
+  e(
+    documentoDoBoletim({ numero: "BM-0007", referencia: "SETEMBRO/2026", documento: "  " }),
+    "BM-0007 - SETEMBRO/2026",
+  );
 });

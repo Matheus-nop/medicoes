@@ -19,13 +19,16 @@ import {
   ACAO_SEGUINTE,
   PODE_REABRIR,
   ROTULO_FONTE,
+  ROTULO_MODELO,
   ROTULO_SITUACAO,
   SEGUINTE,
   dataDaOm,
   entrouNaOficina,
   lerValorDigitado,
   resumir,
+  modeloLido,
   situacaoLida,
+  statusDaOm,
   type BoletimAtual,
   type Fatia,
   type ItemDoBoletim,
@@ -34,8 +37,10 @@ import {
   andar,
   apagarBoletim,
   buscarComprovantes,
+  desfazerFaturamento,
   editarBoletim,
   editarOm,
+  faturarOm,
   incluirOmAMao,
   mudarRecibos,
   mudarValor,
@@ -92,7 +97,15 @@ export function Boletim({
   const r = resumir(itens);
   const fracaoMargem = r.margem !== null && r.valor > 0 ? r.margem / r.valor : null;
   const naOficina = itens.filter((i) => entrouNaOficina(i.etapa_om)).length;
-  const semRecibo = itens.filter((i) => !i.om_retirada || !i.recibo_entrega).length;
+  // O papel da Rio+ não tem recibo: não se cobra o que ele não mostra.
+  const comRecibo = boletim.modelo !== "rio_mais";
+  const semRecibo = comRecibo
+    ? itens.filter((i) => !i.om_retirada || !i.recibo_entrega).length
+    : 0;
+  // A OM se fatura uma a uma com o boletim já apresentado; faturado inteiro,
+  // todas contam e não há o que marcar.
+  const faturavel = boletim.situacao === "fechado" || boletim.situacao === "enviado";
+  const faturado = itens.filter((i) => i.faturada).reduce((t, i) => t + i.valor, 0);
   const semCabecalho = [
     !boletim.base && "base / fiscalização",
     !boletim.contato && !boletim.email && "contato / e-mail",
@@ -242,6 +255,11 @@ export function Boletim({
         <CartaoIndicador
           rotulo="A cobrar"
           valor={emReais(r.valor)}
+          detalhe={
+            aberto
+              ? undefined
+              : `faturado ${emReais(faturado)} · saldo ${emReais(r.valor - faturado)}`
+          }
           cor="bg-acento"
         />
         <CartaoIndicador
@@ -371,11 +389,15 @@ export function Boletim({
                   <th className="py-2 pr-2 font-medium">Data</th>
                   <th className="py-2 pr-2 font-medium">Patrimônio</th>
                   <th className="py-2 pr-2 font-medium">Equipamento / serviço</th>
-                  <th className="py-2 pr-2 font-medium">Recibo retirada</th>
-                  <th className="py-2 pr-2 font-medium">Recibo entrega</th>
+                  {comRecibo && <th className="py-2 pr-2 font-medium">Recibo retirada</th>}
+                  {comRecibo && <th className="py-2 pr-2 font-medium">Recibo entrega</th>}
                   <th className="py-2 pr-2 text-right font-medium">Custo</th>
                   <th className="py-2 pr-2 text-right font-medium">Valor</th>
-                  {aberto && <th className="py-2 pr-4" />}
+                  {aberto ? (
+                    <th className="py-2 pr-4" />
+                  ) : (
+                    <th className="py-2 pr-4 font-medium">Status</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -387,6 +409,20 @@ export function Boletim({
                     key={`${i.id}:${i.om_retirada ?? ""}:${i.recibo_entrega ?? ""}:${i.valor}`}
                     item={i}
                     aberto={aberto}
+                    comRecibo={comRecibo}
+                    faturavel={faturavel}
+                    aoFaturar={() => {
+                      const nf = window.prompt(
+                        `OM ${i.om} faturada. Número da nota fiscal (opcional):`,
+                        "",
+                      );
+                      if (nf === null) return;
+                      fazer(() => faturarOm(boletim.id, i.id, nf));
+                    }}
+                    aoDesfazer={() => {
+                      if (!window.confirm(`A OM ${i.om} volta a PENDENTE?`)) return;
+                      fazer(() => desfazerFaturamento(boletim.id, i.id));
+                    }}
                     ocupado={enviando}
                     aoMudarValor={(v) => fazer(() => mudarValor(boletim.id, i.id, v))}
                     aoEditar={(c) => fazer(() => editarOm(boletim.id, i.id, c, i.valor))}
@@ -440,6 +476,10 @@ export function Boletim({
 function LinhaDaOm({
   item,
   aberto,
+  comRecibo,
+  faturavel,
+  aoFaturar,
+  aoDesfazer,
   ocupado,
   aoMudarValor,
   aoEditar,
@@ -448,6 +488,10 @@ function LinhaDaOm({
 }: {
   item: ItemDoBoletim;
   aberto: boolean;
+  comRecibo: boolean;
+  faturavel: boolean;
+  aoFaturar: () => void;
+  aoDesfazer: () => void;
   ocupado: boolean;
   aoMudarValor: (v: number) => void;
   aoEditar: (c: CamposDaOm) => void;
@@ -520,12 +564,16 @@ function LinhaDaOm({
             <span className="block text-[11px] text-texto-2">{item.observacao}</span>
           )}
         </td>
-        <td className="py-2 pr-2">
-          {recibo(retirada, setRetirada, "Recibo de retirada", item.om_retirada)}
-        </td>
-        <td className="py-2 pr-2">
-          {recibo(entrega, setEntrega, "Recibo de entrega", item.recibo_entrega)}
-        </td>
+        {comRecibo && (
+          <td className="py-2 pr-2">
+            {recibo(retirada, setRetirada, "Recibo de retirada", item.om_retirada)}
+          </td>
+        )}
+        {comRecibo && (
+          <td className="py-2 pr-2">
+            {recibo(entrega, setEntrega, "Recibo de entrega", item.recibo_entrega)}
+          </td>
+        )}
         <td className="py-2 pr-2 text-right tabular-nums text-texto-2">
           {item.custo === null ? "—" : emReais(item.custo)}
         </td>
@@ -573,6 +621,24 @@ function LinhaDaOm({
             </button>
           )}
         </td>
+        {!aberto && (
+          <td className="py-2 pr-4 whitespace-nowrap">
+            <Selo tom={item.faturada ? "ok" : "neutro"}>{statusDaOm(item)}</Selo>
+            {item.nota_fiscal && (
+              <span className="block text-[11px] text-texto-3">NF {item.nota_fiscal}</span>
+            )}
+            {faturavel && (
+              <button
+                type="button"
+                disabled={ocupado}
+                onClick={item.faturada ? aoDesfazer : aoFaturar}
+                className="block text-[11px] font-medium text-texto-2 underline"
+              >
+                {item.faturada ? "Desfazer" : "Marcar faturada"}
+              </button>
+            )}
+          </td>
+        )}
         {aberto && (
           <td className="py-2 pr-4 text-right whitespace-nowrap">
             <button
@@ -661,6 +727,8 @@ function Dados({
     telefone: boletim.telefone ?? "",
     localObra: boletim.local_obra ?? "",
     observacao: boletim.observacao ?? "",
+    modelo: modeloLido(boletim.modelo),
+    documento: boletim.documento ?? "",
   };
   const [campos, setCampos] = useState(inicial);
   const mudou = (Object.keys(inicial) as (keyof CabecalhoDoBoletim)[]).some(
@@ -696,6 +764,20 @@ function Dados({
         }}
       >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <Campo rotulo="Modelo do papel">
+            <select
+              value={campos.modelo}
+              onChange={(e) => setCampos((c) => ({ ...c, modelo: modeloLido(e.target.value) }))}
+              className={`${CAMPO} w-full`}
+            >
+              {(Object.keys(ROTULO_MODELO) as (keyof typeof ROTULO_MODELO)[]).map((m) => (
+                <option key={m} value={m}>
+                  {ROTULO_MODELO[m]}
+                </option>
+              ))}
+            </select>
+          </Campo>
+          {campo("documento", "Documento Nº (vazio = o da casa)", boletim.numero)}
           {campo("referencia", "Mês de referência", "AGOSTO/2026")}
           {campo("base", "Base / fiscalização", "VCG - NOVA IGUAÇU - BAIXADA 2 - BLOCO 4")}
           {campo("localObra", "Local da obra", "Rua Oscar Soares, 1362 - Nova Iguaçu - RJ")}

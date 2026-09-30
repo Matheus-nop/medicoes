@@ -275,10 +275,16 @@ export function CartaoIndicador({
   detalhe,
   cor,
   destaque,
+  compacto,
+  children,
 }: {
   rotulo: string;
   valor: ReactNode;
   detalhe?: string;
+  /** Número menor, para dinheiro com centavos ("R$ 1.558.887,59"). */
+  compacto?: boolean;
+  /** O que vai abaixo do número — uma barra de progresso, por exemplo. */
+  children?: ReactNode;
   /** Classe de fundo do ponto, ex: "bg-disponivel". */
   cor?: string;
   destaque?: boolean;
@@ -296,13 +302,27 @@ export function CartaoIndicador({
         </span>
       </div>
       <p
-        className={`mt-1.5 text-3xl leading-none font-semibold tabular-nums ${
-          destaque ? "text-manutencao" : ""
-        }`}
+        className={`mt-1.5 leading-none font-semibold tabular-nums ${
+          compacto ? "text-xl sm:text-2xl" : "text-3xl"
+        } ${destaque ? "text-manutencao" : ""}`}
       >
         {valor}
       </p>
       {detalhe && <p className="mt-1 text-xs text-texto-3">{detalhe}</p>}
+      {children}
+    </div>
+  );
+}
+
+/* ── Barra de progresso ────────────────────────────────────── */
+
+/** Quanto de um todo já foi — o faturado do medido, por exemplo. */
+export function Progresso({ fracao, cor = "bg-acento" }: { fracao: number | null; cor?: string }) {
+  const pct = fracao === null ? 0 : Math.min(100, Math.max(0, fracao * 100));
+  return (
+    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-superficie-3">
+      {/* A largura é o dado da barra: a única coisa que muda por uso. */}
+      <div className={`h-full rounded-full ${cor}`} style={{ width: `${pct}%` }} />
     </div>
   );
 }
@@ -458,7 +478,7 @@ export function Selo({
   };
   return (
     <span
-      className={`inline-flex shrink-0 items-center rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${tons[tom]}`}
+      className={`inline-flex shrink-0 items-center rounded-md border px-1.5 whitespace-nowrap py-0.5 text-[10px] font-semibold tracking-wide uppercase ${tons[tom]}`}
     >
       {children}
     </span>

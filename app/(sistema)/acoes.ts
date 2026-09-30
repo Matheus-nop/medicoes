@@ -9,7 +9,9 @@ import {
   dataDaOm,
   descricaoDoEquipamento,
   mesDeReferencia,
+  modeloDoCliente,
   type DemandaDoRoteiros,
+  type ModeloDoPapel,
   type OmLida,
   type OsComOms,
   type SituacaoBoletim,
@@ -142,7 +144,7 @@ export async function incluirOms(entrada: {
     // antigo fazia copiando a planilha do mês passado.
     const { data: anteriores } = await supabase
       .from("boletins")
-      .select("cliente, base, contato, email, telefone, local_obra")
+      .select("cliente, base, contato, email, telefone, local_obra, modelo")
       .order("id", { ascending: false });
     type Anterior = {
       cliente: string;
@@ -151,6 +153,7 @@ export async function incluirOms(entrada: {
       email: string | null;
       telefone: string | null;
       local_obra: string | null;
+      modelo: ModeloDoPapel;
     };
     const lista = (anteriores ?? []) as Anterior[];
     const chave = chaveDoCliente(entrada.cliente);
@@ -162,6 +165,9 @@ export async function incluirOms(entrada: {
       .from("boletins")
       .insert({
         cliente: (conhecido ?? entrada.cliente).trim(),
+        // O papel: o do último boletim da mesma base, ou o que o nome do
+        // cliente diz (Rio+ tem o dela).
+        modelo: mesmaBase?.modelo ?? modeloDoCliente(conhecido ?? entrada.cliente),
         base: mesmaBase?.base ?? (entrada.base.trim() || null),
         contato: mesmaBase?.contato ?? null,
         email: mesmaBase?.email ?? null,
@@ -463,6 +469,9 @@ export interface CabecalhoDoBoletim {
   telefone: string;
   localObra: string;
   observacao: string;
+  modelo: ModeloDoPapel;
+  /** O DOCUMENTO Nº à mão. Vazio, vale o da casa. */
+  documento: string;
 }
 
 export async function editarBoletim(
@@ -481,6 +490,8 @@ export async function editarBoletim(
       telefone: t(campos.telefone),
       local_obra: t(campos.localObra),
       observacao: t(campos.observacao),
+      modelo: campos.modelo === "rio_mais" ? "rio_mais" : "acao",
+      documento: t(campos.documento.toUpperCase()),
     })
     .eq("id", boletimId)
     .select("id");
@@ -543,6 +554,52 @@ export async function andar(
       return { ok: false, erro: "Só a diretoria reabre boletim." };
     }
     return { ok: false, erro: recado(error, "registrar o passo") };
+  }
+  refazer(boletimId);
+  return { ok: true };
+}
+
+/* ── A OM faturada ─────────────────────────────────────────── */
+
+/**
+ * Marca a OM como faturada — o STATUS do papel da Rio+, e o faturado do painel.
+ * Só com o boletim fechado ou enviado: a RLS (0004) confere.
+ */
+export async function faturarOm(
+  boletimId: number,
+  itemId: number,
+  notaFiscal: string,
+): Promise<Resultado> {
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { ok: false, erro: "Sessão expirada. Entre de novo." };
+  const { error } = await supabase.from("om_faturadas").insert({
+    boletim_om_id: itemId,
+    nota_fiscal: notaFiscal.trim() || null,
+    quem: auth.user.id,
+  });
+  if (error) {
+    if (error.code === "23505") return { ok: false, erro: "Esta OM já está faturada." };
+    if (error.code === "42501") {
+      return { ok: false, erro: "Só se fatura OM de boletim fechado ou enviado." };
+    }
+    return { ok: false, erro: recado(error, "marcar a OM como faturada") };
+  }
+  refazer(boletimId);
+  return { ok: true };
+}
+
+/** A marcação errada do dia. Só quem marcou ou a diretoria desfaz. */
+export async function desfazerFaturamento(boletimId: number, itemId: number): Promise<Resultado> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("om_faturadas")
+    .delete()
+    .eq("boletim_om_id", itemId)
+    .select("id");
+  if (error) return { ok: false, erro: recado(error, "desfazer o faturamento") };
+  if (!data?.length) {
+    return { ok: false, erro: "Só quem marcou a OM como faturada, ou a diretoria, desfaz." };
   }
   refazer(boletimId);
   return { ok: true };

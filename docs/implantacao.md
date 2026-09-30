@@ -11,6 +11,13 @@ Cole e rode **um arquivo por vez, nesta ordem**:
 2. `supabase/migrations/0001_perfis.sql`
 3. `supabase/migrations/0002_boletins.sql`
 4. `supabase/migrations/0003_comprovantes.sql`
+5. `supabase/migrations/0004_modelo_e_om_faturada.sql` — o papel da Rio+ e a OM
+   faturada. **Aplique antes do deploy que a traz**: o boletim novo já grava
+   o `modelo`.
+6. `supabase/migrations/0005_controle.sql` — o controle de medições.
+7. `supabase/scripts/semear-controle-aguas-do-rio.sql` — o histórico da
+   planilha. A conferência do fim lista cada período: tem de bater com o
+   RESUMO EXECUTIVO (setembro/2026: 1.558.887,59 medido, 566.982,35 faturado).
 
 Cada uma (menos a 0000) termina numa conferência: **toda linha tem de dizer
 `✓ ok`**. Se aparecer `!!`, a colagem provavelmente chegou cortada — rode o

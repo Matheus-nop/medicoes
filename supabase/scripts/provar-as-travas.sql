@@ -264,3 +264,44 @@ select * from medicoes.os_com_oms() limit 5;
 select count(*) from estoque.ordens_servico;
 rollback;
 */
+
+
+-- ── 12. OM de boletim aberto não se fatura (0004) ───────────
+-- Esperado: ERROR 42501 (new row violates row-level security policy for
+-- table "om_faturadas"). Precisa de um boletim ABERTO com ao menos uma OM.
+/*
+begin;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'faturamento' order by p.id limit 1))::text, true);
+set local role authenticated;
+insert into medicoes.om_faturadas (boletim_om_id)
+select i.id from medicoes.boletim_oms i
+join medicoes.boletim_situacao s on s.boletim_id = i.boletim_id
+where s.situacao = 'aberto' limit 1;
+rollback;
+*/
+
+
+-- ── 13. Valor do controle não se reescreve nem se apaga (0005) ──
+-- Esperado: o primeiro insert passa (INSERT 0 1); o segundo, assinado em
+-- nome de outro, ERROR 42501; o update e o delete, ERROR 42501 (permission
+-- denied for table controle_valores). Rode depois da semente da planilha.
+/*
+begin;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'faturamento' order by p.id limit 1))::text, true);
+set local role authenticated;
+insert into medicoes.controle_valores (periodo_id, regiao_id, categoria, medido, faturado)
+select max(p.id), min(r.id), 'locacao', 10, 5
+from medicoes.controle_periodos p, medicoes.controle_regioes r;
+savepoint a;
+insert into medicoes.controle_valores (periodo_id, regiao_id, categoria, quem)
+select max(p.id), min(r.id), 'locacao', (select id from auth.users where id <> auth.uid() limit 1)
+from medicoes.controle_periodos p, medicoes.controle_regioes r;
+rollback to a;
+savepoint b; update medicoes.controle_valores set medido = 0; rollback to b;
+delete from medicoes.controle_valores;
+rollback;
+*/
