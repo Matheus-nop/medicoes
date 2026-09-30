@@ -73,7 +73,7 @@ desfaz isso logo depois de criar.
 - **arquivo por cliente** (`/clientes`): a ficha de cada cliente, com a
   manutenção (boletins por base, cada um com o seu papel) e o faturamento (as
   bases e os meses do controle, cada um com o seu relatório), e o extrato de
-  manutenção do cliente (`/clientes/extrato`, por mês). Tudo na tela ou em
+  manutenção do cliente (`/clientes/extrato`, por mês e por base). Tudo na tela ou em
   PDF — planilha não, que é dela que a casa está saindo. O nome do boletim vem do Sisloc e o do
   controle é digitado: quando não batem, são duas fichas — de propósito.
 - **painel executivo** (`/controle`): a aba "Por cliente" e a aba "Todos os

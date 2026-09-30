@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Cabecalho, ESTILO_BOTAO, Vazio } from "@/components/ui";
 import { Imprimir } from "@/components/imprimir";
 import { emPorcento, emReais } from "@/lib/medicoes/dinheiro";
-import { boletinsPorBase, mesesDeReferencia } from "@/lib/medicoes/arquivo";
+import { basesDosBoletins, boletinsPorBase, mesesDeReferencia } from "@/lib/medicoes/arquivo";
 import {
   ROTULO_SITUACAO,
   dataDaOm,
@@ -13,7 +13,7 @@ import {
   type ItemDoBoletim,
 } from "@/lib/medicoes/medicoes";
 import { dataCurta } from "../../formato";
-import { EscolherMes } from "./escolher";
+import { EscolherMes, FiltrarBase } from "./escolher";
 
 // O papel tem as cores dele, como o boletim e o relatório: sai igual no tema
 // escuro. Não leva custo nem margem — pode ir para fora de casa.
@@ -26,12 +26,15 @@ export function Extrato({
   boletins,
   oms,
   mes,
+  base,
 }: {
   nome: string;
   todos: BoletimAtual[];
   boletins: BoletimAtual[];
   oms: (ItemDoBoletim & { boletim_id: number })[];
   mes: string;
+  /** O filtro de base, como foi digitado. Vazio é todas. */
+  base: string;
 }) {
   const apresentados = boletins.filter((b) => b.situacao !== "aberto");
   const medido = apresentados.reduce((t, b) => t + b.valor, 0);
@@ -69,6 +72,7 @@ export function Extrato({
         />
         <div className="flex flex-wrap items-end gap-2">
           <EscolherMes meses={mesesDeReferencia(todos)} mes={mes} />
+          <FiltrarBase bases={basesDosBoletins(todos)} base={base} />
           <div className="ml-auto">
             <Imprimir rotulo="Imprimir / PDF" />
           </div>
@@ -76,7 +80,10 @@ export function Extrato({
       </div>
 
       {boletins.length === 0 ? (
-        <Vazio>Nenhum boletim deste cliente{mes ? ` em ${mes}` : ""}.</Vazio>
+        <Vazio>
+          Nenhum boletim deste cliente{mes ? ` em ${mes}` : ""}
+          {base ? ` com a base "${base}"` : ""}.
+        </Vazio>
       ) : (
         <div className="overflow-x-auto print:overflow-visible">
           <div
@@ -89,6 +96,7 @@ export function Extrato({
                 <p className="text-[15pt] leading-tight font-bold text-[#16365C]">EXTRATO DE MANUTENÇÃO</p>
                 <p className="text-[8.5pt] font-bold text-[#8A8A93] uppercase">
                   {nome} · {mes || "todos os meses"}
+                  {base ? ` · base: ${base}` : ""}
                 </p>
               </div>
             </div>
