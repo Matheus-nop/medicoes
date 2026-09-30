@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { chaveDoCliente, type ItemDoBoletim } from "@/lib/medicoes/medicoes";
+import { daBase } from "@/lib/medicoes/arquivo";
 import { carregarClientes } from "../dados";
 import { Extrato } from "./folha";
 
 export const dynamic = "force-dynamic";
 
-type Busca = { nome?: string; mes?: string };
+type Busca = { nome?: string; mes?: string; base?: string };
 
 /** O título é o nome do PDF que o navegador sugere. */
 export async function generateMetadata({
@@ -16,7 +17,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const q = await searchParams;
   return {
-    title: ["Manutenção", q.nome, q.mes].filter(Boolean).join(" - ").replace(/\//g, "-"),
+    title: ["Manutenção", q.nome, q.base, q.mes].filter(Boolean).join(" - ").replace(/\//g, "-"),
   };
 }
 
@@ -38,7 +39,9 @@ export default async function ExtratoDoCliente({ searchParams }: { searchParams:
   }
   const chave = chaveDoCliente(nome);
   const todos = carga.boletins.filter((b) => chaveDoCliente(b.cliente) === chave);
-  const boletins = q.mes ? todos.filter((b) => (b.referencia ?? "").trim() === q.mes) : todos;
+  const boletins = todos
+    .filter((b) => !q.mes || (b.referencia ?? "").trim() === q.mes)
+    .filter((b) => daBase(b.base, q.base ?? ""));
 
   const supabase = await createClient();
   const { data } = boletins.length
@@ -62,6 +65,7 @@ export default async function ExtratoDoCliente({ searchParams }: { searchParams:
       boletins={boletins}
       oms={oms}
       mes={q.mes ?? ""}
+      base={q.base ?? ""}
     />
   );
 }
