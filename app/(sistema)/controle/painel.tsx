@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  Aviso,
   Cabecalho,
   CartaoIndicador,
   ESTILO_BOTAO,
@@ -13,6 +14,8 @@ import {
   CATEGORIAS,
   ROTULO_CATEGORIA,
   TODAS,
+  idadeDoAberto,
+  resumirRecebimento,
   faixaDoFaturado,
   resumirPeriodo,
   saldoPorRegiao,
@@ -21,6 +24,7 @@ import {
   type Soma,
 } from "@/lib/medicoes/controle";
 import { AbasDoPainel } from "./abas";
+import { IdadeDoAberto, NumerosDoRecebimento } from "./idade";
 import type { CargaDoControle } from "./dados";
 import { BarrasDeSaldo, GraficoEvolucao } from "./graficos";
 import { AoVivo, EscolherPeriodo, RecadoDaBase } from "./vivo";
@@ -52,7 +56,8 @@ function PorCento({ fracao }: { fracao: number | null }) {
 
 /** O painel, com os dados já lidos — a página lê, esta desenha. */
 export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { ok: true }> }) {
-  const { cliente, clientes, periodos, serie, periodo, regioes, celulas } = carga;
+  const { cliente, clientes, periodos, serie, periodo, regioes, celulas, historia, inicioRecebimento } =
+    carga;
   const r = resumirPeriodo(celulas, regioes);
   const lancar = `/controle/lancar?cliente=${encodeURIComponent(cliente)}${
     periodo ? `&periodo=${periodo.id}` : ""
@@ -65,6 +70,11 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
     if (Math.abs(d) < 0.005) return `igual a ${antes!.rotulo}`;
     return `${d > 0 ? "▲" : "▼"} ${emReais(Math.abs(d))} vs ${antes!.rotulo}`;
   };
+  const receber = `/controle/receber?cliente=${encodeURIComponent(cliente)}${
+    periodo ? `&periodo=${periodo.id}` : ""
+  }`;
+  const rec = resumirRecebimento(celulas);
+  const acompanha = Boolean(inicioRecebimento && periodo && periodo.mes >= inicioRecebimento);
   const relatorio = (base: string) =>
     `/controle/relatorio?cliente=${encodeURIComponent(cliente)}${
       periodo ? `&periodo=${periodo.id}` : ""
@@ -182,6 +192,41 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
 
       <div className="grid gap-3 md:grid-cols-3">
         {CATEGORIAS.map((c) => cartaoDaCategoria(c, r.categorias[c]))}
+      </div>
+
+      {/* ── Recebimento e idade do que está em aberto ─────── */}
+      {acompanha ? (
+        <NumerosDoRecebimento
+          r={rec}
+          anterior={antes?.rotulo ?? null}
+          ehInicio={periodo.mes === inicioRecebimento}
+          lancar={receber}
+        />
+      ) : (
+        <Aviso tom="ok">
+          O recebimento de {cliente} ainda não é acompanhado aqui.{" "}
+          <Link href={receber} className="font-semibold underline">
+            Lançar recebimentos
+          </Link>{" "}
+          — o financeiro escolhe o mês de início e informa o que já estava a receber.
+        </Aviso>
+      )}
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <IdadeDoAberto
+          titulo="Idade do saldo a faturar"
+          descricao="De que mês é o medido que ainda não virou nota"
+          parcelas={idadeDoAberto(historia, periodos, periodo.mes, "faturar")}
+          ate={periodo.mes}
+        />
+        {acompanha && (
+          <IdadeDoAberto
+            titulo="Idade do a receber"
+            descricao="De que mês é a nota que ainda não virou dinheiro"
+            parcelas={idadeDoAberto(historia, periodos, periodo.mes, "receber")}
+            ate={periodo.mes}
+          />
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

@@ -22,6 +22,9 @@ Cole e rode **um arquivo por vez, nesta ordem**:
    o medido e o faturado dele, e o saldo anterior vem sozinho. Converte o
    histórico (uma vez só) sem mudar nenhum saldo: a lista do fim tem de dar
    setembro/2026 com saldo 991.905,24.
+9. `supabase/migrations/0007_recebimento.sql` — o recebimento do financeiro.
+   Não muda nenhum saldo. Depois dela, o financeiro abre "Lançar
+   recebimentos", escolhe o mês de início e informa a abertura de cada base.
 
 Cada uma (menos a 0000) termina numa conferência: **toda linha tem de dizer
 `✓ ok`**. Se aparecer `!!`, a colagem provavelmente chegou cortada — rode o

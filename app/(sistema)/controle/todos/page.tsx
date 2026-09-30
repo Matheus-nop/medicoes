@@ -42,6 +42,8 @@ export default async function TodosOsClientes() {
   const medido = comPainel.reduce((t, f) => t + f.faturamento!.medido, 0);
   const faturado = comPainel.reduce((t, f) => t + f.faturamento!.faturado, 0);
   const saldo = comPainel.reduce((t, f) => t + f.faturamento!.saldo, 0);
+  const comRecebimento = comPainel.filter((f) => f.faturamento!.aReceber !== null);
+  const aReceber = comRecebimento.reduce((t, f) => t + (f.faturamento!.aReceber ?? 0), 0);
   const fracao = anterior + medido > 0 ? faturado / (anterior + medido) : null;
   const emMedicao = comManutencao.reduce((t, f) => t + f.manutencao.emMedicao, 0);
 
@@ -90,10 +92,14 @@ export default async function TodosOsClientes() {
             />
             <CartaoIndicador
               compacto
-              rotulo="Manutenção em medição"
-              valor={emReais(emMedicao)}
-              cor="bg-acento"
-              detalhe="boletins abertos no orçamento"
+              rotulo={comRecebimento.length ? "A receber" : "Manutenção em medição"}
+              valor={comRecebimento.length ? emReais(aReceber) : emReais(emMedicao)}
+              cor={comRecebimento.length ? "bg-reservado" : "bg-acento"}
+              detalhe={
+                comRecebimento.length
+                  ? `faturado e não pago · ${comRecebimento.length} cliente(s) acompanhado(s)`
+                  : "boletins abertos no orçamento"
+              }
             />
           </div>
 
@@ -117,6 +123,7 @@ export default async function TodosOsClientes() {
                           { rotulo: "Saldo anterior", valor: emReais(p.anterior) },
                           { rotulo: "Medido no mês", valor: emReais(p.medido) },
                           { rotulo: "Faturado no mês", valor: emReais(p.faturado) },
+                          ...(p.aReceber !== null ? [{ rotulo: "A receber", valor: emReais(p.aReceber) }] : []),
                         ]}
                         destaque={{ rotulo: "Saldo", valor: emReais(p.saldo) }}
                         fracao={fr}

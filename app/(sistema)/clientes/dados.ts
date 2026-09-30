@@ -13,7 +13,7 @@ export async function carregarClientes(): Promise<CargaDosClientes> {
     supabase.from("boletins_atual").select("*").order("id", { ascending: false }),
     supabase
       .from("controle_mes")
-      .select("cliente, periodo_id, rotulo, mes, saldo_anterior, medido, faturado, saldo"),
+      .select("cliente, periodo_id, rotulo, mes, saldo_anterior, medido, faturado, saldo, acompanha, a_receber"),
   ]);
   const falha = boletins.error ?? periodos.error;
   if (falha) return { ok: false, erro: falha.message };

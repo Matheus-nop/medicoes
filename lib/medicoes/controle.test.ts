@@ -11,6 +11,10 @@ import { fileURLToPath } from "node:url";
 import {
   CATEGORIAS,
   TODAS,
+  idadeDaCelula,
+  idadeDoAberto,
+  porFaixa,
+  resumirRecebimento,
   abaComoTexto,
   abaDoMes,
   daPlanilhaParaOMes,
@@ -227,4 +231,96 @@ test("importar setembro: o medido do mês é o da planilha menos o saldo de agos
   const leste = r.find((x) => x.regiao === "LESTE")!;
   e(leste.medido, -5000);
   e(leste.saldo, 0);
+});
+
+test("idade: o faturado abate primeiro o mais antigo", () => {
+  const p = idadeDaCelula([
+    { mes: "2026-07-01", rotulo: "Julho 2026", entra: 100, sai: 0 },
+    { mes: "2026-08-01", rotulo: "Agosto 2026", entra: 50, sai: 30 },
+    { mes: "2026-09-01", rotulo: "Setembro 2026", entra: 40, sai: 90 },
+  ]);
+  // Julho: 100 − 30 − 70 = 0. Agosto: 50 − 20 = 30. Setembro: 40.
+  deepStrictEqual(
+    p.map((x) => [x.rotulo, x.valor]),
+    [
+      ["Agosto 2026", 30],
+      ["Setembro 2026", 40],
+    ],
+  );
+});
+
+test("idade: medido negativo (a planilha zerando) também abate o mais antigo", () => {
+  const p = idadeDaCelula([
+    { mes: "2026-07-01", rotulo: "Julho 2026", entra: 100, sai: 0 },
+    { mes: "2026-08-01", rotulo: "Agosto 2026", entra: -100, sai: 0 },
+  ]);
+  e(p.length, 0);
+});
+
+test("idade do cliente: soma as células por mês de origem, e as faixas", () => {
+  const periodos = [
+    { id: 1, cliente: "X", mes: "2026-06-01", rotulo: "Junho 2026" },
+    { id: 2, cliente: "X", mes: "2026-08-01", rotulo: "Agosto 2026" },
+    { id: 3, cliente: "X", mes: "2026-09-01", rotulo: "Setembro 2026" },
+  ];
+  const c = (periodo_id: number, regiao: string, medido: number, faturado: number) => ({
+    periodo_id,
+    regiao_id: regiao === "A" ? 1 : 2,
+    regiao,
+    ordem: 1,
+    categoria: "locacao" as const,
+    medido,
+    faturado,
+  });
+  const historia = [c(1, "A", 100, 0), c(3, "A", 50, 20), c(2, "B", 70, 0), c(3, "B", 10, 70)];
+  const idade = idadeDoAberto(historia, periodos, "2026-09-01", "faturar");
+  deepStrictEqual(
+    idade.map((x) => [x.rotulo, x.valor]),
+    [
+      ["Setembro 2026", 60],
+      ["Junho 2026", 80],
+    ],
+  );
+  deepStrictEqual(porFaixa(idade, "2026-09-01"), { mes: 60, um: 0, dois: 0, velho: 80 });
+});
+
+test("recebimento: abertura + faturado − recebido, só do início em diante", () => {
+  const base = { periodo_id: 3, regiao_id: 1, regiao: "VCG", ordem: 1, categoria: "locacao" as const, medido: 0 };
+  const r = resumirRecebimento([
+    { ...base, faturado: 282801.67, acompanha: true, abertura: 100000, recebido: 30000, a_receber_anterior: 0 },
+    { ...base, regiao: "SUL", regiao_id: 2, faturado: 999, acompanha: false },
+  ]);
+  e(r.acompanha, true);
+  e(r.anterior, 100000);
+  e(r.aReceber, 352801.67);
+  e(r.regioes.length, 1);
+  const idade = idadeDoAberto(
+    [{ ...base, faturado: 282801.67, acompanha: true, abertura: 100000, recebido: 30000 }],
+    [{ id: 3, cliente: "X", mes: "2026-09-01", rotulo: "Setembro 2026" }],
+    "2026-09-01",
+    "receber",
+  );
+  // Recebeu 30.000: abate da abertura, que é a mais antiga.
+  deepStrictEqual(
+    idade.map((x) => [x.rotulo, x.valor]),
+    [
+      ["Setembro 2026", 282801.67],
+      ["Antes de Setembro 2026", 70000],
+    ],
+  );
+  deepStrictEqual(porFaixa(idade, "2026-09-01"), { mes: 282801.67, um: 0, dois: 0, velho: 70000 });
+});
+
+test("idade: faturado a mais vira crédito, abate o medido seguinte, e o total é o saldo", () => {
+  const p = idadeDaCelula([
+    { mes: "2025-04-01", rotulo: "Abril 2025", entra: 100, sai: 180 },
+    { mes: "2025-05-01", rotulo: "Maio 2025", entra: 50, sai: 0 },
+    { mes: "2025-06-01", rotulo: "Junho 2025", entra: 60, sai: 0 },
+  ]);
+  // Crédito de 80 come os 50 de maio e 30 de junho: sobram 30 de junho.
+  deepStrictEqual(p.map((x) => [x.rotulo, x.valor]), [["Junho 2025", 30]]);
+  const negativo = idadeDaCelula([{ mes: "2025-04-01", rotulo: "Abril 2025", entra: 100, sai: 178.6 }]);
+  deepStrictEqual(negativo, [
+    { mes: "crédito", rotulo: "Faturado a mais que o medido", valor: -78.6, credito: true },
+  ]);
 });

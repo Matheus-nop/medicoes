@@ -58,7 +58,7 @@ test("a ficha junta boletim e controle pelo nome, e conta as bases", () => {
       boletim({ id: 2, cliente: "RIO + SANEAMENTO BL3 S.A.", base: "VASSOURAS", situacao: "aberto", valor: 300, criado_em: "2026-09-10" }),
       boletim({ id: 3, cliente: "RIO + SANEAMENTO BL3 S.A", base: "pirai", situacao: "faturado", valor: 200, criado_em: "2026-08-01" }),
     ],
-    [{ cliente: "ÁGUAS DO RIO / AEGEA", periodo_id: 9, rotulo: "Setembro 2026", mes: "2026-09-01", anterior: 0, medido: 10, faturado: 0, saldo: 10 }],
+    [{ cliente: "ÁGUAS DO RIO / AEGEA", periodo_id: 9, rotulo: "Setembro 2026", mes: "2026-09-01", anterior: 0, medido: 10, faturado: 0, saldo: 10, aReceber: null }],
   );
   e(f.nome, "RIO + SANEAMENTO BL3 S.A.");
   e(f.manutencao.boletins, 3);

@@ -17,6 +17,8 @@ export interface PosicaoDoControle {
   medido: number;
   faturado: number;
   saldo: number;
+  /** O a receber (0007). Null quando o recebimento não é acompanhado. */
+  aReceber: number | null;
 }
 
 export interface FichaDoCliente {
@@ -57,6 +59,8 @@ export function posicaoPorCliente(
     medido: unknown;
     faturado: unknown;
     saldo: unknown;
+    acompanha?: unknown;
+    a_receber?: unknown;
   }[],
 ): PosicaoDoControle[] {
   const mapa = new Map<string, PosicaoDoControle>();
@@ -70,6 +74,7 @@ export function posicaoPorCliente(
       medido: n(l.medido),
       faturado: n(l.faturado),
       saldo: n(l.saldo),
+      aReceber: l.acompanha ? n(l.a_receber) : null,
     };
     if (p.anterior === 0 && p.medido === 0 && p.faturado === 0) continue;
     const atual = mapa.get(l.cliente);
