@@ -78,6 +78,59 @@ export default async function LancarRecebimentos({
         </Aviso>
       )}
 
+      {/* O passo a passo muda com o momento: antes do início, no mês de início
+          (com a abertura) e nos meses seguintes. */}
+      <ol className="grid gap-2 rounded-xl border border-acento/30 bg-acento-fraco p-3 text-xs text-texto sm:grid-cols-3">
+        {!inicioRecebimento ? (
+          <>
+            <li>
+              <strong>1.</strong> Em <strong>&quot;Acompanhar a partir de&quot;</strong>, escolha o mês em que
+              o financeiro começa a lançar aqui, e clique em <strong>Definir</strong>. Uma vez só por
+              cliente.
+            </li>
+            <li>
+              <strong>2.</strong> Nesse mês, em cada base, digite na <strong>Abertura</strong> o que ela
+              já tinha a receber — notas emitidas e ainda não pagas.
+            </li>
+            <li>
+              <strong>3.</strong> Digite o <strong>Recebido</strong> no mês e clique em{" "}
+              <strong>Salvar</strong>. Daí em diante o a receber passa sozinho de um mês para o outro.
+            </li>
+          </>
+        ) : periodo && periodo.mes === inicioRecebimento ? (
+          <>
+            <li>
+              <strong>1.</strong> Este é o mês de início ({periodo.rotulo}). Em cada base, digite na{" "}
+              <strong>Abertura</strong> o que já estava a receber — as notas antigas não pagas.
+            </li>
+            <li>
+              <strong>2.</strong> O <strong>Faturado</strong> do mês vem sozinho, do lançamento do
+              faturamento. Digite o <strong>Recebido</strong> — o que entrou de dinheiro no mês.
+            </li>
+            <li>
+              <strong>3.</strong> Clique em <strong>Salvar</strong>. A receber = abertura + faturado −
+              recebido, e passa para o mês seguinte.
+            </li>
+          </>
+        ) : (
+          <>
+            <li>
+              <strong>1.</strong> Confira o mês em <strong>Posição</strong>, no alto
+              {periodo ? ` (${periodo.rotulo})` : ""}.
+            </li>
+            <li>
+              <strong>2.</strong> O <strong>a receber do mês anterior</strong> e o{" "}
+              <strong>faturado</strong> no mês vêm sozinhos. Em cada base, digite só o{" "}
+              <strong>Recebido</strong> — o que entrou de dinheiro no mês.
+            </li>
+            <li>
+              <strong>3.</strong> Clique em <strong>Salvar</strong>. A receber = anterior + faturado −
+              recebido, e aparece no painel em até um minuto.
+            </li>
+          </>
+        )}
+      </ol>
+
       <DefinirInicio
         cliente={cliente}
         inicio={inicioRecebimento}
