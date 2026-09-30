@@ -1,0 +1,38 @@
+# Arquivos temporários do Excel / Office
+~$*
+*.tmp
+
+# OneDrive
+.~lock.*
+
+# Sistema
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Ambientes e dependências
+node_modules/
+.pnp
+.pnp.*
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Segredos — nunca versionar
+.env
+.env*.local
+
+# Build
+dist/
+build/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Vercel
+.vercel
+
+# Configurações locais do Claude Code
+.claude/settings.local.json
