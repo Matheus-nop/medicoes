@@ -2,11 +2,15 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Cabecalho, CartaoIndicador, Chips, Painel, Selo, Vazio } from "@/components/ui";
+import { Cabecalho, CartaoDoQuadro, CartaoIndicador, Chips, Painel, Selo, Vazio } from "@/components/ui";
+import { boletinsPorBase } from "@/lib/medicoes/arquivo";
 import { emReais } from "@/lib/medicoes/dinheiro";
 import {
   ROTULO_SITUACAO,
   SITUACOES,
+  chaveDoCliente,
+  documentoDoBoletim,
+  saldoPorCliente,
   type BoletimAtual,
   type SituacaoBoletim,
 } from "@/lib/medicoes/medicoes";
@@ -53,9 +57,18 @@ export function Medicoes({
   const conta = (s: SituacaoBoletim) => boletins.filter((b) => b.situacao === s).length;
   const abertos = boletins.filter((b) => b.situacao === "aberto");
   const visiveis = filtro === "todos" ? boletins : boletins.filter((b) => b.situacao === filtro);
-  const clientes = [...porCliente].sort(
-    (a, b) => b.saldo + b.em_medicao - (a.saldo + a.em_medicao) || a.cliente.localeCompare(b.cliente),
-  );
+  const [recolhidos, setRecolhidos] = useState<Set<string>>(new Set());
+
+  // Um painel por cliente, os boletins por base dentro dele. O saldo do
+  // cabeçalho é o do cliente inteiro, não só do filtro.
+  const saldos = saldoPorCliente(boletins);
+  const clientes = [...new Set(visiveis.map((b) => chaveDoCliente(b.cliente)))]
+    .map((chave) => {
+      const doCliente = visiveis.filter((b) => chaveDoCliente(b.cliente) === chave);
+      const saldo = saldos.find((x) => chaveDoCliente(x.cliente) === chave)!;
+      return { chave, nome: saldo.cliente, saldo, boletins: doCliente, bases: boletinsPorBase(doCliente) };
+    })
+    .sort((a, b) => b.saldo.saldo + b.saldo.emMedicao - (a.saldo.saldo + a.saldo.emMedicao));
 
   return (
     <div className="space-y-5">
@@ -93,51 +106,6 @@ export function Medicoes({
 
       <ColarDoSisloc abertos={abertos} jaMedidas={jaMedidas} />
 
-      <Painel titulo="Por cliente" descricao="Medido, faturado e o saldo entre os dois.">
-        {clientes.length === 0 ? (
-          <p className="p-4 text-sm text-texto-3">
-            Nenhum boletim ainda. Cole as OMs do Sisloc acima para abrir o primeiro.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[44rem] text-left text-sm">
-              <thead className="text-xs text-texto-3">
-                <tr className="border-b border-borda">
-                  <th className="px-4 py-2 font-medium">Cliente</th>
-                  <th className="py-2 pr-3 text-right font-medium">Boletins</th>
-                  <th className="py-2 pr-3 text-right font-medium">OMs</th>
-                  <th className="py-2 pr-3 text-right font-medium">Em medição</th>
-                  <th className="py-2 pr-3 text-right font-medium">Medido</th>
-                  <th className="py-2 pr-3 text-right font-medium">Faturado</th>
-                  <th className="py-2 pr-4 text-right font-medium">Saldo</th>
-                </tr>
-              </thead>
-              <tbody className="tabular-nums">
-                {clientes.map((c) => (
-                  <tr key={c.cliente} className="border-b border-borda/50">
-                    <td className="max-w-[18rem] truncate px-4 py-2" title={c.cliente}>
-                      {c.cliente}
-                    </td>
-                    <td className="py-2 pr-3 text-right">{c.boletins}</td>
-                    <td className="py-2 pr-3 text-right">{c.oms}</td>
-                    <td className="py-2 pr-3 text-right text-texto-2">{emReais(c.em_medicao)}</td>
-                    <td className="py-2 pr-3 text-right">{emReais(c.medido)}</td>
-                    <td className="py-2 pr-3 text-right">{emReais(c.faturado)}</td>
-                    <td
-                      className={`py-2 pr-4 text-right font-semibold ${
-                        c.saldo > 0 ? "text-manutencao" : ""
-                      }`}
-                    >
-                      {emReais(c.saldo)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Painel>
-
       <div className="space-y-3">
         <Chips
           rotulo="Situação do boletim"
@@ -149,59 +117,78 @@ export function Medicoes({
           ]}
         />
 
-        {visiveis.length === 0 ? (
+        {boletins.length === 0 ? (
+          <Vazio>Nenhum boletim ainda. Cole as OMs do Sisloc acima para abrir o primeiro.</Vazio>
+        ) : clientes.length === 0 ? (
           <Vazio>Nenhum boletim nesta situação.</Vazio>
         ) : (
-          <Painel>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[46rem] text-left text-sm">
-                <thead className="text-xs text-texto-3">
-                  <tr className="border-b border-borda">
-                    <th className="px-4 py-2 font-medium">Boletim</th>
-                    <th className="py-2 pr-3 font-medium">Cliente / base</th>
-                    <th className="py-2 pr-3 font-medium">Período das OMs</th>
-                    <th className="py-2 pr-3 text-right font-medium">OMs</th>
-                    <th className="py-2 pr-3 text-right font-medium">Valor</th>
-                    <th className="py-2 pr-4 font-medium">Situação</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visiveis.map((b) => (
-                    <tr key={b.id} className="border-b border-borda/50 hover:bg-superficie-2">
-                      <td className="px-4 py-2">
-                        <Link href={`/boletins/${b.id}`} className="font-semibold text-acento">
-                          {b.numero}
-                        </Link>
-                        {b.referencia && (
-                          <span className="block text-xs text-texto-3">{b.referencia}</span>
-                        )}
-                      </td>
-                      <td className="max-w-[18rem] py-2 pr-3">
-                        <span className="block truncate" title={b.cliente}>
-                          {b.cliente}
-                        </span>
-                        {b.base && (
-                          <span className="block truncate text-xs text-texto-3" title={b.base}>
-                            {b.base}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-2 pr-3 tabular-nums text-texto-2">
-                        {periodo(b.primeira_om, b.ultima_om)}
-                      </td>
-                      <td className="py-2 pr-3 text-right tabular-nums">{b.oms}</td>
-                      <td className="py-2 pr-3 text-right font-semibold tabular-nums">
-                        {emReais(b.valor)}
-                      </td>
-                      <td className="py-2 pr-4">
-                        <Selo tom={TOM_SITUACAO[b.situacao]}>{ROTULO_SITUACAO[b.situacao]}</Selo>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Painel>
+          clientes.map((c) => {
+            const fechado = recolhidos.has(c.chave);
+            return (
+              <Painel
+                key={c.chave}
+                titulo={c.nome}
+                descricao={`${c.boletins.length} boletim(ns) · ${c.bases.length} base(s)${
+                  c.saldo.emMedicao ? ` · ${emReais(c.saldo.emMedicao)} em medição` : ""
+                }`}
+                recolhido={fechado}
+                aoRecolher={() =>
+                  setRecolhidos((r) => {
+                    const n = new Set(r);
+                    if (n.has(c.chave)) n.delete(c.chave);
+                    else n.add(c.chave);
+                    return n;
+                  })
+                }
+                acoes={
+                  <>
+                    <span className="hidden text-xs text-texto-3 sm:inline">
+                      medido {emReais(c.saldo.medido, false)} · faturado{" "}
+                      {emReais(c.saldo.faturado, false)}
+                    </span>
+                    <span className="text-sm font-semibold text-saldo tabular-nums">
+                      saldo {emReais(c.saldo.saldo, false)}
+                    </span>
+                    <Link
+                      href={`/clientes/ficha?nome=${encodeURIComponent(c.nome)}`}
+                      className="text-xs font-semibold text-acento underline"
+                    >
+                      Arquivo
+                    </Link>
+                  </>
+                }
+              >
+                {/* Um quadro só por cliente: a base é o título do cartão, que é
+                    o que se procura; o documento vem embaixo. */}
+                <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                  {c.bases.flatMap((g) =>
+                    g.boletins.map((b) => {
+                      const apresentado = b.situacao !== "aberto";
+                      const faturado = b.situacao === "faturado" ? b.valor : Number(b.faturado ?? 0);
+                      return (
+                        <CartaoDoQuadro
+                          key={b.id}
+                          href={`/boletins/${b.id}`}
+                          titulo={g.base}
+                          subtitulo={`${documentoDoBoletim(b)} · OMs de ${periodo(b.primeira_om, b.ultima_om)}`}
+                          selo={<Selo tom={TOM_SITUACAO[b.situacao]}>{ROTULO_SITUACAO[b.situacao]}</Selo>}
+                          linhas={[
+                            { rotulo: "OMs", valor: b.oms },
+                            { rotulo: "Valor", valor: emReais(b.valor) },
+                            ...(apresentado ? [{ rotulo: "Faturado", valor: emReais(faturado) }] : []),
+                          ]}
+                          destaque={
+                            apresentado ? { rotulo: "Saldo", valor: emReais(b.valor - faturado) } : undefined
+                          }
+                          fracao={apresentado ? (b.valor > 0 ? faturado / b.valor : null) : undefined}
+                        />
+                      );
+                    }),
+                  )}
+                </div>
+              </Painel>
+            );
+          })
         )}
       </div>
     </div>

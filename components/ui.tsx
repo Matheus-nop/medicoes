@@ -2,6 +2,7 @@
 // mesmo cabecalho, o mesmo botao e o mesmo cartao — sem repetir classe
 // solta em cada arquivo, que e como um sistema fica com cara de remendo.
 
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 /* ── Cabecalho de pagina ───────────────────────────────────── */
@@ -153,6 +154,115 @@ export function Abas<T extends string>({
         );
       })}
     </div>
+  );
+}
+
+/* ── Abas de endereco ─────────────────────────────────────── */
+
+/**
+ * As mesmas abas, mas cada uma e um endereco: servem a pagina de servidor
+ * (sem estado) e deixam a aba certa no link que se manda para alguem.
+ */
+export function AbasDeLink({
+  atual,
+  opcoes,
+  rotulo,
+}: {
+  atual: string;
+  opcoes: { href: string; rotulo: string; contagem?: number }[];
+  rotulo: string;
+}) {
+  return (
+    <nav
+      aria-label={rotulo}
+      className="inline-flex max-w-full flex-wrap gap-0.5 rounded-xl border border-borda bg-superficie-2 p-0.5"
+    >
+      {opcoes.map((o) => {
+        const ativo = o.href === atual;
+        return (
+          <Link
+            key={o.href}
+            href={o.href}
+            aria-current={ativo ? "page" : undefined}
+            className={`inline-flex h-8 items-center gap-1.5 rounded-[10px] px-3 text-[13px] font-medium transition-colors ${
+              ativo ? "bg-superficie text-texto shadow-cartao" : "text-texto-2 hover:text-texto"
+            }`}
+          >
+            {o.rotulo}
+            {o.contagem !== undefined && (
+              <span className="text-[11px] font-semibold text-texto-3 tabular-nums">{o.contagem}</span>
+            )}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+/* ── Cartao de numeros ─────────────────────────────────────── */
+
+/**
+ * O cartao do quadro: um titulo, as linhas de rotulo e valor, e a barra de
+ * quanto ja foi. E a peca das telas por cliente e por base — o boletim, a
+ * regiao do controle, o cliente no painel executivo.
+ */
+export function CartaoDoQuadro({
+  titulo,
+  subtitulo,
+  selo,
+  linhas,
+  destaque,
+  fracao,
+  corDaBarra = "bg-disponivel",
+  href,
+  rodape,
+}: {
+  titulo: ReactNode;
+  subtitulo?: ReactNode;
+  selo?: ReactNode;
+  linhas: { rotulo: string; valor: ReactNode }[];
+  /** A ultima linha, em negrito e na cor do saldo. */
+  destaque?: { rotulo: string; valor: ReactNode };
+  fracao?: number | null;
+  corDaBarra?: string;
+  href?: string;
+  rodape?: ReactNode;
+}) {
+  const corpo = (
+    <>
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold">{titulo}</p>
+          {subtitulo && <p className="truncate text-xs text-texto-3">{subtitulo}</p>}
+        </div>
+        {selo}
+      </div>
+      <dl className="mt-3 space-y-1 text-xs tabular-nums">
+        {linhas.map((l) => (
+          <div key={l.rotulo} className="flex justify-between gap-2">
+            <dt className="text-texto-2">{l.rotulo}</dt>
+            <dd className="font-medium">{l.valor}</dd>
+          </div>
+        ))}
+        {destaque && (
+          <div className="flex justify-between gap-2 border-t border-borda pt-1 text-sm">
+            <dt className="font-medium text-saldo">{destaque.rotulo}</dt>
+            <dd className="font-semibold text-saldo">{destaque.valor}</dd>
+          </div>
+        )}
+      </dl>
+      {fracao !== undefined && <Progresso fracao={fracao} cor={corDaBarra} />}
+      {rodape && <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs">{rodape}</div>}
+    </>
+  );
+  const classe =
+    "block rounded-xl border border-borda bg-superficie p-4 shadow-cartao transition-colors";
+  return href ? (
+    <Link href={href} className={`${classe} hover:border-acento/50 hover:bg-superficie-2`}>
+      {corpo}
+    </Link>
+  ) : (
+    <div className={classe}>{corpo}</div>
   );
 }
 

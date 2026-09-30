@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { IconeLancar, IconeMedicoes, IconePainel, IconeUsuarios } from "./icones";
+import { IconeArquivo, IconeLancar, IconeMedicoes, IconePainel, IconeUsuarios } from "./icones";
 
 // Uma seção por time, porque são dois trabalhos diferentes:
 //
@@ -24,8 +24,12 @@ const SECOES = [
     titulo: "Faturamento · painel",
     itens: [
       { href: "/controle/lancar", rotulo: "Lançar medições", Icone: IconeLancar },
-      { href: "/controle", rotulo: "Painel de medições", Icone: IconePainel },
+      { href: "/controle", rotulo: "Painel executivo", Icone: IconePainel },
     ],
+  },
+  {
+    titulo: "Consulta",
+    itens: [{ href: "/clientes", rotulo: "Arquivo por cliente", Icone: IconeArquivo }],
   },
   {
     titulo: "Administração",
@@ -60,8 +64,13 @@ export function BarraLateral({
           <ul className="space-y-0.5">
             {secao.itens.map(({ href, rotulo, Icone }) => {
               // "/" e "/controle" têm filhos com item próprio no menu: só a própria.
-              const exato = href === "/" || href === "/controle";
-              const ativo = exato ? caminho === href : caminho.startsWith(href);
+              const exato = href === "/";
+              // O painel executivo tem duas abas; o lançamento tem item próprio.
+              const ativo = exato
+                ? caminho === href
+                : href === "/controle"
+                  ? caminho === "/controle" || caminho.startsWith("/controle/todos") || caminho.startsWith("/controle/relatorio")
+                  : caminho.startsWith(href);
               const n = pendencias?.[href] ?? 0;
               return (
                 <li key={href}>

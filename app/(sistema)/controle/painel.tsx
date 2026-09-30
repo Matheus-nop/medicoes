@@ -19,6 +19,7 @@ import {
   type Categoria,
   type Soma,
 } from "@/lib/medicoes/controle";
+import { AbasDoPainel } from "./abas";
 import type { CargaDoControle } from "./dados";
 import { BarrasDeSaldo, GraficoEvolucao } from "./graficos";
 import { AoVivo, EscolherPeriodo, RecadoDaBase } from "./vivo";
@@ -71,7 +72,7 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
   if (!periodo) {
     return (
       <div className="space-y-5">
-        <Cabecalho titulo="Controle de medições" resumo={cliente} />
+        <Cabecalho titulo="Painel executivo" resumo={cliente} />
         <Vazio>
           Nenhum período lançado ainda. Para trazer o histórico da planilha, rode{" "}
           <code>supabase/scripts/semear-controle-aguas-do-rio.sql</code> no SQL Editor — ou{" "}
@@ -114,7 +115,7 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
   return (
     <div className="space-y-5">
       <Cabecalho
-        titulo="Controle de medições"
+        titulo="Painel executivo"
         resumo={
           <>
             {cliente} · posição de <strong>{periodo.rotulo}</strong>. Cada período é a foto do
@@ -140,6 +141,7 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
           </>
         }
       />
+      <AbasDoPainel atual="cliente" />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <CartaoIndicador compacto rotulo="Medido" valor={emReais(r.medido)} detalhe={antes ? variacao(r.medido, antes.medido) : "total do período"} />
