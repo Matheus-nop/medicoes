@@ -358,3 +358,85 @@ export function emailDaRegiao(
     corpo: recadoDaRegiao(cliente, rotulo, linha, hoje).replace(/\*/g, ""),
   };
 }
+
+/* ── A importação da planilha ──────────────────────────────── */
+
+const ABREV = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+
+/**
+ * A aba da planilha que é deste mês: "SET 2026" para setembro, e "JUN-JUL 2025"
+ * serve a julho (o mês de um período de dois é o último). Null se não houver.
+ */
+export function abaDoMes(abas: string[], mes: string): string | null {
+  const [ano, m] = mes.split("-");
+  const abrev = ABREV[Number(m) - 1];
+  const limpa = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().trim();
+  return (
+    abas.find((a) => limpa(a) === `${abrev} ${ano}`) ??
+    abas.find((a) => new RegExp(`(^|-)${abrev}\\s+${ano}$`).test(limpa(a))) ??
+    null
+  );
+}
+
+/**
+ * As linhas de uma aba lida do .xlsx viram o texto que a colagem já entende:
+ * número com vírgula e duas casas (o Excel guarda 46857.11000000001).
+ */
+export function abaComoTexto(linhas: unknown[][]): string {
+  return linhas
+    .map((l) =>
+      l
+        .map((v) =>
+          v === null || v === undefined
+            ? ""
+            : typeof v === "number"
+              ? v.toFixed(2).replace(".", ",")
+              : String(v),
+        )
+        .join("\t"),
+    )
+    .join("\n");
+}
+
+export interface CelulaImportada {
+  regiao: string;
+  categoria: Categoria;
+  /** O saldo que o sistema já tem do mês anterior. */
+  anterior: number;
+  /** Medido NO MÊS: o da planilha menos o saldo anterior. */
+  medido: number;
+  faturado: number;
+  /** O saldo que fica — o mesmo da planilha. */
+  saldo: number;
+}
+
+/**
+ * A aba da planilha no formato do sistema.
+ *
+ * A planilha guarda a FOTO: o medido dela já traz o saldo do mês anterior
+ * dentro. O sistema guarda o mês: medido do mês = medido da planilha − saldo
+ * anterior; o faturado é o mesmo. Assim o saldo que fica é exatamente o da
+ * planilha.
+ *
+ * Quando a planilha zera uma base que tinha saldo, sem faturar ("-" no mês),
+ * o medido do mês sai negativo: é o ajuste que a planilha fez calada, e a tela
+ * mostra para alguém conferir.
+ */
+export function daPlanilhaParaOMes(
+  linhas: LinhaColada[],
+  saldoAnterior: (regiao: string, categoria: Categoria) => number,
+): CelulaImportada[] {
+  return linhas.flatMap((l) =>
+    CATEGORIAS.flatMap((c) => {
+      const par = l.valores[c];
+      const foto = par?.medido ?? 0;
+      const faturado = par?.faturado ?? 0;
+      const anterior = saldoAnterior(l.regiao, c);
+      if (foto === 0 && faturado === 0 && anterior === 0) return [];
+      const medido = centavo(foto - anterior);
+      return [
+        { regiao: l.regiao, categoria: c, anterior, medido, faturado, saldo: centavo(foto - faturado) },
+      ];
+    }),
+  );
+}

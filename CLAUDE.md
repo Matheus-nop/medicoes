@@ -88,6 +88,11 @@ desfaz isso logo depois de criar.
   acompanha. O histórico da planilha foi convertido pela 0006 sem mudar
   nenhum saldo; onde a planilha zerou saldo sem faturar, ficou medido negativo
   naquele mês (o ajuste que ela fazia calada).
+- **importar a planilha** (enquanto ela existir): "Importar da planilha" no
+  lançamento lê o .xlsx (ou a colagem da aba), acha a aba do mês e preenche o
+  quadro — medido do mês = medido da planilha − saldo anterior do sistema, e o
+  saldo que fica é o da planilha. Não salva sozinho; saldo zerado sem faturar
+  aparece como aviso para conferir.
 - **Dois lançamentos, dois times.** "Lançar medições de manutenção" (`/`) é do
   **orçamento**: o boletim, OM por OM, colado do Sisloc. "Lançar medições"
   (`/controle/lancar`) é do **faturamento**: o controle por região, conforme o

@@ -15,8 +15,13 @@ import { emReais } from "@/lib/medicoes/dinheiro";
 import {
   CATEGORIAS,
   ROTULO_CATEGORIA,
+  abaComoTexto,
+  abaDoMes,
+  daPlanilhaParaOMes,
+  lerColagemDoMes,
   lerNumero,
   soma,
+  type CelulaImportada,
   type Categoria,
   type Celula,
   type Periodo,
@@ -146,6 +151,64 @@ export function Grade({
     setValores((v) => ({ ...v, [k]: { ...v[k], [campo]: texto } }));
   }
 
+  // ── A importação da planilha ──────────────────────────────
+  // Enquanto a planilha existir: lê a aba do mês (do .xlsx ou colada),
+  // converte a foto dela para o mês do sistema e PREENCHE o quadro — quem
+  // salva é a pessoa, depois de conferir.
+  const [importando, setImportando] = useState(false);
+  const [abas, setAbas] = useState<{ nome: string; linhas: unknown[][] }[]>([]);
+  const [aba, setAba] = useState("");
+  const [colagem, setColagem] = useState("");
+  const [ajustes, setAjustes] = useState<CelulaImportada[]>([]);
+
+  async function lerArquivo(arquivo: File) {
+    setErro(null);
+    try {
+      // Carregado só quando se usa: a tela de todo dia não paga pelo leitor.
+      const { default: lerXlsx } = await import("read-excel-file/browser");
+      const folhas = (await lerXlsx(arquivo)) as unknown as { sheet: string; data: unknown[][] }[];
+      const lidas = folhas.map((f) => ({ nome: f.sheet, linhas: f.data }));
+      setAbas(lidas);
+      setAba(abaDoMes(lidas.map((l) => l.nome), periodo.mes) ?? "");
+    } catch {
+      setErro("Não consegui ler o arquivo. Confira se é a planilha .xlsx de controle de medições.");
+    }
+  }
+
+  function importar() {
+    const texto = abas.length ? abaComoTexto(abas.find((a) => a.nome === aba)?.linhas ?? []) : colagem;
+    const { linhas, desconhecidas } = lerColagemDoMes(
+      texto,
+      regioes.map((r) => r.nome),
+    );
+    if (linhas.length === 0) {
+      setErro("Não achei nenhuma base nesta aba. Escolha a aba do mês (ex.: SET 2026).");
+      return;
+    }
+    const id = new Map(regioes.map((r) => [r.nome, r.id]));
+    const convertidas = daPlanilhaParaOMes(linhas, (reg, c) => veioDe(chave(id.get(reg)!, c)));
+    setValores((v) => {
+      const novo = { ...v };
+      for (const x of convertidas) {
+        novo[chave(id.get(x.regiao)!, x.categoria)] = {
+          medido: noCampo(x.medido),
+          faturado: noCampo(x.faturado),
+        };
+      }
+      return novo;
+    });
+    const negativos = convertidas.filter((x) => x.medido < 0);
+    setAjustes(negativos);
+    setImportando(false);
+    setErro(null);
+    setRecado(
+      `${linhas.length} base(s) preenchida(s) da planilha${aba ? ` (aba ${aba})` : ""}. O medido de cada ` +
+        `uma é o da planilha menos o saldo do mês anterior, e o saldo que fica é o mesmo da planilha. ` +
+        "Confira e salve." +
+        (desconhecidas.length ? ` Ficaram de fora, por não estarem cadastradas: ${desconhecidas.join(", ")}.` : ""),
+    );
+  }
+
   function salvar() {
     setErro(null);
     iniciar(async () => {
@@ -219,9 +282,15 @@ export function Grade({
         descricao={`${deOnde} + medido no mês − faturado no mês = saldo, base a base.`}
         acoes={
           <>
+            <Botao variante="discreto" onClick={() => setImportando((x) => !x)} disabled={salvando}>
+              Importar da planilha
+            </Botao>
             <Botao
               variante="discreto"
-              onClick={() => setValores(inicial)}
+              onClick={() => {
+                setValores(inicial);
+                setAjustes([]);
+              }}
               disabled={salvando || mudadas.length === 0}
             >
               Desfazer
@@ -240,6 +309,71 @@ export function Grade({
           </>
         }
       >
+        {importando && (
+          <div className="space-y-3 border-b border-borda bg-superficie-2 p-4">
+            <p className="text-xs text-texto-2">
+              Escolha a planilha de controle (.xlsx) — a aba de {periodo.rotulo} vem marcada — ou cole
+              as linhas da aba do mês. A planilha guarda o medido com o saldo anterior dentro; o
+              sistema desconta o saldo que já tem e preenche só o que é do mês. Nada é salvo antes de
+              você conferir.
+            </p>
+            <div className="flex flex-wrap items-end gap-3">
+              <Campo rotulo="Planilha (.xlsx)">
+                <input
+                  type="file"
+                  accept=".xlsx"
+                  onChange={(e) => e.target.files?.[0] && lerArquivo(e.target.files[0])}
+                  className="block text-xs text-texto-2 file:mr-2 file:rounded-lg file:border file:border-borda file:bg-superficie file:px-3 file:py-1.5 file:text-xs file:font-semibold"
+                />
+              </Campo>
+              {abas.length > 0 && (
+                <Campo rotulo="Aba">
+                  <select value={aba} onChange={(e) => setAba(e.target.value)} className={CAMPO}>
+                    <option value="">Escolha a aba</option>
+                    {abas.map((a) => (
+                      <option key={a.nome}>{a.nome}</option>
+                    ))}
+                  </select>
+                </Campo>
+              )}
+            </div>
+            {abas.length === 0 && (
+              <textarea
+                value={colagem}
+                onChange={(e) => setColagem(e.target.value)}
+                rows={4}
+                placeholder="…ou cole aqui as linhas da aba do mês, da coluna REGIÃO até a indenização"
+                className="w-full rounded-lg border border-borda bg-superficie p-2 font-mono text-xs outline-none focus:border-acento"
+              />
+            )}
+            <div className="flex gap-2">
+              <Botao
+                variante="primario"
+                onClick={importar}
+                disabled={abas.length ? !aba : !colagem.trim()}
+              >
+                Preencher o quadro
+              </Botao>
+              <Botao variante="discreto" onClick={() => setImportando(false)}>
+                Cancelar
+              </Botao>
+            </div>
+          </div>
+        )}
+
+        {ajustes.length > 0 && (
+          <div className="border-b border-borda px-4 py-3">
+            <Aviso tom="erro" aoFechar={() => setAjustes([])}>
+              A planilha zerou {ajustes.length} saldo(s) sem faturar — o medido do mês ficou negativo
+              para o saldo bater:{" "}
+              {ajustes
+                .map((a) => `${a.regiao} · ${ROTULO_CATEGORIA[a.categoria]} (${emReais(a.medido)})`)
+                .join("; ")}
+              . Confira se foi cancelamento, baixa ou esquecimento antes de salvar.
+            </Aviso>
+          </div>
+        )}
+
         {/* ── O quadro: um cartão por base ──────────────────── */}
         <div className="grid gap-3 p-4 lg:grid-cols-2 2xl:grid-cols-3">
           {regioes.map((r) => {

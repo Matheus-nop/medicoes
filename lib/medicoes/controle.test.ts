@@ -11,6 +11,9 @@ import { fileURLToPath } from "node:url";
 import {
   CATEGORIAS,
   TODAS,
+  abaComoTexto,
+  abaDoMes,
+  daPlanilhaParaOMes,
   emailDaRegiao,
   faixaDoFaturado,
   historicoDaRegiao,
@@ -188,4 +191,40 @@ test("agosto 100 medido e 30 faturado: setembro começa com 70", () => {
   const outubro = resumirPeriodo([{ ...base, periodo_id: 3, saldo_anterior: 100, medido: 0, faturado: 0 }]);
   e(outubro.saldo, 100);
   e(outubro.regioes[0].saldo, 100);
+});
+
+test("a aba do mês na planilha", () => {
+  const abas = ["📊 RESUMO EXECUTIVO", "JUN-JUL 2025", "AGO 2026", "SET 2026"];
+  e(abaDoMes(abas, "2026-09-01"), "SET 2026");
+  e(abaDoMes(abas, "2025-07-01"), "JUN-JUL 2025");
+  e(abaDoMes(abas, "2026-10-01"), null);
+});
+
+test("a aba lida do .xlsx vira o texto da colagem, sem o float do Excel", () => {
+  const t = abaComoTexto([
+    [null, "REGIÃO", "Medido", "Faturado", "Saldo"],
+    [null, "NORTE", 24338, 7732, 46857.11000000001, 92934.85, null, null, "-"],
+  ]);
+  const { linhas } = lerColagemDoMes(t, REGIOES);
+  deepStrictEqual(linhas[0].valores.manutencao, { medido: 24338, faturado: 7732 });
+  deepStrictEqual(linhas[0].valores.locacao, { medido: 92934.85, faturado: null });
+});
+
+test("importar setembro: o medido do mês é o da planilha menos o saldo de agosto", () => {
+  const anterior: Record<string, number> = { "VCG:locacao": 282801.67, "LESTE:indenizacao": 5000 };
+  const r = daPlanilhaParaOMes(
+    [
+      { regiao: "VCG", valores: { locacao: { medido: 580142.67, faturado: 282801.67 } } },
+      // A planilha não tem mais nada da LESTE em indenização: zerou sem faturar.
+      { regiao: "LESTE", valores: {} },
+    ],
+    (reg, c) => anterior[`${reg}:${c}`] ?? 0,
+  );
+  const vcg = r.find((x) => x.regiao === "VCG")!;
+  e(vcg.medido, 297341);
+  e(vcg.faturado, 282801.67);
+  e(vcg.saldo, 297341);
+  const leste = r.find((x) => x.regiao === "LESTE")!;
+  e(leste.medido, -5000);
+  e(leste.saldo, 0);
 });
