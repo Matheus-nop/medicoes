@@ -40,7 +40,7 @@ const TOM_FAIXA = { ok: "ok", parcial: "transito", pendente: "aviso", vazio: "ne
  * A ficha de um cliente: a manutenção (os boletins do orçamento, por base) e o
  * faturamento (as medições do painel, por base e mês). Cada boletim abre o
  * papel dele; cada mês abre o relatório — o arquivo digital, que se imprime em
- * PDF quando precisar. E as duas planilhas para baixar e guardar.
+ * PDF quando precisar. Tudo na tela ou em PDF — planilha, não.
  */
 export default async function FichaDoCliente({
   searchParams,
@@ -83,28 +83,30 @@ export default async function FichaDoCliente({
           ? "manutencao"
           : "faturamento";
   const aqui = (a: Aba) => `/clientes/ficha?nome=${encodeURIComponent(ficha.nome)}&aba=${a}`;
-  const planilha = (tipo: Aba) =>
-    `/clientes/planilha?nome=${encodeURIComponent(ficha.nome)}&tipo=${tipo}`;
+  const extrato = `/clientes/extrato?nome=${encodeURIComponent(ficha.nome)}`;
 
   return (
     <div className="space-y-5">
       <Cabecalho
         titulo={ficha.nome}
-        resumo="O arquivo do cliente: cada boletim com o seu papel, cada mês com o seu relatório — em PDF quando precisar — e as planilhas para guardar."
+        resumo="O arquivo do cliente: cada boletim com o seu papel, cada mês com o seu relatório — na tela, ou em PDF quando precisar."
         acoes={
           <>
             <Link href="/clientes" className={ESTILO_BOTAO.discreto}>
               Todos os clientes
             </Link>
             {temManutencao && (
-              <a href={planilha("manutencao")} className={ESTILO_BOTAO.contorno}>
-                Planilha da manutenção
-              </a>
+              <Link href={extrato} className={ESTILO_BOTAO.contorno}>
+                Extrato da manutenção (PDF)
+              </Link>
             )}
             {temFaturamento && (
-              <a href={planilha("faturamento")} className={ESTILO_BOTAO.contorno}>
-                Planilha do faturamento
-              </a>
+              <Link
+                href={`/controle/relatorio?cliente=${encodeURIComponent(ficha.faturamento!.cliente)}&base=${TODAS}`}
+                className={ESTILO_BOTAO.contorno}
+              >
+                Relatório do faturamento (PDF)
+              </Link>
             )}
           </>
         }
