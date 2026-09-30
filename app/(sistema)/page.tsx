@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { situacaoLida, type BoletimAtual } from "@/lib/medicoes/medicoes";
+import type { Base } from "@/lib/medicoes/bases";
 import { Medicoes, type SaldoLido } from "./painel";
 
 export const dynamic = "force-dynamic";
@@ -7,12 +8,15 @@ export const dynamic = "force-dynamic";
 export default async function PaginaMedicoes() {
   const supabase = await createClient();
 
-  const [boletins, porCliente, itens] = await Promise.all([
+  const [boletins, porCliente, itens, bases] = await Promise.all([
     supabase.from("boletins_atual").select("*").order("id", { ascending: false }),
     supabase.from("por_cliente").select("*"),
     // Só o número da OM e o boletim dela: é o que a colagem precisa para dizer
     // "esta já está no BM-0003" antes de alguém apertar o botão.
     supabase.from("boletim_oms").select("om, boletim_id"),
+    // O cadastro de bases: a colagem mostra o que o boletim novo vai puxar.
+    // Sem a 0010 ele não existe, e a colagem segue sem ele.
+    supabase.from("bases").select("*"),
   ]);
 
   const falha = boletins.error ?? porCliente.error ?? itens.error;
@@ -55,6 +59,7 @@ export default async function PaginaMedicoes() {
         saldo: Number(c.saldo),
       }))}
       jaMedidas={jaMedidas}
+      bases={bases.error ? [] : ((bases.data ?? []) as Base[])}
     />
   );
 }

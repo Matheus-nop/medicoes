@@ -11,7 +11,13 @@ import {
   Vazio,
 } from "@/components/ui";
 import { emPorcento, emReais } from "@/lib/medicoes/dinheiro";
-import { boletinsPorBase, type FichaDoCliente } from "@/lib/medicoes/arquivo";
+import {
+  basesDosBoletins,
+  boletinsPorBase,
+  daBase,
+  fichasDosClientes,
+  type FichaDoCliente,
+} from "@/lib/medicoes/arquivo";
 import {
   CATEGORIAS,
   ROTULO_CATEGORIA,
@@ -30,6 +36,12 @@ import { TOM_SITUACAO } from "../../painel";
 import { carregarControle } from "../../controle/dados";
 import { dataCurta, periodo as periodoDasOms } from "../../formato";
 import { carregarClientes } from "../dados";
+import { FiltrarBase } from "../extrato/escolher";
+
+/** Os números da manutenção só dos boletins filtrados. */
+function resumoDaManutencao(ficha: FichaDoCliente, boletins: BoletimAtual[]): FichaDoCliente {
+  return fichasDosClientes(boletins, []).find((f) => f.chave === ficha.chave) ?? ficha;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +58,7 @@ const TOM_FAIXA = { ok: "ok", parcial: "transito", pendente: "aviso", vazio: "ne
 export default async function FichaDoCliente({
   searchParams,
 }: {
-  searchParams: Promise<{ nome?: string; aba?: string }>;
+  searchParams: Promise<{ nome?: string; aba?: string; base?: string }>;
 }) {
   const q = await searchParams;
   const nome = (q.nome ?? "").trim();
@@ -72,8 +84,11 @@ export default async function FichaDoCliente({
     );
   }
 
-  const boletins = carga.boletins.filter((b) => chaveDoCliente(b.cliente) === chave);
-  const temManutencao = boletins.length > 0;
+  const doCliente = carga.boletins.filter((b) => chaveDoCliente(b.cliente) === chave);
+  const base = (q.base ?? "").trim();
+  // A base filtra as duas abas: os boletins da manutenção e as bases do painel.
+  const boletins = doCliente.filter((b) => daBase(b.base, base));
+  const temManutencao = doCliente.length > 0;
   const temFaturamento = ficha.faturamento !== null;
   const aba: Aba =
     q.aba === "faturamento" && temFaturamento
@@ -83,8 +98,11 @@ export default async function FichaDoCliente({
         : temManutencao
           ? "manutencao"
           : "faturamento";
-  const aqui = (a: Aba) => `/clientes/ficha?nome=${encodeURIComponent(ficha.nome)}&aba=${a}`;
-  const extrato = `/clientes/extrato?nome=${encodeURIComponent(ficha.nome)}`;
+  const aqui = (a: Aba) =>
+    `/clientes/ficha?nome=${encodeURIComponent(ficha.nome)}&aba=${a}${base ? `&base=${encodeURIComponent(base)}` : ""}`;
+  const extrato = `/clientes/extrato?nome=${encodeURIComponent(ficha.nome)}${
+    base ? `&base=${encodeURIComponent(base)}` : ""
+  }`;
 
   return (
     <div className="space-y-5">
@@ -113,6 +131,10 @@ export default async function FichaDoCliente({
         }
       />
 
+      <div className="flex flex-wrap items-end gap-3">
+        <FiltrarBase bases={basesDosBoletins(doCliente)} base={base} />
+      </div>
+
       <AbasDeLink
         rotulo="Parte do arquivo"
         atual={aqui(aba)}
@@ -125,9 +147,13 @@ export default async function FichaDoCliente({
       />
 
       {aba === "manutencao" ? (
-        <Manutencao ficha={ficha} boletins={boletins} />
+        boletins.length ? (
+          <Manutencao ficha={base ? resumoDaManutencao(ficha, boletins) : ficha} boletins={boletins} />
+        ) : (
+          <Vazio>Nenhum boletim deste cliente com a base &quot;{base}&quot;.</Vazio>
+        )
       ) : (
-        <Faturamento cliente={ficha.faturamento!.cliente} />
+        <Faturamento cliente={ficha.faturamento!.cliente} base={base} />
       )}
     </div>
   );
@@ -201,12 +227,15 @@ function Manutencao({
   );
 }
 
-async function Faturamento({ cliente }: { cliente: string }) {
+async function Faturamento({ cliente, base }: { cliente: string; base: string }) {
   const carga = await carregarControle(cliente);
   if (!carga.ok || !carga.periodo) {
     return <Vazio>{carga.ok ? "Nenhum período com valor ainda." : carga.erro}</Vazio>;
   }
-  const { periodo, serie, regioes, celulas } = carga;
+  const { periodo, serie } = carga;
+  // Com a base filtrada, a conta é só das regiões com esse nome.
+  const regioes = carga.regioes.filter((x) => daBase(x.nome, base));
+  const celulas = carga.celulas.filter((c) => daBase(c.regiao, base));
   const r = resumirPeriodo(celulas, regioes);
   const relatorio = (periodoId: number, base: string) =>
     `/controle/relatorio?cliente=${encodeURIComponent(cliente)}&periodo=${periodoId}&base=${encodeURIComponent(base)}`;

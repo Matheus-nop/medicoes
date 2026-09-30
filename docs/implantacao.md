@@ -34,6 +34,9 @@ Cole e rode **um arquivo por vez, nesta ordem**:
 12. `supabase/migrations/0009_periodo_pela_chegada.sql` — o período do
     boletim ("OMs de … a …") passa a olhar a data de chegada, que é a que os
     boletins importados trazem.
+13. `supabase/migrations/0010_bases.sql` — o cadastro de bases. Ele nasce com
+    as bases dos boletins que já existem (o mais recente de cada uma empresta
+    os dados); a conferência tem de dizer `✓ ok` e mostra quantas bases entraram.
 
 Cada uma (menos a 0000) termina numa conferência: **toda linha tem de dizer
 `✓ ok`**. Se aparecer `!!`, a colagem provavelmente chegou cortada — rode o
