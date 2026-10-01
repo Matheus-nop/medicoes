@@ -29,6 +29,14 @@ const SALDO = "#C2683B";
 /** Quantos períodos a evolução mostra: um ano e pouco cabe na folha. */
 const PERIODOS_NA_FOLHA = 13;
 
+/**
+ * O valor sem o "R$", para as tabelas de nove colunas: com o símbolo em
+ * cada célula elas não cabem nos 174 mm da folha. O título diz que é real.
+ */
+function num(v: number) {
+  return v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function pct(f: number | null) {
   return f === null ? "—" : emPorcento(f);
 }
@@ -129,6 +137,12 @@ export function RelatorioDaBase({
   const th1 = "px-[1.5mm] py-[1.2mm] text-left font-bold";
   const td = "border-b border-[#E4E5EA] px-[1.5mm] py-[0.8mm] text-right tabular-nums whitespace-nowrap";
   const td1 = "border-b border-[#E4E5EA] px-[1.5mm] py-[0.8mm] text-left whitespace-nowrap";
+  // As tabelas largas (base e evolução): letra menor, folga menor, e o nome
+  // da base pode quebrar — é a única coluna que pode.
+  const thL = "px-[0.8mm] py-[1mm] text-right font-bold leading-tight";
+  const thL1 = "px-[0.8mm] py-[1mm] text-left font-bold";
+  const tdL = "border-b border-[#E4E5EA] px-[0.8mm] py-[0.7mm] text-right tabular-nums whitespace-nowrap";
+  const tdL1 = "border-b border-[#E4E5EA] px-[0.8mm] py-[0.7mm] text-left leading-tight";
 
   return (
     <div className="space-y-4">
@@ -230,40 +244,40 @@ export function RelatorioDaBase({
           {todas && (
             <>
               <p className="mt-[4mm] text-[8pt] font-bold text-[#16365C]">
-                POR BASE — SALDO A FATURAR
+                POR BASE — SALDO A FATURAR <span className="font-normal text-[#8A8A93]">(valores em R$)</span>
               </p>
-              <table className="mt-[1mm] w-full border-collapse">
+              <table className="mt-[1mm] w-full border-collapse text-[7pt]">
                 <thead>
-                  <tr className="bg-[#16365C] text-[7pt] text-white">
-                    <th className={th1}>Base</th>
+                  <tr className="bg-[#16365C] text-[6.5pt] text-white">
+                    <th className={thL1}>Base</th>
                     {CATEGORIAS.map((c) => (
-                      <th key={c} className={th}>
+                      <th key={c} className={thL}>
                         {ROTULO_CATEGORIA[c]}
                       </th>
                     ))}
-                    <th className={th}>Saldo ant.</th>
-                <th className={th}>Medido</th>
-                    <th className={th}>Faturado</th>
-                    <th className={th}>Saldo</th>
-                    <th className={th}>% fat.</th>
+                    <th className={thL}>Saldo ant.</th>
+                    <th className={thL}>Medido</th>
+                    <th className={thL}>Faturado</th>
+                    <th className={thL}>Saldo</th>
+                    <th className={thL}>% fat.</th>
                   </tr>
                 </thead>
                 <tbody>
                   {r.regioes.map((x) => (
                     <tr key={x.regiao} className="break-inside-avoid">
-                      <td className={`${td1} font-semibold`}>{x.regiao}</td>
+                      <td className={`${tdL1} font-semibold`}>{x.regiao}</td>
                       {CATEGORIAS.map((c) => (
-                        <td key={c} className={td}>
-                          {temValor(x.categorias[c]) ? emReais(x.categorias[c].saldo) : "—"}
+                        <td key={c} className={tdL}>
+                          {temValor(x.categorias[c]) ? num(x.categorias[c].saldo) : "—"}
                         </td>
                       ))}
-                      <td className={td}>{emReais(x.anterior)}</td>
-                      <td className={td}>{emReais(x.medido)}</td>
-                      <td className={td}>{emReais(x.faturado)}</td>
-                      <td className={`${td} font-bold text-[#C2683B]`}>
-                        {emReais(x.saldo)}
+                      <td className={tdL}>{num(x.anterior)}</td>
+                      <td className={tdL}>{num(x.medido)}</td>
+                      <td className={tdL}>{num(x.faturado)}</td>
+                      <td className={`${tdL} font-bold text-[#C2683B]`}>
+                        {num(x.saldo)}
                       </td>
-                      <td className={td}>{pct(x.fracao)}</td>
+                      <td className={tdL}>{pct(x.fracao)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -275,7 +289,8 @@ export function RelatorioDaBase({
           {fotos.length > 0 && (
             <div className="break-inside-avoid">
               <p className="mt-[4mm] text-[8pt] font-bold text-[#16365C]">
-                EVOLUÇÃO — O SALDO DE CADA MÊS É O ANTERIOR DO SEGUINTE
+                EVOLUÇÃO — O SALDO DE CADA MÊS É O ANTERIOR DO SEGUINTE{" "}
+                <span className="font-normal text-[#8A8A93]">(valores em R$)</span>
               </p>
               <div className="mt-[1mm] grid grid-cols-[1fr] gap-[2mm]">
                 <BarrasDoSaldo fotos={fotos} />
@@ -290,38 +305,38 @@ export function RelatorioDaBase({
                   </span>
                 </p>
               </div>
-              <table className="mt-[1.5mm] w-full border-collapse text-[7.5pt]">
+              <table className="mt-[1.5mm] w-full border-collapse text-[7pt]">
                 <thead>
                   <tr className="bg-[#16365C] text-[6.5pt] text-white">
-                    <th className={th1}>Período</th>
+                    <th className={thL1}>Período</th>
                     {CATEGORIAS.map((c) => (
-                      <th key={c} className={th}>
+                      <th key={c} className={thL}>
                         Saldo {ROTULO_CATEGORIA[c].toLowerCase()}
                       </th>
                     ))}
-                    <th className={th}>Saldo ant.</th>
-                <th className={th}>Medido</th>
-                    <th className={th}>Faturado</th>
-                    <th className={th}>Saldo</th>
-                    <th className={th}>% fat.</th>
+                    <th className={thL}>Saldo ant.</th>
+                    <th className={thL}>Medido</th>
+                    <th className={thL}>Faturado</th>
+                    <th className={thL}>Saldo</th>
+                    <th className={thL}>% fat.</th>
                   </tr>
                 </thead>
                 <tbody>
                   {[...fotos].reverse().map((f) => (
                     <tr key={f.periodo_id} className={f.periodo_id === periodo.id ? "bg-[#EEF3FA] font-semibold" : ""}>
-                      <td className={td1}>{f.rotulo}</td>
+                      <td className={`${tdL1} whitespace-nowrap`}>{f.rotulo}</td>
                       {CATEGORIAS.map((c) => (
-                        <td key={c} className={td}>
-                          {temValor(f.categorias[c]) ? emReais(f.categorias[c].saldo) : "—"}
+                        <td key={c} className={tdL}>
+                          {temValor(f.categorias[c]) ? num(f.categorias[c].saldo) : "—"}
                         </td>
                       ))}
-                      <td className={td}>{emReais(f.anterior)}</td>
-                      <td className={td}>{emReais(f.medido)}</td>
-                      <td className={td}>{emReais(f.faturado)}</td>
-                      <td className={`${td} font-bold text-[#C2683B]`}>
-                        {emReais(f.saldo)}
+                      <td className={tdL}>{num(f.anterior)}</td>
+                      <td className={tdL}>{num(f.medido)}</td>
+                      <td className={tdL}>{num(f.faturado)}</td>
+                      <td className={`${tdL} font-bold text-[#C2683B]`}>
+                        {num(f.saldo)}
                       </td>
-                      <td className={td}>{pct(f.fracao)}</td>
+                      <td className={tdL}>{pct(f.fracao)}</td>
                     </tr>
                   ))}
                 </tbody>
