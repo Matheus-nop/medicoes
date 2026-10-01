@@ -128,6 +128,10 @@ desfaz isso logo depois de criar.
   ao abrir o primeiro boletim. A base se acha pela chave do nome
   (`chave_do_nome` no banco = `chaveDoCliente` no código). Editar a base não
   muda boletim que já existe; "Puxar dados da base" traz para o aberto.
+- **mês de referência**: o "AGOSTO/2026" do boletim. A tela inicial filtra
+  por ele (e pela base), e os números do topo passam a ser os do recorte. O
+  mês se acha pela chave (`ordemDaReferencia`), não pela grafia; fica no
+  endereço (`/?mes=202608`) para voltar do boletim sem perder o filtro.
 - **colagem**: a lista do Sisloc copiada e colada, com a linha de títulos.
 - **contrato** (`/contratos`, 0013): com quem, o quê, até quando, quanto e
   por qual índice. O cadastro se corrige; o que MUDA o contrato é **aditivo**
