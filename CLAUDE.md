@@ -37,12 +37,16 @@ Next.js App Router · TypeScript · Supabase (Postgres, Auth) · Tailwind · Ver
 - Português nos campos, tabelas e UI.
 
 ## Papéis (`medicoes.perfis`)
-- **diretoria**: vê tudo, reabre boletim, dá e tira acesso.
-- **financeiro**: fatura.
-- **faturamento**: monta, fecha e envia boletim.
-- **orcamento**: monta boletim e confere valor.
-Hoje só "reabrir" e "dar acesso" são restritos (diretoria); o resto é de
-qualquer usuário ativo. Apertar mais é decisão do time, não do código.
+- **diretoria**: lança tudo, reabre boletim, dá e tira acesso.
+- **orcamento**: o boletim de manutenção e o cadastro de bases.
+- **faturamento**: o boletim, o cadastro de bases e o controle (`/controle/lancar`).
+- **financeiro**: o recebimento (`/controle/receber`).
+- O contrato (`/contratos`) é do **faturamento** e da diretoria; apagar
+  contrato ou aditivo é só da diretoria.
+Ler, todo mundo lê. Cada time lança o que é seu (`0011`, policies
+**restritivas** que se somam às de antes); a regra mora também em
+`QUEM_LANCA` (`lib/medicoes/papeis.ts`), que só decide se a tela mostra o
+botão ou o `SoLeitura` com quem lança. Mudou um, muda o outro.
 
 Quem é criado por aqui nasce **sem acesso** no Roteiros e no Estoque: os
 gatilhos de lá dão PCM e operador a qualquer conta nova, e a tela de usuários
@@ -75,7 +79,13 @@ desfaz isso logo depois de criar.
   bases e os meses do controle, cada um com o seu relatório), e o extrato de
   manutenção do cliente (`/clientes/extrato`, por mês e por base). Tudo na tela ou em
   PDF — planilha não, que é dela que a casa está saindo. O nome do boletim vem do Sisloc e o do
-  controle é digitado: quando não batem, são duas fichas — de propósito.
+  controle é digitado: quando não batem, são duas fichas — de propósito — até
+  alguém **juntar** os nomes na ficha ("Nomes deste cliente").
+- **vínculo** (`vinculos_de_cliente`, 0012): "o nome X é o cliente Y". Junta
+  as fichas no arquivo, na ficha e no extrato; o boletim e o papel continuam
+  com o nome do Sisloc. Um nível só: o cliente de um vínculo não se junta a
+  outro. Desfazer é apagar — não tem número dentro. A conta é `chaveDaFicha`
+  (`lib/medicoes/arquivo.ts`).
 - **painel executivo** (`/controle`): a aba "Por cliente" e a aba "Todos os
   clientes", onde cada um entra com a SUA posição mais recente.
 - **padrão das telas**: cartões em quadro e painéis que recolhem
@@ -119,6 +129,18 @@ desfaz isso logo depois de criar.
   (`chave_do_nome` no banco = `chaveDoCliente` no código). Editar a base não
   muda boletim que já existe; "Puxar dados da base" traz para o aberto.
 - **colagem**: a lista do Sisloc copiada e colada, com a linha de títulos.
+- **contrato** (`/contratos`, 0013): com quem, o quê, até quando, quanto e
+  por qual índice. O cadastro se corrige; o que MUDA o contrato é **aditivo**
+  (prorrogação, reajuste, acréscimo ou supressão, encerramento), que não se
+  edita — o lançado por engano a diretoria apaga. A vigência e o valor de hoje
+  e o **medido** (o do controle do cliente nos meses da vigência, pelas
+  categorias do contrato, pela chave e pelo vínculo) saem de
+  `contratos_atual`. A situação (vigente, vence logo, vencido, encerrado), o
+  próximo reajuste e os alertas dependem de hoje e saem de
+  `lib/medicoes/contratos.ts`. O reajuste registrado cobre o aniversário a até
+  meio ano dele. O contador do menu é o de contratos pedindo ação (vence,
+  venceu, reajuste sem registro, 90% do valor medido). Faturamento e
+  diretoria lançam.
 
 ## Aparência
 - App instalável (PWA): `app/manifest.ts`, `public/sw.js` e o convite de
@@ -144,10 +166,26 @@ desfaz isso logo depois de criar.
       WhatsApp e o histórico — ao vivo, relendo a cada minuto, com a variação
       contra a foto anterior. O relatório (`/controle/relatorio`), de uma base
       ou de todas, sai em PDF A4 e vai por e-mail (o e-mail abre pronto; o PDF
-      se anexa à mão — link de e-mail não leva arquivo). Contratos ainda não.
-- [~] Os boletins de agosto/2026 do Águas do Rio / AEGEA (41, 165 OMs,
-      R$ 227.115,00) entram por `supabase/scripts/importar-boletins-agosto-2026.sql`,
+      se anexa à mão — link de e-mail não leva arquivo). Os contratos vieram na Fase 6.
+- [x] Os boletins de agosto/2026 do Águas do Rio / AEGEA (41, 165 OMs,
+      R$ 227.115,00) entraram por `supabase/scripts/importar-boletins-agosto-2026.sql`,
       depois da `0008`.
 - [~] Fase 4 — o financeiro: recebimento (`0007`) com mês de início e
-      abertura, e a idade do saldo a faturar e do a receber no painel. Falta
-      aplicar a `0007` e o financeiro definir o início de cada cliente.
+      abertura, e a idade do saldo a faturar e do a receber no painel. `0007`
+      aplicada; falta o financeiro definir o início e a abertura de cada cliente.
+- [~] Fase 5 — o dia a dia: o papel do Águas do Rio 2026 (`0008`), o período
+      do boletim pela chegada (`0009`), o cadastro de bases com o próximo
+      Documento Nº (`0010`), o filtro por base na tela inicial, no extrato e no
+      arquivo, cada time lançando o que é seu (`0011`) e os nomes do mesmo cliente
+      juntados no arquivo (`0012`). `0008` a `0010` **aplicadas**, e os
+      boletins de agosto importados. Falta aplicar a `0011` e a `0012`, juntar
+      os nomes do Águas do Rio / AEGEA, completar o cadastro de bases
+      (responsável e local da obra) e rodar outubro inteiro no sistema com a
+      planilha ao lado.
+- [~] Fase 6 — os contratos (`0013`): cadastro, aditivos, a vigência e o valor
+      de hoje contra o medido do controle, o reajuste pelo aniversário, os
+      alertas no quadro, na ficha do cliente e no contador do menu. Falta
+      aplicar a `0013` e cadastrar os contratos vigentes, a começar pelo do
+      Águas do Rio / AEGEA.
+- As provas de RLS de todas as migrações estão em
+  `supabase/scripts/provar-as-travas.sql` (trechos 1 a 21).

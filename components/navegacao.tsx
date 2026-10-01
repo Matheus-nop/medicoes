@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   IconeArquivo,
   IconeBase,
+  IconeContrato,
   IconeLancar,
   IconeMedicoes,
   IconePainel,
@@ -20,9 +21,10 @@ import {
 //     indenização) por região, conforme o faturamento anda. É o que aparece
 //     no painel da diretoria.
 //
-// Os dois não se misturam: o boletim não alimenta o painel sozinho. Contratos
-// entram aqui quando existirem — item de menu que leva a tela vazia ensina a
-// não clicar.
+// Os dois não se misturam: o boletim não alimenta o painel sozinho.
+//
+//   Contratos — o que vence, o que reajusta e quanto já foi medido. O contador
+//     do item é o de contratos pedindo ação (ver `contratosPedindoAtencao`).
 const SECOES = [
   {
     titulo: "Orçamento · manutenção",
@@ -44,7 +46,10 @@ const SECOES = [
   },
   {
     titulo: "Consulta",
-    itens: [{ href: "/clientes", rotulo: "Arquivo por cliente", Icone: IconeArquivo }],
+    itens: [
+      { href: "/contratos", rotulo: "Contratos", Icone: IconeContrato },
+      { href: "/clientes", rotulo: "Arquivo por cliente", Icone: IconeArquivo },
+    ],
   },
   {
     titulo: "Administração",

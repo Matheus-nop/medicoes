@@ -11,9 +11,14 @@ import {
   Vazio,
 } from "@/components/ui";
 import { emPorcento, emReais } from "@/lib/medicoes/dinheiro";
+import { contratoLido, hojeNaCasa } from "@/lib/medicoes/contratos";
+import { podeLancar } from "@/lib/medicoes/papeis";
+import { createClient } from "@/lib/supabase/server";
+import { sessaoAtual } from "@/lib/supabase/papel";
 import {
   basesDosBoletins,
   boletinsPorBase,
+  chaveDaFicha,
   daBase,
   fichasDosClientes,
   type FichaDoCliente,
@@ -37,10 +42,16 @@ import { carregarControle } from "../../controle/dados";
 import { dataCurta, periodo as periodoDasOms } from "../../formato";
 import { carregarClientes } from "../dados";
 import { FiltrarBase } from "../extrato/escolher";
+import { NomesDoCliente } from "./nomes";
+import { CartaoDoContrato } from "../../contratos/cartao";
 
 /** Os números da manutenção só dos boletins filtrados. */
-function resumoDaManutencao(ficha: FichaDoCliente, boletins: BoletimAtual[]): FichaDoCliente {
-  return fichasDosClientes(boletins, []).find((f) => f.chave === ficha.chave) ?? ficha;
+function resumoDaManutencao(
+  ficha: FichaDoCliente,
+  boletins: BoletimAtual[],
+  vinculos: Parameters<typeof fichasDosClientes>[2],
+): FichaDoCliente {
+  return fichasDosClientes(boletins, [], vinculos).find((f) => f.chave === ficha.chave) ?? ficha;
 }
 
 export const dynamic = "force-dynamic";
@@ -62,7 +73,12 @@ export default async function FichaDoCliente({
 }) {
   const q = await searchParams;
   const nome = (q.nome ?? "").trim();
-  const carga = await carregarClientes();
+  const [carga, sessao, contratos] = await Promise.all([
+    carregarClientes(),
+    sessaoAtual(),
+    // Sem a 0013 a ficha segue sem contratos.
+    createClient().then((s) => s.from("contratos_atual").select("*")),
+  ]);
   if (!carga.ok) {
     return (
       <div className="rounded-lg border border-borda bg-superficie p-8 text-center">
@@ -71,7 +87,8 @@ export default async function FichaDoCliente({
       </div>
     );
   }
-  const chave = chaveDoCliente(nome);
+  // O nome juntado a outro abre a ficha do outro: link antigo não se perde.
+  const chave = chaveDaFicha(nome, carga.vinculos);
   const ficha = carga.fichas.find((f) => f.chave === chave);
   if (!ficha) {
     return (
@@ -84,7 +101,18 @@ export default async function FichaDoCliente({
     );
   }
 
-  const doCliente = carga.boletins.filter((b) => chaveDoCliente(b.cliente) === chave);
+  const doCliente = carga.boletins.filter((b) => chaveDaFicha(b.cliente, carga.vinculos) === chave);
+  // Os vínculos desta ficha, e as outras fichas que podem se juntar a ela —
+  // as que não são, elas mesmas, destino de vínculo (um nível só).
+  const juntados = carga.vinculos
+    .filter((v) => chaveDoCliente(v.cliente) === chave && v.id !== undefined)
+    .map((v) => ({ id: v.id!, nome: ficha.nomes.find((n) => chaveDoCliente(n) === chaveDoCliente(v.nome)) ?? v.nome }));
+  const hoje = hojeNaCasa();
+  const dosContratos = (contratos.error ? [] : (contratos.data ?? []))
+    .map((c) => contratoLido(c as Record<string, unknown>))
+    .filter((c) => chaveDaFicha(c.cliente, carga.vinculos) === chave);
+  const destinos = new Set(carga.vinculos.map((v) => chaveDoCliente(v.cliente)));
+  const outros = carga.fichas.filter((f) => f.chave !== chave && !destinos.has(f.chave)).map((f) => f.nome);
   const base = (q.base ?? "").trim();
   // A base filtra as duas abas: os boletins da manutenção e as bases do painel.
   const boletins = doCliente.filter((b) => daBase(b.base, base));
@@ -131,6 +159,24 @@ export default async function FichaDoCliente({
         }
       />
 
+      <NomesDoCliente
+        cliente={ficha.nome}
+        nomes={ficha.nomes}
+        juntados={juntados}
+        outros={outros}
+        podeMexer={podeLancar(sessao.papel, "boletim")}
+      />
+
+      {dosContratos.length > 0 && (
+        <Painel titulo={`Contratos · ${dosContratos.length}`} descricao="A vigência de hoje e o medido contra o valor.">
+          <div className="grid gap-3 p-4 md:grid-cols-2 2xl:grid-cols-3">
+            {dosContratos.map((c) => (
+              <CartaoDoContrato key={c.id} c={c} hoje={hoje} comCliente={false} />
+            ))}
+          </div>
+        </Painel>
+      )}
+
       <div className="flex flex-wrap items-end gap-3">
         <FiltrarBase bases={basesDosBoletins(doCliente)} base={base} />
       </div>
@@ -148,7 +194,7 @@ export default async function FichaDoCliente({
 
       {aba === "manutencao" ? (
         boletins.length ? (
-          <Manutencao ficha={base ? resumoDaManutencao(ficha, boletins) : ficha} boletins={boletins} />
+          <Manutencao ficha={base ? resumoDaManutencao(ficha, boletins, carga.vinculos) : ficha} boletins={boletins} />
         ) : (
           <Vazio>Nenhum boletim deste cliente com a base &quot;{base}&quot;.</Vazio>
         )

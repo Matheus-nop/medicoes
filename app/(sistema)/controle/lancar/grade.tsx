@@ -91,6 +91,7 @@ export function Grade({
   regioes,
   celulas,
   historico,
+  podeLancar,
 }: {
   periodo: Periodo;
   /** O rótulo do mês anterior ("Agosto 2026"), para dizer de onde veio o saldo. */
@@ -98,6 +99,8 @@ export function Grade({
   regioes: Regiao[];
   celulas: Celula[];
   historico: Lancamento[];
+  /** O papel é do faturamento ou da diretoria (a 0011). Quem não é, só lê. */
+  podeLancar: boolean;
 }) {
   const router = useRouter();
   const inicial = useMemo(() => dasCelulas(regioes, celulas), [regioes, celulas]);
@@ -230,6 +233,7 @@ export function Grade({
       <input
         value={t}
         onChange={(e) => mudar(k, campo, e.target.value)}
+        readOnly={!podeLancar}
         inputMode="decimal"
         aria-label={rotulo}
         aria-invalid={ruim}
@@ -281,32 +285,34 @@ export function Grade({
         titulo={`Medições de ${periodo.rotulo}`}
         descricao={`${deOnde} + medido no mês − faturado no mês = saldo, base a base.`}
         acoes={
-          <>
-            <Botao variante="discreto" onClick={() => setImportando((x) => !x)} disabled={salvando}>
-              Importar da planilha
-            </Botao>
-            <Botao
-              variante="discreto"
-              onClick={() => {
-                setValores(inicial);
-                setAjustes([]);
-              }}
-              disabled={salvando || mudadas.length === 0}
-            >
-              Desfazer
-            </Botao>
-            <Botao
-              variante="primario"
-              onClick={salvar}
-              disabled={salvando || mudadas.length === 0 || invalidas > 0}
-            >
-              {salvando
-                ? "Salvando…"
-                : mudadas.length
-                  ? `Salvar ${mudadas.length} alteração(ões)`
-                  : "Nada mudou"}
-            </Botao>
-          </>
+          podeLancar && (
+            <>
+              <Botao variante="discreto" onClick={() => setImportando((x) => !x)} disabled={salvando}>
+                Importar da planilha
+              </Botao>
+              <Botao
+                variante="discreto"
+                onClick={() => {
+                  setValores(inicial);
+                  setAjustes([]);
+                }}
+                disabled={salvando || mudadas.length === 0}
+              >
+                Desfazer
+              </Botao>
+              <Botao
+                variante="primario"
+                onClick={salvar}
+                disabled={salvando || mudadas.length === 0 || invalidas > 0}
+              >
+                {salvando
+                  ? "Salvando…"
+                  : mudadas.length
+                    ? `Salvar ${mudadas.length} alteração(ões)`
+                    : "Nada mudou"}
+              </Botao>
+            </>
+          )
         }
       >
         {importando && (

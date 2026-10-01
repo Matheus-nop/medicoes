@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { modeloLido } from "@/lib/medicoes/medicoes";
+import { quemLanca } from "@/lib/medicoes/papeis";
 
 export interface Resultado {
   ok: boolean;
@@ -23,7 +24,7 @@ export interface CamposDaBase {
 
 function recado(erro: { code?: string; message: string }, oQue: string): string {
   if (erro.code === "23505") return "Já existe essa base para este cliente (o nome é o mesmo, só escrito diferente).";
-  if (erro.code === "42501") return `Seu usuário não tem permissão para ${oQue}.`;
+  if (erro.code === "42501") return `Seu usuário não tem permissão para ${oQue} — quem lança boletim e base é ${quemLanca("boletim")}.`;
   if (erro.code === "42P01") return "Falta aplicar a migração 0010_bases.sql no Supabase.";
   return `Não foi possível ${oQue}: ${erro.message}`;
 }

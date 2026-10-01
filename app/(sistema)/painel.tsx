@@ -12,10 +12,12 @@ import {
   Chips,
   Painel,
   Selo,
+  SoLeitura,
   Vazio,
 } from "@/components/ui";
 import { basesDosBoletins, boletinsPorBase, daBase } from "@/lib/medicoes/arquivo";
 import type { Base } from "@/lib/medicoes/bases";
+import { quemLanca } from "@/lib/medicoes/papeis";
 import { emReais } from "@/lib/medicoes/dinheiro";
 import {
   ROTULO_SITUACAO,
@@ -59,12 +61,15 @@ export function Medicoes({
   porCliente,
   jaMedidas,
   bases = [],
+  podeMexer = true,
 }: {
   boletins: BoletimAtual[];
   porCliente: SaldoLido[];
   jaMedidas: Record<string, string>;
   /** O cadastro de bases, para a colagem mostrar o que o boletim novo puxa. */
   bases?: Base[];
+  /** O papel é do time que lança boletim (a 0011). Quem não é, só lê. */
+  podeMexer?: boolean;
 }) {
   const [filtro, setFiltro] = useState<Filtro>("todos");
 
@@ -126,7 +131,13 @@ export function Medicoes({
         />
       </div>
 
-      <ColarDoSisloc abertos={abertos} jaMedidas={jaMedidas} bases={bases} todos={boletins} />
+      {podeMexer ? (
+        <ColarDoSisloc abertos={abertos} jaMedidas={jaMedidas} bases={bases} todos={boletins} />
+      ) : (
+        <SoLeitura>
+          Você vê os boletins, mas quem cola do Sisloc e lança é {quemLanca("boletim")}.
+        </SoLeitura>
+      )}
 
       <div className="space-y-3">
         <div className="flex flex-wrap items-end gap-3">

@@ -13,6 +13,7 @@ import {
   Painel,
   Progresso,
   Selo,
+  SoLeitura,
 } from "@/components/ui";
 import { emPorcento, emReais } from "@/lib/medicoes/dinheiro";
 import {
@@ -50,6 +51,7 @@ import {
   type CabecalhoDoBoletim,
   type CamposDaOm,
 } from "../../acoes";
+import { quemLanca } from "@/lib/medicoes/papeis";
 import { ColarDoSisloc } from "../../colar";
 import { dataCurta, periodo } from "../../formato";
 import { TOM_SITUACAO } from "../../painel";
@@ -94,6 +96,7 @@ export function Boletim({
   andamentos,
   jaMedidas,
   ehDiretoria,
+  podeMexer,
   documentoSugerido,
 }: {
   boletim: BoletimAtual;
@@ -101,6 +104,8 @@ export function Boletim({
   andamentos: Andamento[];
   jaMedidas: Record<string, string>;
   ehDiretoria: boolean;
+  /** O papel é do time que lança boletim (a 0011). Quem não é, só lê. */
+  podeMexer: boolean;
   /** O próximo Documento Nº da base, para o boletim que está sem. */
   documentoSugerido: string | null;
 }) {
@@ -115,6 +120,8 @@ export function Boletim({
   const [editandoCabecalho, setEditandoCabecalho] = useState(false);
 
   const aberto = boletim.situacao === "aberto";
+  // Aberto E do time: é o que libera colar, corrigir e fechar.
+  const mexe = aberto && podeMexer;
   const seguinte = SEGUINTE[boletim.situacao];
   const r = resumir(itens);
   const fracaoMargem = r.margem !== null && r.valor > 0 ? r.margem / r.valor : null;
@@ -182,7 +189,7 @@ export function Boletim({
             ok: semRecibo === 0,
             texto: semRecibo ? `${semRecibo} OM(s) sem recibo de retirada ou entrega` : "Recibos preenchidos",
             acao:
-              semRecibo > 0 && aberto ? (
+              semRecibo > 0 && mexe ? (
                 <button type="button" onClick={buscar} disabled={enviando} className="font-semibold text-acento underline">
                   Buscar na OS e no Roteiros
                 </button>
@@ -220,7 +227,7 @@ export function Boletim({
             <Link href={`/boletins/${boletim.id}/folha`} className={ESTILO_BOTAO.contorno}>
               {aberto ? "Prévia do papel" : "Papel / PDF"}
             </Link>
-            {seguinte && (
+            {seguinte && podeMexer && (
               <Botao
                 variante="primario"
                 disabled={enviando || (seguinte === "fechado" && itens.length === 0)}
@@ -233,6 +240,9 @@ export function Boletim({
         }
       />
 
+      {!podeMexer && (
+        <SoLeitura>Você vê o boletim, mas quem lança é {quemLanca("boletim")}.</SoLeitura>
+      )}
       {erro && (
         <Aviso tom="erro" aoFechar={() => setErro(null)}>
           {erro}
@@ -247,7 +257,7 @@ export function Boletim({
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
         {/* ── Esquerda: o trabalho ─────────────────────────────── */}
         <div className="min-w-0 space-y-4">
-          {aberto && (
+          {mexe && (
             <ColarDoSisloc
               boletim={{ id: boletim.id, numero: boletim.numero, cliente: boletim.cliente, base: boletim.base }}
               abertos={[]}
@@ -259,14 +269,14 @@ export function Boletim({
           <Painel
             titulo={`OMs do boletim · ${itens.length}`}
             descricao={
-              aberto
+              mexe
                 ? "O valor e os recibos se corrigem no próprio cartão; o resto em Editar."
                 : faturavel
                   ? "Marque cada OM faturada — é o STATUS do papel e o faturado do painel."
                   : undefined
             }
             acoes={
-              aberto && !digitando ? (
+              mexe && !digitando ? (
                 <Botao variante="discreto" onClick={() => setDigitando(true)}>
                   Incluir OM à mão
                 </Botao>
@@ -292,7 +302,7 @@ export function Boletim({
                     // Renasce quando o valor ou os recibos mudam por fora.
                     key={`${i.id}:${i.om_retirada ?? ""}:${i.recibo_entrega ?? ""}:${i.valor}`}
                     item={i}
-                    aberto={aberto}
+                    aberto={mexe}
                     comRecibo={comRecibo}
                     faturavel={faturavel}
                     ocupado={enviando}
@@ -365,7 +375,7 @@ export function Boletim({
                     Reabrir
                   </Botao>
                 )}
-                {aberto && itens.length === 0 && (
+                {mexe && itens.length === 0 && (
                   <Botao
                     variante="discreto"
                     disabled={enviando}
@@ -475,7 +485,7 @@ export function Boletim({
 
           <CabecalhoDoPapel
             boletim={boletim}
-            aberto={aberto}
+            aberto={mexe}
             ocupado={enviando}
             editando={editandoCabecalho}
             documentoSugerido={documentoSugerido}

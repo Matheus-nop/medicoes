@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { sessaoAtual } from "@/lib/supabase/papel";
+import { podeLancar } from "@/lib/medicoes/papeis";
 import { proximoDocumento } from "@/lib/medicoes/bases";
 import { Boletim } from "./boletim";
 import { carregarBoletim } from "./dados";
@@ -69,6 +70,7 @@ export default async function PaginaDoBoletim({ params }: { params: Promise<{ id
       andamentos={carga.andamentos}
       jaMedidas={jaMedidas}
       ehDiretoria={sessao.papel === "diretoria"}
+      podeMexer={podeLancar(sessao.papel, "boletim")}
       documentoSugerido={documentoSugerido}
     />
   );

@@ -5,6 +5,7 @@ import { test } from "node:test";
 import {
   basesDosBoletins,
   boletinsPorBase,
+  chaveDaFicha,
   daBase,
   fichasDosClientes,
   mesesDeReferencia,
@@ -73,6 +74,30 @@ test("a ficha junta boletim e controle pelo nome, e conta as bases", () => {
   e(g.nome, "ÁGUAS DO RIO / AEGEA");
   e(g.faturamento?.saldo, 10);
   e(g.manutencao.boletins, 0);
+});
+
+test("o vínculo junta o nome do Sisloc à ficha do controle", () => {
+  const vinculos = [
+    { nome: "AGUAS DO RIO 4 SPE S.A", cliente: "ÁGUAS DO RIO / AEGEA" },
+    { nome: "AEGEA SANEAMENTO E PARTICIPAÇÕES S.A", cliente: "Águas do Rio / Aegea" },
+  ];
+  e(chaveDaFicha("AGUAS DO RIO 4 SPE S.A.", vinculos), chaveDaFicha("ÁGUAS DO RIO / AEGEA"));
+  e(chaveDaFicha("RIO + SANEAMENTO BL3 S.A", vinculos), chaveDaFicha("RIO + SANEAMENTO BL3 S.A"));
+  const fichas = fichasDosClientes(
+    [
+      boletim({ id: 1, cliente: "AGUAS DO RIO 4 SPE S.A", situacao: "enviado", valor: 1000, criado_em: "2026-09-01" }),
+      boletim({ id: 2, cliente: "AEGEA SANEAMENTO E PARTICIPAÇÕES S.A", situacao: "enviado", valor: 500, criado_em: "2026-09-02" }),
+      boletim({ id: 3, cliente: "RIO + SANEAMENTO BL3 S.A", situacao: "enviado", valor: 50, criado_em: "2026-09-03" }),
+    ],
+    [{ cliente: "ÁGUAS DO RIO / AEGEA", periodo_id: 9, rotulo: "Setembro 2026", mes: "2026-09-01", anterior: 0, medido: 10, faturado: 0, saldo: 10, aReceber: null }],
+    vinculos,
+  );
+  e(fichas.length, 2);
+  const f = fichas.find((x) => x.faturamento)!;
+  e(f.nome, "ÁGUAS DO RIO / AEGEA");
+  e(f.manutencao.boletins, 2);
+  e(f.manutencao.medido, 1500);
+  deepStrictEqual(f.nomes.sort(), ["AEGEA SANEAMENTO E PARTICIPAÇÕES S.A", "AGUAS DO RIO 4 SPE S.A", "ÁGUAS DO RIO / AEGEA"]);
 });
 
 test("boletins por base: sem base também aparece", () => {

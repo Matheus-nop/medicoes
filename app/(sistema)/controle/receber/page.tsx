@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Aviso, Cabecalho, ESTILO_BOTAO, Vazio } from "@/components/ui";
+import { Cabecalho, ESTILO_BOTAO, SoLeitura, Vazio } from "@/components/ui";
 import { sessaoAtual } from "@/lib/supabase/papel";
+import { podeLancar, quemLanca } from "@/lib/medicoes/papeis";
 import { carregarControle } from "../dados";
 import { EscolherPeriodo } from "../vivo";
 import { DefinirInicio, GradeDeRecebimento } from "./grade";
@@ -37,7 +38,7 @@ export default async function LancarRecebimentos({
   }
 
   const { cliente, clientes, periodos, periodo, regioes, celulas, inicioRecebimento } = carga;
-  const podeLancar = sessao.papel === "financeiro" || sessao.papel === "diretoria";
+  const pode = podeLancar(sessao.papel, "recebimento");
   const anterior = periodo ? [...periodos].reverse().find((p) => p.mes < periodo.mes) : undefined;
   const acompanha = Boolean(inicioRecebimento && periodo && periodo.mes >= inicioRecebimento);
   const rotuloDoInicio = periodos.find((p) => p.mes === inicioRecebimento)?.rotulo ?? inicioRecebimento;
@@ -72,10 +73,10 @@ export default async function LancarRecebimentos({
         }
       />
 
-      {!podeLancar && (
-        <Aviso tom="erro">
-          Só o financeiro e a diretoria lançam recebimento. Você vê os números, mas não altera.
-        </Aviso>
+      {!pode && (
+        <SoLeitura>
+          Você vê os números, mas quem lança recebimento é {quemLanca("recebimento")}.
+        </SoLeitura>
       )}
 
       {/* O passo a passo muda com o momento: antes do início, no mês de início
@@ -135,7 +136,7 @@ export default async function LancarRecebimentos({
         cliente={cliente}
         inicio={inicioRecebimento}
         rotuloDoInicio={rotuloDoInicio}
-        podeLancar={podeLancar}
+        podeLancar={pode}
         sugestao={periodo?.mes.slice(0, 7) ?? ""}
       />
 
@@ -155,7 +156,7 @@ export default async function LancarRecebimentos({
           ehInicio={periodo.mes === inicioRecebimento}
           regioes={regioes}
           celulas={celulas}
-          podeLancar={podeLancar}
+          podeLancar={pode}
         />
       )}
     </div>

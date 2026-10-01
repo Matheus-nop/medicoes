@@ -37,6 +37,20 @@ Cole e rode **um arquivo por vez, nesta ordem**:
 13. `supabase/migrations/0010_bases.sql` — o cadastro de bases. Ele nasce com
     as bases dos boletins que já existem (o mais recente de cada uma empresta
     os dados); a conferência tem de dizer `✓ ok` e mostra quantas bases entraram.
+14. `supabase/migrations/0011_cada_time_lanca_o_seu.sql` — cada time lança o
+    que é seu (ver **4. Acessos**). **Antes**, confira em Usuários o papel de
+    cada pessoa: quem lança o controle e está como Orçamento para de conseguir
+    salvar. O fim da conferência lista quem está em cada papel.
+15. `supabase/migrations/0012_nomes_do_cliente.sql` — os nomes do mesmo
+    cliente. Depois de aplicar, abra a ficha **ÁGUAS DO RIO / AEGEA** no
+    Arquivo por cliente e, em "Nomes deste cliente", junte os nomes do Sisloc
+    (AGUAS DO RIO 1 SPE, AGUAS DO RIO 4 SPE, AEGEA…).
+16. `supabase/migrations/0013_contratos.sql` — os contratos. Rode depois da
+    0012 (a conta do medido usa o vínculo). Depois, o faturamento cadastra os
+    contratos vigentes em **Contratos**, com o nome do cliente **igual ao do
+    controle** — é por ele que o medido entra no contrato — e registra os
+    aditivos que já existem (prorrogações e reajustes), senão o reajuste
+    aparece como atrasado.
 
 Cada uma (menos a 0000) termina numa conferência: **toda linha tem de dizer
 `✓ ok`**. Se aparecer `!!`, a colagem provavelmente chegou cortada — rode o
@@ -102,12 +116,15 @@ lista de cada um vem nos PRs de lá.
 
 Entre com a conta da diretoria, abra **Usuários** e dê o papel de cada pessoa:
 
-| Papel | O que faz |
-|---|---|
-| Diretoria | tudo, mais reabrir boletim e dar/tirar acesso |
-| Financeiro | fatura |
-| Faturamento | monta, fecha e envia boletim |
-| Orçamento | monta boletim e confere valor |
+| Papel | Lança | Só lê |
+|---|---|---|
+| Diretoria | tudo, mais reabrir boletim e dar/tirar acesso | — |
+| Orçamento | boletim de manutenção e cadastro de bases | controle, recebimento e contratos |
+| Faturamento | boletim, cadastro de bases, o controle (Lançar medições) e os contratos | recebimento |
+| Financeiro | recebimento | boletim, bases, controle e contratos |
+
+Ler, todo mundo lê. A trava é da `0011` (e a do recebimento, da `0007`); a
+tela de quem não lança mostra o aviso de quem lança, em vez do botão.
 
 Quem já tem login no grupo recebe o acesso com a **mesma senha**. Quem não tem
 ganha uma conta nova — e essa conta nasce **sem acesso** ao Roteiros e ao

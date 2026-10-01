@@ -73,6 +73,16 @@ export const IconeArquivo = svg(
   </>,
 );
 
+// A folha do contrato com a assinatura no pé.
+export const IconeContrato = svg(
+  <>
+    <path d="M14 3.5H7.5A1.5 1.5 0 0 0 6 5v14a1.5 1.5 0 0 0 1.5 1.5h9A1.5 1.5 0 0 0 18 19V7.5z" />
+    <path d="M14 3.5v4h4" />
+    <path d="M9 10.5h6M9 13.5h4" />
+    <path d="M9 17.5c.8-.9 1.4-.9 1.9 0s1 .9 1.6 0 1.1-.9 1.5-.2" />
+  </>,
+);
+
 export const IconeUsuarios = svg(
   <>
     <circle cx="9" cy="8" r="3.2" />

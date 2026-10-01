@@ -21,11 +21,36 @@ export interface PosicaoDoControle {
   aReceber: number | null;
 }
 
+/**
+ * "O nome X é o cliente Y" (0012). Junta na mesma ficha o nome do Sisloc e o
+ * do controle; o boletim continua com o nome dele.
+ */
+export interface Vinculo {
+  id?: number;
+  nome: string;
+  cliente: string;
+}
+
+/**
+ * A chave da ficha onde um nome entra: a do cliente a que ele foi juntado, ou
+ * a dele mesmo. Um nível só — o cliente de um vínculo não se junta a outro.
+ */
+export function chaveDaFicha(nome: string, vinculos: Vinculo[] = []): string {
+  const k = chaveDoCliente(nome);
+  const v = vinculos.find((x) => chaveDoCliente(x.nome) === k);
+  return v ? chaveDoCliente(v.cliente) : k;
+}
+
 export interface FichaDoCliente {
   /** A chave do nome: "S.A." e "S.A" são o mesmo cliente. */
   chave: string;
-  /** O nome como está escrito (o do boletim mais recente, ou o do controle). */
+  /**
+   * O nome como está escrito: o do vínculo, quando há; senão o do boletim
+   * mais recente, ou o do controle.
+   */
   nome: string;
+  /** Todos os nomes que caíram nesta ficha, um por chave. */
+  nomes: string[];
   manutencao: {
     boletins: number;
     bases: number;
@@ -91,21 +116,26 @@ export function posicaoPorCliente(
 export function fichasDosClientes(
   boletins: BoletimAtual[],
   posicoes: PosicaoDoControle[],
+  vinculos: Vinculo[] = [],
 ): FichaDoCliente[] {
-  const mapa = new Map<string, FichaDoCliente & { _bases: Set<string> }>();
+  const mapa = new Map<string, FichaDoCliente & { _bases: Set<string>; _nomes: Map<string, string> }>();
   const ficha = (nome: string) => {
-    const chave = chaveDoCliente(nome);
+    const chave = chaveDaFicha(nome, vinculos);
     let f = mapa.get(chave);
     if (!f) {
+      const alvo = vinculos.find((v) => chaveDoCliente(v.cliente) === chave);
       f = {
         chave,
-        nome,
+        nome: alvo?.cliente ?? nome,
+        nomes: [],
         manutencao: { boletins: 0, bases: 0, emMedicao: 0, medido: 0, faturado: 0, saldo: 0, ultimo: null },
         faturamento: null,
         _bases: new Set(),
+        _nomes: new Map(),
       };
       mapa.set(chave, f);
     }
+    if (!f._nomes.has(chaveDoCliente(nome))) f._nomes.set(chaveDoCliente(nome), nome);
     return f;
   };
 
@@ -126,7 +156,11 @@ export function fichasDosClientes(
   for (const p of posicoes) ficha(p.cliente).faturamento = p;
 
   return [...mapa.values()]
-    .map(({ _bases, ...f }) => ({ ...f, manutencao: { ...f.manutencao, bases: _bases.size } }))
+    .map(({ _bases, _nomes, ...f }) => ({
+      ...f,
+      nomes: [..._nomes.values()],
+      manutencao: { ...f.manutencao, bases: _bases.size },
+    }))
     .sort(
       (a, b) =>
         b.manutencao.saldo + (b.faturamento?.saldo ?? 0) - (a.manutencao.saldo + (a.faturamento?.saldo ?? 0)) ||

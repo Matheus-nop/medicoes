@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { Cabecalho, ESTILO_BOTAO } from "@/components/ui";
+import { Cabecalho, ESTILO_BOTAO, SoLeitura } from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
+import { sessaoAtual } from "@/lib/supabase/papel";
+import { podeLancar, quemLanca } from "@/lib/medicoes/papeis";
 import { carregarControle } from "../dados";
 import { EscolherPeriodo } from "../vivo";
 import { Grade, NovoPeriodo, NovaRegiao, type Lancamento } from "./grade";
@@ -17,9 +19,11 @@ export default async function LancarMedicoes({
   searchParams: Promise<{ cliente?: string; periodo?: string }>;
 }) {
   const q = await searchParams;
-  const carga = await carregarControle(q.cliente, q.periodo ? Number(q.periodo) : undefined, {
-    vazioVale: true,
-  });
+  const [carga, sessao] = await Promise.all([
+    carregarControle(q.cliente, q.periodo ? Number(q.periodo) : undefined, { vazioVale: true }),
+    sessaoAtual(),
+  ]);
+  const pode = podeLancar(sessao.papel, "controle");
 
   if (!carga.ok) {
     return (
@@ -103,7 +107,13 @@ export default async function LancarMedicoes({
         }
       />
 
-      {periodo && regioes.length > 0 && (
+      {!pode && (
+        <SoLeitura>
+          Você vê o quadro, mas quem lança as medições é {quemLanca("controle")}.
+        </SoLeitura>
+      )}
+
+      {pode && periodo && regioes.length > 0 && (
         <ol className="grid gap-2 rounded-xl border border-acento/30 bg-acento-fraco p-3 text-xs text-texto sm:grid-cols-3">
           <li>
             <strong>1.</strong> Confira o mês em <strong>Posição</strong>, no alto ({periodo.rotulo}).
@@ -129,6 +139,7 @@ export default async function LancarMedicoes({
           celulas={celulas}
           anterior={anterior?.rotulo ?? null}
           historico={historico}
+          podeLancar={pode}
         />
       ) : (
         <p className="rounded-xl border border-dashed border-borda p-6 text-center text-sm text-texto-3">
@@ -163,10 +174,12 @@ export default async function LancarMedicoes({
       )}
 
       {/* Abrir mês e cadastrar base ficam no pé: é o que se faz uma vez. */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <NovoPeriodo cliente={cliente} clientes={clientes} />
-        <NovaRegiao cliente={cliente} />
-      </div>
+      {pode && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <NovoPeriodo cliente={cliente} clientes={clientes} />
+          <NovaRegiao cliente={cliente} />
+        </div>
+      )}
     </div>
   );
 }

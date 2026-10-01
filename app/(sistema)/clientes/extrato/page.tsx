@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
-import { chaveDoCliente, type ItemDoBoletim } from "@/lib/medicoes/medicoes";
-import { daBase } from "@/lib/medicoes/arquivo";
+import type { ItemDoBoletim } from "@/lib/medicoes/medicoes";
+import { chaveDaFicha, daBase } from "@/lib/medicoes/arquivo";
 import { carregarClientes } from "../dados";
 import { Extrato } from "./folha";
 
@@ -37,8 +37,8 @@ export default async function ExtratoDoCliente({ searchParams }: { searchParams:
       </div>
     );
   }
-  const chave = chaveDoCliente(nome);
-  const todos = carga.boletins.filter((b) => chaveDoCliente(b.cliente) === chave);
+  const chave = chaveDaFicha(nome, carga.vinculos);
+  const todos = carga.boletins.filter((b) => chaveDaFicha(b.cliente, carga.vinculos) === chave);
   const boletins = todos
     .filter((b) => !q.mes || (b.referencia ?? "").trim() === q.mes)
     .filter((b) => daBase(b.base, q.base ?? ""));

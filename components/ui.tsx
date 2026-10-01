@@ -638,6 +638,18 @@ export function Aviso({
   );
 }
 
+/**
+ * A tela é de outro time: lê-se tudo, lança-se nada. Diz quem lança, para a
+ * pessoa saber a quem pedir — e não descobrir pelo erro do botão.
+ */
+export function SoLeitura({ children }: { children: ReactNode }) {
+  return (
+    <p className="rounded-lg border border-borda bg-superficie-2 px-3.5 py-2.5 text-sm text-texto-2">
+      {children}
+    </p>
+  );
+}
+
 /* ── Vazio ─────────────────────────────────────────────────── */
 
 export function Vazio({ children }: { children: ReactNode }) {
