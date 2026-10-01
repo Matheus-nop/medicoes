@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { CATEGORIAS, periodoDoMes, type Categoria } from "@/lib/medicoes/controle";
+import { quemLanca } from "@/lib/medicoes/papeis";
 
 export interface Resultado {
   ok: boolean;
@@ -12,7 +13,10 @@ export interface Resultado {
 }
 
 function recado(erro: { code?: string; message: string }, oQue: string): string {
-  if (erro.code === "42501") return `Seu usuário não tem permissão para ${oQue}.`;
+  // O recebimento trata o 42501 dele antes; aqui é o controle (a 0011).
+  if (erro.code === "42501") {
+    return `Seu usuário não pode ${oQue}: quem lança as medições é ${quemLanca("controle")}.`;
+  }
   if (erro.code === "42P01") return "Falta aplicar a migração 0005_controle.sql no Supabase.";
   return `Não foi possível ${oQue}: ${erro.message}`;
 }

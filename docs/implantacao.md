@@ -37,6 +37,10 @@ Cole e rode **um arquivo por vez, nesta ordem**:
 13. `supabase/migrations/0010_bases.sql` — o cadastro de bases. Ele nasce com
     as bases dos boletins que já existem (o mais recente de cada uma empresta
     os dados); a conferência tem de dizer `✓ ok` e mostra quantas bases entraram.
+14. `supabase/migrations/0011_cada_time_lanca_o_seu.sql` — cada time lança o
+    que é seu (ver **4. Acessos**). **Antes**, confira em Usuários o papel de
+    cada pessoa: quem lança o controle e está como Orçamento para de conseguir
+    salvar. O fim da conferência lista quem está em cada papel.
 
 Cada uma (menos a 0000) termina numa conferência: **toda linha tem de dizer
 `✓ ok`**. Se aparecer `!!`, a colagem provavelmente chegou cortada — rode o
@@ -102,12 +106,15 @@ lista de cada um vem nos PRs de lá.
 
 Entre com a conta da diretoria, abra **Usuários** e dê o papel de cada pessoa:
 
-| Papel | O que faz |
-|---|---|
-| Diretoria | tudo, mais reabrir boletim e dar/tirar acesso |
-| Financeiro | fatura |
-| Faturamento | monta, fecha e envia boletim |
-| Orçamento | monta boletim e confere valor |
+| Papel | Lança | Só lê |
+|---|---|---|
+| Diretoria | tudo, mais reabrir boletim e dar/tirar acesso | — |
+| Orçamento | boletim de manutenção e cadastro de bases | controle e recebimento |
+| Faturamento | boletim, cadastro de bases e o controle (Lançar medições) | recebimento |
+| Financeiro | recebimento | boletim, bases e controle |
+
+Ler, todo mundo lê. A trava é da `0011` (e a do recebimento, da `0007`); a
+tela de quem não lança mostra o aviso de quem lança, em vez do botão.
 
 Quem já tem login no grupo recebe o acesso com a **mesma senha**. Quem não tem
 ganha uma conta nova — e essa conta nasce **sem acesso** ao Roteiros e ao

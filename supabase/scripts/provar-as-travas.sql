@@ -1,5 +1,5 @@
 -- ═════════════════════════════════════════════════════════════
--- Provar as travas de medições (0001 a 0003)
+-- Provar as travas de medições (0001 a 0011)
 -- ═════════════════════════════════════════════════════════════
 --
 -- Sem nenhum `do $$`: cada trecho é curto e se cola sozinho.
@@ -303,5 +303,109 @@ from medicoes.controle_periodos p, medicoes.controle_regioes r;
 rollback to a;
 savepoint b; update medicoes.controle_valores set medido = 0; rollback to b;
 delete from medicoes.controle_valores;
+rollback;
+*/
+
+
+-- ═════════════════════════════════════════════════════════════
+-- DA 0007 EM DIANTE
+-- ═════════════════════════════════════════════════════════════
+
+-- ── 14. Faturamento não lança recebimento (0007) ─────────────
+-- Esperado: ERROR 42501 (... policy for table "controle_recebimentos").
+/*
+begin;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'faturamento' order by p.id limit 1))::text, true);
+set local role authenticated;
+insert into medicoes.controle_recebimentos (periodo_id, regiao_id, categoria, recebido)
+select max(p.id), min(r.id), 'locacao', 10
+from medicoes.controle_periodos p, medicoes.controle_regioes r;
+rollback;
+*/
+
+
+-- ── 15. Recebimento também não se reescreve (0007) ───────────
+-- Esperado: ERROR 42501 (permission denied for table controle_recebimentos),
+-- mesmo para a diretoria.
+/*
+begin;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'diretoria' order by p.id limit 1))::text, true);
+set local role authenticated;
+update medicoes.controle_recebimentos set recebido = 0;
+rollback;
+*/
+
+
+-- ── 16. Só a diretoria apaga base do cadastro (0010) ─────────
+-- Esperado: DELETE 0 (zero linhas, sem erro — ver o topo).
+/*
+begin;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'faturamento' order by p.id limit 1))::text, true);
+set local role authenticated;
+delete from medicoes.bases returning id;
+rollback;
+*/
+
+
+-- ── 17. O orçamento não lança no controle (0011) ─────────────
+-- Esperado: ERROR 42501 (... policy for table "controle_valores"). Precisa
+-- de alguém com papel de orçamento.
+/*
+begin;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'orcamento' order by p.id limit 1))::text, true);
+set local role authenticated;
+insert into medicoes.controle_valores (periodo_id, regiao_id, categoria, medido, faturado)
+select max(p.id), min(r.id), 'locacao', 10, 5
+from medicoes.controle_periodos p, medicoes.controle_regioes r;
+rollback;
+*/
+
+
+-- ── 18. O financeiro não abre boletim nem mexe no cadastro (0011) ──
+-- Esperado: ERROR 42501 no insert do boletim; UPDATE 0 na base. Precisa de
+-- alguém com papel de financeiro.
+/*
+begin;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'financeiro' order by p.id limit 1))::text, true);
+set local role authenticated;
+savepoint a;
+insert into medicoes.boletins (cliente, criado_por) values ('PROVA', auth.uid());
+rollback to a;
+update medicoes.bases set responsavel = 'mexido' returning id;
+rollback;
+*/
+
+
+-- ── 19. A trava do time não trava demais (0011) ──────────────
+-- Esperado: SEM erro. O orçamento abre boletim e inclui OM; o faturamento
+-- lança no controle e lê o boletim. Os dois inserts devolvem 1 linha.
+/*
+begin;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'orcamento' order by p.id limit 1))::text, true);
+set local role authenticated;
+insert into medicoes.boletins (cliente, criado_por) values ('PROVA', auth.uid()) returning id;
+insert into medicoes.boletim_oms (boletim_id, om, incluido_por)
+  values ((select max(id) from medicoes.boletins), '999019', auth.uid()) returning id;
+reset role;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'faturamento' order by p.id limit 1))::text, true);
+set local role authenticated;
+insert into medicoes.controle_valores (periodo_id, regiao_id, categoria, medido, faturado)
+select max(p.id), min(r.id), 'locacao', 10, 5
+from medicoes.controle_periodos p, medicoes.controle_regioes r returning id;
+select count(*) as boletins_que_o_faturamento_le from medicoes.boletins;
 rollback;
 */

@@ -37,12 +37,14 @@ Next.js App Router · TypeScript · Supabase (Postgres, Auth) · Tailwind · Ver
 - Português nos campos, tabelas e UI.
 
 ## Papéis (`medicoes.perfis`)
-- **diretoria**: vê tudo, reabre boletim, dá e tira acesso.
-- **financeiro**: fatura.
-- **faturamento**: monta, fecha e envia boletim.
-- **orcamento**: monta boletim e confere valor.
-Hoje só "reabrir" e "dar acesso" são restritos (diretoria); o resto é de
-qualquer usuário ativo. Apertar mais é decisão do time, não do código.
+- **diretoria**: lança tudo, reabre boletim, dá e tira acesso.
+- **orcamento**: o boletim de manutenção e o cadastro de bases.
+- **faturamento**: o boletim, o cadastro de bases e o controle (`/controle/lancar`).
+- **financeiro**: o recebimento (`/controle/receber`).
+Ler, todo mundo lê. Cada time lança o que é seu (`0011`, policies
+**restritivas** que se somam às de antes); a regra mora também em
+`QUEM_LANCA` (`lib/medicoes/papeis.ts`), que só decide se a tela mostra o
+botão ou o `SoLeitura` com quem lança. Mudou um, muda o outro.
 
 Quem é criado por aqui nasce **sem acesso** no Roteiros e no Estoque: os
 gatilhos de lá dão PCM e operador a qualquer conta nova, e a tela de usuários
@@ -145,9 +147,18 @@ desfaz isso logo depois de criar.
       contra a foto anterior. O relatório (`/controle/relatorio`), de uma base
       ou de todas, sai em PDF A4 e vai por e-mail (o e-mail abre pronto; o PDF
       se anexa à mão — link de e-mail não leva arquivo). Contratos ainda não.
-- [~] Os boletins de agosto/2026 do Águas do Rio / AEGEA (41, 165 OMs,
-      R$ 227.115,00) entram por `supabase/scripts/importar-boletins-agosto-2026.sql`,
+- [x] Os boletins de agosto/2026 do Águas do Rio / AEGEA (41, 165 OMs,
+      R$ 227.115,00) entraram por `supabase/scripts/importar-boletins-agosto-2026.sql`,
       depois da `0008`.
 - [~] Fase 4 — o financeiro: recebimento (`0007`) com mês de início e
-      abertura, e a idade do saldo a faturar e do a receber no painel. Falta
-      aplicar a `0007` e o financeiro definir o início de cada cliente.
+      abertura, e a idade do saldo a faturar e do a receber no painel. `0007`
+      aplicada; falta o financeiro definir o início e a abertura de cada cliente.
+- [~] Fase 5 — o dia a dia: o papel do Águas do Rio 2026 (`0008`), o período
+      do boletim pela chegada (`0009`), o cadastro de bases com o próximo
+      Documento Nº (`0010`), o filtro por base na tela inicial, no extrato e no
+      arquivo, e cada time lançando o que é seu (`0011`). `0008` a `0010`
+      **aplicadas**, e os boletins de agosto importados. Falta aplicar a `0011`,
+      completar o cadastro de bases (responsável e local da obra) e rodar
+      outubro inteiro no sistema com a planilha ao lado.
+- As provas de RLS de todas as migrações estão em
+  `supabase/scripts/provar-as-travas.sql` (trechos 1 a 19).

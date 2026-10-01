@@ -1,5 +1,7 @@
 import { Cabecalho } from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
+import { sessaoAtual } from "@/lib/supabase/papel";
+import { podeLancar } from "@/lib/medicoes/papeis";
 import { proximoDocumento, type Base } from "@/lib/medicoes/bases";
 import { chaveDoDestino } from "@/lib/medicoes/medicoes";
 import { QuadroDeBases, type BaseNoQuadro } from "./quadro";
@@ -18,9 +20,10 @@ export default async function CadastroDeBases({
 }) {
   const q = await searchParams;
   const supabase = await createClient();
-  const [bases, boletins] = await Promise.all([
+  const [bases, boletins, sessao] = await Promise.all([
     supabase.from("bases").select("*").order("cliente").order("nome"),
     supabase.from("boletins").select("cliente, base, documento, criado_em"),
+    sessaoAtual(),
   ]);
   if (bases.error) {
     return (
@@ -57,7 +60,11 @@ export default async function CadastroDeBases({
         titulo="Cadastro de bases"
         resumo="Os dados de cada base que vão no papel todo mês. O boletim novo da base nasce com eles e com o próximo Documento Nº — editar aqui não muda boletim que já existe."
       />
-      <QuadroDeBases bases={quadro} baseInicial={q.base ?? ""} />
+      <QuadroDeBases
+        bases={quadro}
+        baseInicial={q.base ?? ""}
+        podeMexer={podeLancar(sessao.papel, "boletim")}
+      />
     </div>
   );
 }

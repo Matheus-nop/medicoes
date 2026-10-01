@@ -22,6 +22,7 @@ import {
   type OsComOms,
   type SituacaoBoletim,
 } from "@/lib/medicoes/medicoes";
+import { quemLanca } from "@/lib/medicoes/papeis";
 
 export interface Resultado {
   ok: boolean;
@@ -68,7 +69,7 @@ async function fontesDosComprovantes(
 
 function recado(erro: { code?: string; message: string }, oQue: string): string {
   if (erro.code === "42501") {
-    return `Seu usuário não tem permissão para ${oQue}.`;
+    return `Seu usuário não tem permissão para ${oQue} — quem lança boletim e base é ${quemLanca("boletim")}.`;
   }
   if (erro.code === "23505") {
     return "Alguma dessas OMs acabou de entrar em outro boletim. Recarregue a tela e cole de novo.";

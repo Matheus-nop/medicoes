@@ -2,9 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Aviso, Botao, CAMPO, Campo, Painel, Selo, Vazio } from "@/components/ui";
+import { Aviso, Botao, CAMPO, Campo, Painel, Selo, SoLeitura, Vazio } from "@/components/ui";
 import { daBase } from "@/lib/medicoes/arquivo";
 import type { Base } from "@/lib/medicoes/bases";
+import { quemLanca } from "@/lib/medicoes/papeis";
 import { ROTULO_MODELO, chaveDoCliente, modeloDoCliente } from "@/lib/medicoes/medicoes";
 import { dataCurta } from "../formato";
 import { apagarBase, salvarBase, type CamposDaBase } from "./acoes";
@@ -39,7 +40,16 @@ const daBaseParaCampos = (b: Base): CamposDaBase => ({
  * A base que falta responsável ou local da obra aparece marcada: é o papel que
  * sairia com a caixa em branco.
  */
-export function QuadroDeBases({ bases, baseInicial }: { bases: BaseNoQuadro[]; baseInicial: string }) {
+export function QuadroDeBases({
+  bases,
+  baseInicial,
+  podeMexer,
+}: {
+  bases: BaseNoQuadro[];
+  baseInicial: string;
+  /** O papel é do time que lança boletim (a 0011). Quem não é, só lê. */
+  podeMexer: boolean;
+}) {
   const [filtro, setFiltro] = useState(baseInicial);
   const [editando, setEditando] = useState<number | "nova" | null>(null);
   const visiveis = bases.filter((b) => daBase(b.nome, filtro) || daBase(b.cliente, filtro));
@@ -66,10 +76,16 @@ export function QuadroDeBases({ bases, baseInicial }: { bases: BaseNoQuadro[]; b
           {visiveis.length} de {bases.length} base(s)
           {incompletas > 0 && ` · ${incompletas} sem responsável ou local da obra`}
         </p>
-        <Botao variante="primario" className="ml-auto" onClick={() => setEditando("nova")}>
-          Nova base
-        </Botao>
+        {podeMexer && (
+          <Botao variante="primario" className="ml-auto" onClick={() => setEditando("nova")}>
+            Nova base
+          </Botao>
+        )}
       </div>
+
+      {!podeMexer && (
+        <SoLeitura>Você vê o cadastro, mas quem edita é {quemLanca("boletim")}.</SoLeitura>
+      )}
 
       {editando === "nova" && (
         <Painel titulo="Nova base" descricao="O boletim novo desta base já nasce com estes dados.">
@@ -89,7 +105,7 @@ export function QuadroDeBases({ bases, baseInicial }: { bases: BaseNoQuadro[]; b
                     <Formulario id={b.id} inicial={daBaseParaCampos(b)} aoFechar={() => setEditando(null)} />
                   </div>
                 ) : (
-                  <CartaoDaBase key={b.id} b={b} aoEditar={() => setEditando(b.id)} />
+                  <CartaoDaBase key={b.id} b={b} aoEditar={podeMexer ? () => setEditando(b.id) : undefined} />
                 ),
               )}
             </div>
@@ -100,7 +116,7 @@ export function QuadroDeBases({ bases, baseInicial }: { bases: BaseNoQuadro[]; b
   );
 }
 
-function CartaoDaBase({ b, aoEditar }: { b: BaseNoQuadro; aoEditar: () => void }) {
+function CartaoDaBase({ b, aoEditar }: { b: BaseNoQuadro; aoEditar?: () => void }) {
   const falta = [!b.responsavel && "responsável", !b.local_obra && "local da obra"].filter(Boolean);
   // Em vermelho só o que faz falta no papel: responsável e local da obra.
   const linha = (rotulo: string, valor: string | null, faz = false) => (
@@ -140,9 +156,11 @@ function CartaoDaBase({ b, aoEditar }: { b: BaseNoQuadro; aoEditar: () => void }
       </dl>
       <div className="mt-3 flex items-center gap-3 text-xs">
         {falta.length > 0 && <span className="text-manutencao">falta {falta.join(" e ")}</span>}
-        <button type="button" onClick={aoEditar} className="ml-auto font-semibold text-acento underline">
-          Editar
-        </button>
+        {aoEditar && (
+          <button type="button" onClick={aoEditar} className="ml-auto font-semibold text-acento underline">
+            Editar
+          </button>
+        )}
       </div>
     </section>
   );
