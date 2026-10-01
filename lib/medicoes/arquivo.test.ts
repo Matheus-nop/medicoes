@@ -7,6 +7,9 @@ import {
   boletinsPorBase,
   chaveDaFicha,
   daBase,
+  doMes,
+  mesesDosBoletins,
+  rotuloDaReferencia,
   fichasDosClientes,
   mesesDeReferencia,
   ordemDaReferencia,
@@ -142,4 +145,25 @@ test("as bases da lista, sem repetir", () => {
     basesDosBoletins([{ base: "SUL - GÁVEA" }, { base: "sul - gávea " }, { base: null }, { base: "NORTE - MÉIER" }]),
     ["NORTE - MÉIER", "SUL - GÁVEA"],
   );
+});
+
+test("o filtro por mês junta as grafias do mesmo mês", () => {
+  const bs = [
+    { referencia: "AGOSTO/2026" },
+    { referencia: "Agosto 2026" },
+    { referencia: "SETEMBRO/2026" },
+    { referencia: null },
+    { referencia: "MARÇO/2026" },
+  ];
+  deepStrictEqual(mesesDosBoletins(bs), [
+    { chave: 202609, rotulo: "Setembro/2026", boletins: 1 },
+    { chave: 202608, rotulo: "Agosto/2026", boletins: 2 },
+    { chave: 202603, rotulo: "Março/2026", boletins: 1 },
+    { chave: 0, rotulo: "Sem mês de referência", boletins: 1 },
+  ]);
+  e(doMes("agosto / 2026", 202608), true);
+  e(doMes("SETEMBRO/2026", 202608), false);
+  e(doMes(null, 0), true);
+  e(doMes("qualquer", null), true);
+  e(rotuloDaReferencia(202601), "Janeiro/2026");
 });

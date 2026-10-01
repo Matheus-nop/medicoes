@@ -7,7 +7,13 @@ import { Medicoes, type SaldoLido } from "./painel";
 
 export const dynamic = "force-dynamic";
 
-export default async function PaginaMedicoes() {
+export default async function PaginaMedicoes({
+  searchParams,
+}: {
+  searchParams: Promise<{ mes?: string }>;
+}) {
+  const q = await searchParams;
+  const mesInicial = /^\d{6}$|^0$/.test(q.mes ?? "") ? Number(q.mes) : null;
   const supabase = await createClient();
 
   const [boletins, porCliente, itens, bases, sessao] = await Promise.all([
@@ -64,6 +70,7 @@ export default async function PaginaMedicoes() {
       jaMedidas={jaMedidas}
       bases={bases.error ? [] : ((bases.data ?? []) as Base[])}
       podeMexer={podeLancar(sessao.papel, "boletim")}
+      mesInicial={mesInicial}
     />
   );
 }

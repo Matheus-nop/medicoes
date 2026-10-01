@@ -216,6 +216,37 @@ export function mesesDeReferencia(boletins: { referencia: string | null }[]): st
   return unicos.sort((a, b) => ordemDaReferencia(b) - ordemDaReferencia(a) || a.localeCompare(b));
 }
 
+/** "Agosto/2026" — o rótulo de uma chave de `ordemDaReferencia`. 0 é sem mês. */
+export function rotuloDaReferencia(chave: number): string {
+  if (!chave) return "Sem mês de referência";
+  const nome = MESES[(chave % 100) - 1] ?? "";
+  const mes = nome === "MARCO" ? "Março" : nome.charAt(0) + nome.slice(1).toLowerCase();
+  return `${mes}/${Math.floor(chave / 100)}`;
+}
+
+/**
+ * Os meses de referência que têm boletim, do mais recente ao mais antigo, com
+ * quantos boletins cada um tem. "AGOSTO/2026" e "Agosto 2026" são o mesmo
+ * mês — vale a chave, não a grafia. O boletim sem mês vem por último.
+ */
+export function mesesDosBoletins(
+  boletins: { referencia: string | null }[],
+): { chave: number; rotulo: string; boletins: number }[] {
+  const conta = new Map<number, number>();
+  for (const b of boletins) {
+    const k = ordemDaReferencia(b.referencia);
+    conta.set(k, (conta.get(k) ?? 0) + 1);
+  }
+  return [...conta.entries()]
+    .sort((a, b) => (a[0] === 0 ? 1 : b[0] === 0 ? -1 : b[0] - a[0]))
+    .map(([chave, n]) => ({ chave, rotulo: rotuloDaReferencia(chave), boletins: n }));
+}
+
+/** O boletim é do mês escolhido? Nulo é todos os meses. */
+export function doMes(referencia: string | null | undefined, chave: number | null): boolean {
+  return chave === null || ordemDaReferencia(referencia) === chave;
+}
+
 /* ── O filtro por base ─────────────────────────────────────── */
 
 const semAcento = (s: string) =>
