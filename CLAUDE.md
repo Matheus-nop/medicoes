@@ -41,6 +41,8 @@ Next.js App Router · TypeScript · Supabase (Postgres, Auth) · Tailwind · Ver
 - **orcamento**: o boletim de manutenção e o cadastro de bases.
 - **faturamento**: o boletim, o cadastro de bases e o controle (`/controle/lancar`).
 - **financeiro**: o recebimento (`/controle/receber`).
+- O contrato (`/contratos`) é do **faturamento** e da diretoria; apagar
+  contrato ou aditivo é só da diretoria.
 Ler, todo mundo lê. Cada time lança o que é seu (`0011`, policies
 **restritivas** que se somam às de antes); a regra mora também em
 `QUEM_LANCA` (`lib/medicoes/papeis.ts`), que só decide se a tela mostra o
@@ -127,6 +129,18 @@ desfaz isso logo depois de criar.
   (`chave_do_nome` no banco = `chaveDoCliente` no código). Editar a base não
   muda boletim que já existe; "Puxar dados da base" traz para o aberto.
 - **colagem**: a lista do Sisloc copiada e colada, com a linha de títulos.
+- **contrato** (`/contratos`, 0013): com quem, o quê, até quando, quanto e
+  por qual índice. O cadastro se corrige; o que MUDA o contrato é **aditivo**
+  (prorrogação, reajuste, acréscimo ou supressão, encerramento), que não se
+  edita — o lançado por engano a diretoria apaga. A vigência e o valor de hoje
+  e o **medido** (o do controle do cliente nos meses da vigência, pelas
+  categorias do contrato, pela chave e pelo vínculo) saem de
+  `contratos_atual`. A situação (vigente, vence logo, vencido, encerrado), o
+  próximo reajuste e os alertas dependem de hoje e saem de
+  `lib/medicoes/contratos.ts`. O reajuste registrado cobre o aniversário a até
+  meio ano dele. O contador do menu é o de contratos pedindo ação (vence,
+  venceu, reajuste sem registro, 90% do valor medido). Faturamento e
+  diretoria lançam.
 
 ## Aparência
 - App instalável (PWA): `app/manifest.ts`, `public/sw.js` e o convite de
@@ -152,7 +166,7 @@ desfaz isso logo depois de criar.
       WhatsApp e o histórico — ao vivo, relendo a cada minuto, com a variação
       contra a foto anterior. O relatório (`/controle/relatorio`), de uma base
       ou de todas, sai em PDF A4 e vai por e-mail (o e-mail abre pronto; o PDF
-      se anexa à mão — link de e-mail não leva arquivo). Contratos ainda não.
+      se anexa à mão — link de e-mail não leva arquivo). Os contratos vieram na Fase 6.
 - [x] Os boletins de agosto/2026 do Águas do Rio / AEGEA (41, 165 OMs,
       R$ 227.115,00) entraram por `supabase/scripts/importar-boletins-agosto-2026.sql`,
       depois da `0008`.
@@ -168,5 +182,10 @@ desfaz isso logo depois de criar.
       os nomes do Águas do Rio / AEGEA, completar o cadastro de bases
       (responsável e local da obra) e rodar outubro inteiro no sistema com a
       planilha ao lado.
+- [~] Fase 6 — os contratos (`0013`): cadastro, aditivos, a vigência e o valor
+      de hoje contra o medido do controle, o reajuste pelo aniversário, os
+      alertas no quadro, na ficha do cliente e no contador do menu. Falta
+      aplicar a `0013` e cadastrar os contratos vigentes, a começar pelo do
+      Águas do Rio / AEGEA.
 - As provas de RLS de todas as migrações estão em
-  `supabase/scripts/provar-as-travas.sql` (trechos 1 a 20).
+  `supabase/scripts/provar-as-travas.sql` (trechos 1 a 21).

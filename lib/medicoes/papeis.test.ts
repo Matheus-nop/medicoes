@@ -9,7 +9,9 @@ test("cada time lança o que é seu, e a diretoria lança tudo", () => {
   assert.equal(podeLancar("faturamento", "recebimento"), false);
   assert.equal(podeLancar("financeiro", "boletim"), false);
   assert.equal(podeLancar("financeiro", "recebimento"), true);
-  for (const o of ["boletim", "controle", "recebimento"] as const) {
+  assert.equal(podeLancar("faturamento", "contrato"), true);
+  assert.equal(podeLancar("orcamento", "contrato"), false);
+  for (const o of ["boletim", "controle", "recebimento", "contrato"] as const) {
     assert.equal(podeLancar("diretoria", o), true);
     assert.equal(podeLancar(null, o), false);
   }

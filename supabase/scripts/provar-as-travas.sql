@@ -436,3 +436,34 @@ rollback to b;
 delete from medicoes.vinculos_de_cliente where nome = 'PROVA SISLOC S.A' returning id;
 rollback;
 */
+
+
+-- ── 21. Contrato é do faturamento, e aditivo não se reescreve (0013) ──
+-- Esperado: o contrato e o aditivo do faturamento passam (INSERT 0 1 nos
+-- dois); o contrato do orçamento, ERROR 42501; o update no aditivo, ERROR
+-- 42501 (permission denied); o delete do faturamento, DELETE 0 no aditivo e
+-- no contrato (só a diretoria apaga). Precisa de alguém de orçamento.
+/*
+begin;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'faturamento' order by p.id limit 1))::text, true);
+set local role authenticated;
+insert into medicoes.contratos (numero, cliente, vigencia_inicio, vigencia_fim, valor)
+values ('PROVA-21', 'PROVA', '2026-01-01', '2026-12-31', 1000);
+insert into medicoes.contrato_aditivos (contrato_id, tipo, data, nova_vigencia_fim)
+select id, 'prorrogacao', '2026-12-01', '2027-12-31' from medicoes.contratos where numero = 'PROVA-21';
+savepoint a;
+update medicoes.contrato_aditivos set nova_vigencia_fim = '2030-01-01';
+rollback to a;
+delete from medicoes.contrato_aditivos returning id;
+delete from medicoes.contratos returning id;
+reset role;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'orcamento' order by p.id limit 1))::text, true);
+set local role authenticated;
+insert into medicoes.contratos (numero, cliente, vigencia_inicio, vigencia_fim)
+values ('PROVA-21B', 'PROVA', '2026-01-01', '2026-12-31');
+rollback;
+*/

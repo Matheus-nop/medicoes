@@ -11,7 +11,9 @@ import {
   Vazio,
 } from "@/components/ui";
 import { emPorcento, emReais } from "@/lib/medicoes/dinheiro";
+import { contratoLido, hojeNaCasa } from "@/lib/medicoes/contratos";
 import { podeLancar } from "@/lib/medicoes/papeis";
+import { createClient } from "@/lib/supabase/server";
 import { sessaoAtual } from "@/lib/supabase/papel";
 import {
   basesDosBoletins,
@@ -41,6 +43,7 @@ import { dataCurta, periodo as periodoDasOms } from "../../formato";
 import { carregarClientes } from "../dados";
 import { FiltrarBase } from "../extrato/escolher";
 import { NomesDoCliente } from "./nomes";
+import { CartaoDoContrato } from "../../contratos/cartao";
 
 /** Os números da manutenção só dos boletins filtrados. */
 function resumoDaManutencao(
@@ -70,7 +73,12 @@ export default async function FichaDoCliente({
 }) {
   const q = await searchParams;
   const nome = (q.nome ?? "").trim();
-  const [carga, sessao] = await Promise.all([carregarClientes(), sessaoAtual()]);
+  const [carga, sessao, contratos] = await Promise.all([
+    carregarClientes(),
+    sessaoAtual(),
+    // Sem a 0013 a ficha segue sem contratos.
+    createClient().then((s) => s.from("contratos_atual").select("*")),
+  ]);
   if (!carga.ok) {
     return (
       <div className="rounded-lg border border-borda bg-superficie p-8 text-center">
@@ -99,6 +107,10 @@ export default async function FichaDoCliente({
   const juntados = carga.vinculos
     .filter((v) => chaveDoCliente(v.cliente) === chave && v.id !== undefined)
     .map((v) => ({ id: v.id!, nome: ficha.nomes.find((n) => chaveDoCliente(n) === chaveDoCliente(v.nome)) ?? v.nome }));
+  const hoje = hojeNaCasa();
+  const dosContratos = (contratos.error ? [] : (contratos.data ?? []))
+    .map((c) => contratoLido(c as Record<string, unknown>))
+    .filter((c) => chaveDaFicha(c.cliente, carga.vinculos) === chave);
   const destinos = new Set(carga.vinculos.map((v) => chaveDoCliente(v.cliente)));
   const outros = carga.fichas.filter((f) => f.chave !== chave && !destinos.has(f.chave)).map((f) => f.nome);
   const base = (q.base ?? "").trim();
@@ -154,6 +166,16 @@ export default async function FichaDoCliente({
         outros={outros}
         podeMexer={podeLancar(sessao.papel, "boletim")}
       />
+
+      {dosContratos.length > 0 && (
+        <Painel titulo={`Contratos · ${dosContratos.length}`} descricao="A vigência de hoje e o medido contra o valor.">
+          <div className="grid gap-3 p-4 md:grid-cols-2 2xl:grid-cols-3">
+            {dosContratos.map((c) => (
+              <CartaoDoContrato key={c.id} c={c} hoje={hoje} comCliente={false} />
+            ))}
+          </div>
+        </Painel>
+      )}
 
       <div className="flex flex-wrap items-end gap-3">
         <FiltrarBase bases={basesDosBoletins(doCliente)} base={base} />

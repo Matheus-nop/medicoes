@@ -41,6 +41,8 @@ export const QUEM_LANCA = {
   controle: ["faturamento", "diretoria"],
   /** O recebido e o início do acompanhamento. */
   recebimento: ["financeiro", "diretoria"],
+  /** O contrato e os aditivos (a 0013). Apagar é só da diretoria. */
+  contrato: ["faturamento", "diretoria"],
 } as const satisfies Record<string, readonly PapelReal[]>;
 
 export type Lancamento = keyof typeof QUEM_LANCA;
