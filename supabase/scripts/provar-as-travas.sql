@@ -409,3 +409,30 @@ from medicoes.controle_periodos p, medicoes.controle_regioes r returning id;
 select count(*) as boletins_que_o_faturamento_le from medicoes.boletins;
 rollback;
 */
+
+
+-- ── 20. Juntar nomes é do time do boletim, e não se reescreve (0012) ──
+-- Esperado: o insert do orçamento passa (INSERT 0 1); o do financeiro,
+-- ERROR 42501; o update, ERROR 42501 (permission denied); e o delete do
+-- financeiro, DELETE 0. Precisa de alguém de orçamento e de financeiro.
+/*
+begin;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'orcamento' order by p.id limit 1))::text, true);
+set local role authenticated;
+insert into medicoes.vinculos_de_cliente (nome, cliente) values ('PROVA SISLOC S.A', 'PROVA / CONTROLE');
+reset role;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'financeiro' order by p.id limit 1))::text, true);
+set local role authenticated;
+savepoint a;
+insert into medicoes.vinculos_de_cliente (nome, cliente) values ('OUTRA S.A', 'PROVA / CONTROLE');
+rollback to a;
+savepoint b;
+update medicoes.vinculos_de_cliente set cliente = 'mexido';
+rollback to b;
+delete from medicoes.vinculos_de_cliente where nome = 'PROVA SISLOC S.A' returning id;
+rollback;
+*/

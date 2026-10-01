@@ -41,6 +41,10 @@ Cole e rode **um arquivo por vez, nesta ordem**:
     que é seu (ver **4. Acessos**). **Antes**, confira em Usuários o papel de
     cada pessoa: quem lança o controle e está como Orçamento para de conseguir
     salvar. O fim da conferência lista quem está em cada papel.
+15. `supabase/migrations/0012_nomes_do_cliente.sql` — os nomes do mesmo
+    cliente. Depois de aplicar, abra a ficha **ÁGUAS DO RIO / AEGEA** no
+    Arquivo por cliente e, em "Nomes deste cliente", junte os nomes do Sisloc
+    (AGUAS DO RIO 1 SPE, AGUAS DO RIO 4 SPE, AEGEA…).
 
 Cada uma (menos a 0000) termina numa conferência: **toda linha tem de dizer
 `✓ ok`**. Se aparecer `!!`, a colagem provavelmente chegou cortada — rode o

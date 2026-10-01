@@ -41,6 +41,7 @@ export default async function ArquivoPorCliente() {
                 subtitulo={[
                   m.boletins ? `${m.boletins} boletim(ns) em ${m.bases} base(s)` : null,
                   p ? `painel: ${p.rotulo}` : null,
+                  f.nomes.length > 1 ? `${f.nomes.length} nomes juntados` : null,
                 ]
                   .filter(Boolean)
                   .join(" · ")}
@@ -78,8 +79,9 @@ export default async function ArquivoPorCliente() {
       )}
       <p className="text-xs text-texto-3">
         O nome do boletim vem do Sisloc e o do painel é digitado. Quando não batem (&quot;AGUAS DO RIO 4
-        SPE&quot; e &quot;ÁGUAS DO RIO / AEGEA&quot;), o cliente aparece em dois cartões — juntar os dois é
-        um vínculo que se faz depois, de propósito, para não somar clientes diferentes.
+        SPE&quot; e &quot;ÁGUAS DO RIO / AEGEA&quot;), o cliente aparece em dois cartões. Para juntar,
+        abra a ficha que fica e use &quot;Nomes deste cliente&quot; — o papel do boletim continua com o
+        nome do Sisloc.
       </p>
     </div>
   );

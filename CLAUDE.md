@@ -77,7 +77,13 @@ desfaz isso logo depois de criar.
   bases e os meses do controle, cada um com o seu relatório), e o extrato de
   manutenção do cliente (`/clientes/extrato`, por mês e por base). Tudo na tela ou em
   PDF — planilha não, que é dela que a casa está saindo. O nome do boletim vem do Sisloc e o do
-  controle é digitado: quando não batem, são duas fichas — de propósito.
+  controle é digitado: quando não batem, são duas fichas — de propósito — até
+  alguém **juntar** os nomes na ficha ("Nomes deste cliente").
+- **vínculo** (`vinculos_de_cliente`, 0012): "o nome X é o cliente Y". Junta
+  as fichas no arquivo, na ficha e no extrato; o boletim e o papel continuam
+  com o nome do Sisloc. Um nível só: o cliente de um vínculo não se junta a
+  outro. Desfazer é apagar — não tem número dentro. A conta é `chaveDaFicha`
+  (`lib/medicoes/arquivo.ts`).
 - **painel executivo** (`/controle`): a aba "Por cliente" e a aba "Todos os
   clientes", onde cada um entra com a SUA posição mais recente.
 - **padrão das telas**: cartões em quadro e painéis que recolhem
@@ -156,9 +162,11 @@ desfaz isso logo depois de criar.
 - [~] Fase 5 — o dia a dia: o papel do Águas do Rio 2026 (`0008`), o período
       do boletim pela chegada (`0009`), o cadastro de bases com o próximo
       Documento Nº (`0010`), o filtro por base na tela inicial, no extrato e no
-      arquivo, e cada time lançando o que é seu (`0011`). `0008` a `0010`
-      **aplicadas**, e os boletins de agosto importados. Falta aplicar a `0011`,
-      completar o cadastro de bases (responsável e local da obra) e rodar
-      outubro inteiro no sistema com a planilha ao lado.
+      arquivo, cada time lançando o que é seu (`0011`) e os nomes do mesmo cliente
+      juntados no arquivo (`0012`). `0008` a `0010` **aplicadas**, e os
+      boletins de agosto importados. Falta aplicar a `0011` e a `0012`, juntar
+      os nomes do Águas do Rio / AEGEA, completar o cadastro de bases
+      (responsável e local da obra) e rodar outubro inteiro no sistema com a
+      planilha ao lado.
 - As provas de RLS de todas as migrações estão em
-  `supabase/scripts/provar-as-travas.sql` (trechos 1 a 19).
+  `supabase/scripts/provar-as-travas.sql` (trechos 1 a 20).
