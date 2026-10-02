@@ -140,6 +140,10 @@ desfaz isso logo depois de criar.
   diz ("PENHA - CAV NORTE" é VCG); nasceu das pastas dos arquivos de agosto e
   setembro. A tela inicial filtra por ela (`?regional=VCG`), na ordem das
   regiões do controle, e a base sem regional aparece em "Sem regional".
+- **PDF de todos** (`/boletins/lote?mes=&regional=&base=`): os papéis dos
+  boletins apresentados de um recorte, um por página, num PDF só — a pasta da
+  regional de uma vez. O aberto fica de fora (é prévia). O papel é o mesmo da
+  folha de cada boletim (`PapelDoBoletim`).
 - **mês de referência**: o "AGOSTO/2026" do boletim. A tela inicial filtra
   por ele (e pela base), e os números do topo passam a ser os do recorte. O
   mês se acha pela chave (`ordemDaReferencia`), não pela grafia; fica no

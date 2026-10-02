@@ -9,6 +9,7 @@ import {
   Campo,
   CartaoDoQuadro,
   CartaoIndicador,
+  ESTILO_BOTAO,
   Chips,
   Painel,
   Selo,
@@ -124,6 +125,8 @@ export function Medicoes({
     (b) => (regional === null || regionalDoBoletim(b, bases) === regional) && daBase(b.base, base),
   );
   const recortado = mes !== null || base !== "" || regional !== null;
+  // O aberto é prévia: não vai no PDF de todos.
+  const apresentados = daBaseEscolhida.filter((b) => b.situacao !== "aberto").length;
   const visiveis =
     filtro === "todos" ? daBaseEscolhida : daBaseEscolhida.filter((b) => b.situacao === filtro);
   const nomesDasBases = basesDosBoletins(boletins);
@@ -247,6 +250,20 @@ export function Medicoes({
               {daBaseEscolhida.length} boletim(ns) em {basesVisiveis} base(s) · os números do topo
               são deste recorte
             </p>
+          )}
+          {/* Os papéis do recorte num PDF só: a pasta da regional de uma vez. */}
+          {apresentados > 0 && (
+            <Link
+              href={`/boletins/lote?${new URLSearchParams({
+                ...(mes !== null ? { mes: String(mes) } : {}),
+                ...(regional !== null ? { regional } : {}),
+                ...(base ? { base } : {}),
+              }).toString()}`}
+              className={`${ESTILO_BOTAO.contorno} ml-auto`}
+              title="Os papéis de todos os boletins fechados, enviados ou faturados deste recorte, um por página"
+            >
+              PDF de todos ({apresentados})
+            </Link>
           )}
         </div>
 
