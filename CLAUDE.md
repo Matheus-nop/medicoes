@@ -65,7 +65,8 @@ desfaz isso logo depois de criar.
   com traço ("1170-01") — a `0014` aceita os dois formatos (`omValida`).
   A colagem do Sisloc continua só com a OM numérica.
 - **modelo**: o papel que o cliente recebe. `aguas` é o "Águas do Rio padrão
-  2026" (0008): a base no topo e os recibos de retirada e entrega. `rio_mais` é
+  2026" (0008): a base no topo e os recibos de retirada e entrega, com os
+  títulos PROPOSTA e OM ENTREGA, como o papel do cliente desde setembro/2026. `rio_mais` é
   o da Rio+ Saneamento — a base no topo, sem recibos e com o STATUS
   (PENDENTE/FATURADO) de cada OM. Os dois moram em `papel-2026.tsx`. `acao` é o
   TESTE 2, o anterior, para o que já saiu nele. Nasce do nome do cliente e se

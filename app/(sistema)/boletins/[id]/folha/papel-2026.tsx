@@ -21,7 +21,9 @@ import { dataCurta } from "../../../formato";
  *
  *   rio_mais — STATUS de cada OM (PENDENTE ou FATURADO, de `om_faturadas`),
  *              e a contagem de pendentes e faturados no pé. Sem recibos.
- *   aguas    — RECIBO RETIRADA e RECIBO ENTREGA, como o TESTE 2. Sem status.
+ *   aguas    — PROPOSTA e OM ENTREGA (o recibo de retirada e o de entrega,
+ *              com os títulos que o papel do cliente usa desde setembro/2026).
+ *              Sem status.
  *
  * As proporções são as das colunas B em diante de cada planilha. As cores são
  * as do modelo, não os tokens do sistema: o papel é do cliente.
@@ -51,9 +53,9 @@ const CABECALHO: Record<Variante, string[]> = {
     "Nº PATRIMÔNIO",
     "DATA",
     "Nº OM",
-    "RECIBO\nRETIRADA",
+    "PROPOSTA",
     "VALOR (R$)",
-    "RECIBO\nENTREGA",
+    "OM\nENTREGA",
     "OBSERVAÇÃO",
   ],
 };
