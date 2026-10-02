@@ -187,7 +187,7 @@ export function Boletim({
       ? [
           {
             ok: semRecibo === 0,
-            texto: semRecibo ? `${semRecibo} OM(s) sem recibo de retirada ou entrega` : "Recibos preenchidos",
+            texto: semRecibo ? `${semRecibo} OM(s) sem proposta ou OM entrega` : "Proposta e OM entrega preenchidas",
             acao:
               semRecibo > 0 && mexe ? (
                 <button type="button" onClick={buscar} disabled={enviando} className="font-semibold text-acento underline">
@@ -270,7 +270,7 @@ export function Boletim({
             titulo={`OMs do boletim · ${itens.length}`}
             descricao={
               mexe
-                ? "O valor e os recibos se corrigem no próprio cartão; o resto em Editar."
+                ? "O valor, a proposta e a OM entrega se corrigem no próprio cartão; o resto em Editar."
                 : faturavel
                   ? "Marque cada OM faturada — é o STATUS do papel e o faturado do painel."
                   : undefined
@@ -679,12 +679,12 @@ function CartaoDaOm({
       {comRecibo && (
         <div className="mt-3 grid grid-cols-2 gap-2">
           <div>
-            <p className="mb-0.5 text-[11px] text-texto-3">Recibo de retirada</p>
-            {recibo(retirada, setRetirada, "Recibo de retirada")}
+            <p className="mb-0.5 text-[11px] text-texto-3">Proposta</p>
+            {recibo(retirada, setRetirada, "Proposta")}
           </div>
           <div>
-            <p className="mb-0.5 text-[11px] text-texto-3">Recibo de entrega</p>
-            {recibo(entrega, setEntrega, "Recibo de entrega")}
+            <p className="mb-0.5 text-[11px] text-texto-3">OM entrega</p>
+            {recibo(entrega, setEntrega, "OM entrega")}
           </div>
         </div>
       )}

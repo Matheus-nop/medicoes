@@ -48,9 +48,11 @@ const CABECALHO = [
   "Nº PATRIMÔNIO",
   "DATA",
   "Nº OM",
-  "RECIBO\nRETIRADA",
-  "VALOR\n(OM / PROPOSTA)",
-  "RECIBO\nENTREGA",
+  // Os mesmos títulos do padrão 2026 (PROPOSTA e OM ENTREGA): a casa usa os
+  // mesmos nomes em todo papel.
+  "PROPOSTA",
+  "VALOR (R$)",
+  "OM\nENTREGA",
   "OBSERVAÇÃO",
 ];
 

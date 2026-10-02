@@ -60,9 +60,15 @@ desfaz isso logo depois de criar.
   entrega" do Sisloc.
 - **OM**: a ordem de manutenção do Sisloc. Três momentos, três números:
   entrada (recibo de retirada), corretiva (a que se cobra), retorno
-  (comprovante de entrega).
+  (comprovante de entrega). Quando a linha se cobra por um comprovante de
+  substituição, devolução ou manutenção no local, o "Nº OM" é o número dele,
+  com traço ("1170-01") — a `0014` aceita os dois formatos (`omValida`).
+  A colagem do Sisloc continua só com a OM numérica.
 - **modelo**: o papel que o cliente recebe. `aguas` é o "Águas do Rio padrão
-  2026" (0008): a base no topo e os recibos de retirada e entrega. `rio_mais` é
+  2026" (0008): a base no topo e os recibos de retirada e entrega, com os
+  títulos PROPOSTA e OM ENTREGA, como o papel do cliente desde setembro/2026
+  — os mesmos no TESTE 2 e nas telas (o campo continua `om_retirada` e
+  `recibo_entrega`). `rio_mais` é
   o da Rio+ Saneamento — a base no topo, sem recibos e com o STATUS
   (PENDENTE/FATURADO) de cada OM. Os dois moram em `papel-2026.tsx`. `acao` é o
   TESTE 2, o anterior, para o que já saiu nele. Nasce do nome do cliente e se
@@ -171,9 +177,15 @@ desfaz isso logo depois de criar.
       contra a foto anterior. O relatório (`/controle/relatorio`), de uma base
       ou de todas, sai em PDF A4 e vai por e-mail (o e-mail abre pronto; o PDF
       se anexa à mão — link de e-mail não leva arquivo). Os contratos vieram na Fase 6.
-- [x] Os boletins de agosto/2026 do Águas do Rio / AEGEA (41, 165 OMs,
-      R$ 227.115,00) entraram por `supabase/scripts/importar-boletins-agosto-2026.sql`,
-      depois da `0008`.
+- [x] Os boletins de agosto/2026 do Águas do Rio / AEGEA (41, 167 OMs,
+      R$ 227.975,00) entraram por `supabase/scripts/importar-boletins-agosto-2026.sql`,
+      depois da `0008`. A primeira versão lia só as 16 linhas do modelo e
+      deixou duas OMs da Setorizada Leste de fora;
+      `corrigir-agosto-setorizada-leste.sql` completa.
+- [~] Os de setembro/2026 (41, 145 OMs, R$ 195.477,00) entram por
+      `importar-boletins-setembro-2026.sql`, depois da `0014`. Os scripts
+      saem de um leitor que vai até a linha do TOTAL (o modelo cresce quando
+      inserem linhas) e confere cada boletim contra o total do arquivo.
 - [~] Fase 4 — o financeiro: recebimento (`0007`) com mês de início e
       abertura, e a idade do saldo a faturar e do a receber no painel. `0007`
       aplicada; falta o financeiro definir o início e a abertura de cada cliente.

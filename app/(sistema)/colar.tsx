@@ -321,7 +321,7 @@ export function ColarDoSisloc({
                   <th className="py-2 pr-2 font-medium">Data</th>
                   <th className="py-2 pr-2 font-medium">Patrimônio</th>
                   <th className="py-2 pr-2 font-medium">Equipamento</th>
-                  <th className="py-2 pr-2 font-medium">Recibo retirada</th>
+                  <th className="py-2 pr-2 font-medium">Proposta</th>
                   <th className="py-2 pr-2 font-medium">Etapa</th>
                   <th className="py-2 pr-3 text-right font-medium">Valor</th>
                 </tr>
@@ -386,7 +386,7 @@ export function ColarDoSisloc({
       descricao={
         boletim
           ? "Só as desta base entram aqui. As de outra base vão pela tela inicial."
-          : "A lista de OMs com a linha de títulos. Cliente, base, equipamento, recibo e valor saem das colunas."
+          : "A lista de OMs com a linha de títulos. Cliente, base, equipamento, proposta e valor saem das colunas."
       }
       recolhido={!aberto}
       aoRecolher={() => setAberto((a) => !a)}

@@ -10,6 +10,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   chaveDoCliente,
+  omValida,
   lerOmsDaMedicao,
   mesmoCliente,
   porDestino,
@@ -391,4 +392,14 @@ test("o documento escrito à mão vence o da casa", () => {
     documentoDoBoletim({ numero: "BM-0007", referencia: "SETEMBRO/2026", documento: "  " }),
     "BM-0007 - SETEMBRO/2026",
   );
+});
+
+test("o Nº OM: a do Sisloc ou o comprovante com traço (0014)", () => {
+  ok(omValida("034292"));
+  ok(omValida("1170-01"));
+  ok(omValida(" 2252-17 "));
+  ok(!omValida("12"));
+  ok(!omValida("1170-"));
+  ok(!omValida("1170-0001"));
+  ok(!omValida("OM 034292"));
 });
