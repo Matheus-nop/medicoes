@@ -21,6 +21,7 @@ const vazio = (cliente = ""): CamposDaBase => ({
   localObra: "",
   observacao: "",
   modelo: "",
+  regional: "",
 });
 
 const daBaseParaCampos = (b: Base): CamposDaBase => ({
@@ -32,6 +33,7 @@ const daBaseParaCampos = (b: Base): CamposDaBase => ({
   localObra: b.local_obra ?? "",
   observacao: b.observacao ?? "",
   modelo: b.modelo ?? "",
+  regional: b.regional ?? "",
 });
 
 /**
@@ -44,15 +46,19 @@ export function QuadroDeBases({
   bases,
   baseInicial,
   podeMexer,
+  regionais = [],
 }: {
   bases: BaseNoQuadro[];
   baseInicial: string;
+  regionais?: string[];
   /** O papel é do time que lança boletim (a 0011). Quem não é, só lê. */
   podeMexer: boolean;
 }) {
   const [filtro, setFiltro] = useState(baseInicial);
   const [editando, setEditando] = useState<number | "nova" | null>(null);
-  const visiveis = bases.filter((b) => daBase(b.nome, filtro) || daBase(b.cliente, filtro));
+  const visiveis = bases.filter(
+    (b) => daBase(b.nome, filtro) || daBase(b.cliente, filtro) || daBase(b.regional, filtro),
+  );
   const clientes = [...new Set(visiveis.map((b) => chaveDoCliente(b.cliente)))].map((k) => ({
     chave: k,
     nome: visiveis.find((b) => chaveDoCliente(b.cliente) === k)!.cliente,
@@ -89,7 +95,7 @@ export function QuadroDeBases({
 
       {editando === "nova" && (
         <Painel titulo="Nova base" descricao="O boletim novo desta base já nasce com estes dados.">
-          <Formulario inicial={vazio()} aoFechar={() => setEditando(null)} />
+          <Formulario inicial={vazio()} aoFechar={() => setEditando(null)} regionais={regionais} />
         </Painel>
       )}
 
@@ -102,7 +108,12 @@ export function QuadroDeBases({
               {c.bases.map((b) =>
                 editando === b.id ? (
                   <div key={b.id} className="rounded-xl border border-acento bg-superficie shadow-cartao md:col-span-2 2xl:col-span-3">
-                    <Formulario id={b.id} inicial={daBaseParaCampos(b)} aoFechar={() => setEditando(null)} />
+                    <Formulario
+                      id={b.id}
+                      inicial={daBaseParaCampos(b)}
+                      aoFechar={() => setEditando(null)}
+                      regionais={regionais}
+                    />
                   </div>
                 ) : (
                   <CartaoDaBase key={b.id} b={b} aoEditar={podeMexer ? () => setEditando(b.id) : undefined} />
@@ -148,6 +159,7 @@ function CartaoDaBase({ b, aoEditar }: { b: BaseNoQuadro; aoEditar?: () => void 
         {linha("E-mail", b.email)}
         {linha("Telefone", b.telefone)}
         {linha("Local da obra", b.local_obra, true)}
+        {linha("Regional", b.regional ?? null)}
         <div className="flex justify-between gap-3">
           <dt className="text-texto-3">Papel</dt>
           <dd>{ROTULO_MODELO[b.modelo ?? modeloDoCliente(b.cliente)]}{!b.modelo && " (do cliente)"}</dd>
@@ -166,7 +178,18 @@ function CartaoDaBase({ b, aoEditar }: { b: BaseNoQuadro; aoEditar?: () => void 
   );
 }
 
-function Formulario({ id, inicial, aoFechar }: { id?: number; inicial: CamposDaBase; aoFechar: () => void }) {
+function Formulario({
+  id,
+  inicial,
+  aoFechar,
+  regionais,
+}: {
+  id?: number;
+  inicial: CamposDaBase;
+  aoFechar: () => void;
+  /** As regiões do controle e as regionais já usadas: a lista do campo. */
+  regionais: string[];
+}) {
   const router = useRouter();
   const [c, setC] = useState(inicial);
   const [erro, setErro] = useState<string | null>(null);
@@ -207,6 +230,20 @@ function Formulario({ id, inicial, aoFechar }: { id?: number; inicial: CamposDaB
         {campo("email", "E-mail", "fiscal@cliente.com.br", { type: "email" })}
         {campo("telefone", "Telefone", "(21) 0000-0000", { inputMode: "tel" })}
         {campo("localObra", "Local da obra", "Rua Oscar Soares, 1362 - Nova Iguaçu - RJ")}
+        <Campo rotulo="Regional">
+          <input
+            value={c.regional}
+            onChange={(e) => setC((x) => ({ ...x, regional: e.target.value }))}
+            list="regionais-do-controle"
+            placeholder="NORTE, VCG, BAIXADA I…"
+            className={`${CAMPO} w-full`}
+          />
+          <datalist id="regionais-do-controle">
+            {regionais.map((r) => (
+              <option key={r} value={r} />
+            ))}
+          </datalist>
+        </Campo>
         <Campo rotulo="Papel">
           <select value={c.modelo} onChange={(e) => setC((x) => ({ ...x, modelo: e.target.value }))} className={`${CAMPO} w-full`}>
             <option value="">O do cliente</option>

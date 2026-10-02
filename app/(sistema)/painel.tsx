@@ -16,7 +16,7 @@ import {
   Vazio,
 } from "@/components/ui";
 import { basesDosBoletins, boletinsPorBase, daBase, doMes, mesesDosBoletins } from "@/lib/medicoes/arquivo";
-import type { Base } from "@/lib/medicoes/bases";
+import { regionaisDosBoletins, regionalDoBoletim, type Base } from "@/lib/medicoes/bases";
 import { quemLanca } from "@/lib/medicoes/papeis";
 import { emReais } from "@/lib/medicoes/dinheiro";
 import {
@@ -52,6 +52,16 @@ export const TOM_SITUACAO: Record<SituacaoBoletim, "acento" | "neutro" | "transi
 
 type Filtro = SituacaoBoletim | "todos";
 
+/** "GRANDE DIÂMETRO" → "Grande Diâmetro"; sigla ("VCG") fica como está. */
+function rotuloDaRegional(r: string): string {
+  if (/^[A-Z]{2,4}$/.test(r) && !/[AEIOU]/.test(r)) return r;
+  return r
+    .toLowerCase()
+    .split(" ")
+    .map((p) => (/^(i|ii|iii|iv)$/.test(p) ? p.toUpperCase() : p.charAt(0).toUpperCase() + p.slice(1)))
+    .join(" ");
+}
+
 /**
  * As medições: o que está sendo medido, o que foi apresentado ao cliente, o
  * que já virou fatura — e o saldo entre os dois, por cliente.
@@ -63,6 +73,8 @@ export function Medicoes({
   bases = [],
   podeMexer = true,
   mesInicial = null,
+  regionalInicial = null,
+  ordemDasRegionais = [],
 }: {
   boletins: BoletimAtual[];
   porCliente: SaldoLido[];
@@ -73,6 +85,10 @@ export function Medicoes({
   podeMexer?: boolean;
   /** O mês que veio no endereço (`?mes=202608`): voltar do boletim não perde o filtro. */
   mesInicial?: number | null;
+  /** A regional que veio no endereço (`?regional=VCG`). "" é sem regional. */
+  regionalInicial?: string | null;
+  /** As regiões do controle, na ordem do painel: a ordem dos botões. */
+  ordemDasRegionais?: string[];
 }) {
   const [filtro, setFiltro] = useState<Filtro>("todos");
 
@@ -90,10 +106,24 @@ export function Medicoes({
     window.history.replaceState(null, "", url);
   };
   const meses = mesesDosBoletins(boletins);
+  // A regional da base no cadastro (0015). Nulo: todas.
+  const [regional, setRegionalNoEstado] = useState<string | null>(regionalInicial);
+  const setRegional = (r: string | null) => {
+    setRegionalNoEstado(r);
+    const url = new URL(window.location.href);
+    if (r === null) url.searchParams.delete("regional");
+    else url.searchParams.set("regional", r);
+    window.history.replaceState(null, "", url);
+  };
+  // Os botões contam os boletins do mês escolhido, em qualquer regional.
+  const doMesEscolhido = boletins.filter((b) => doMes(b.referencia, mes));
+  const regionais = regionaisDosBoletins(doMesEscolhido, bases, ordemDasRegionais);
   // Mês e base filtram primeiro: a contagem das situações e os números do
   // topo são os do recorte escolhido.
-  const daBaseEscolhida = boletins.filter((b) => doMes(b.referencia, mes) && daBase(b.base, base));
-  const recortado = mes !== null || base !== "";
+  const daBaseEscolhida = doMesEscolhido.filter(
+    (b) => (regional === null || regionalDoBoletim(b, bases) === regional) && daBase(b.base, base),
+  );
+  const recortado = mes !== null || base !== "" || regional !== null;
   const visiveis =
     filtro === "todos" ? daBaseEscolhida : daBaseEscolhida.filter((b) => b.situacao === filtro);
   const nomesDasBases = basesDosBoletins(boletins);
@@ -137,24 +167,28 @@ export function Medicoes({
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <CartaoIndicador
+          compacto
           rotulo="Em medição"
           valor={emReais(topo.emMedicao, false)}
           detalhe={`${conta("aberto", daBaseEscolhida)} boletim(ns) aberto(s)`}
           cor="bg-acento"
         />
         <CartaoIndicador
+          compacto
           rotulo="Medido"
           valor={emReais(topo.medido, false)}
           detalhe="fechado, enviado ou faturado"
           cor="bg-expedicao"
         />
         <CartaoIndicador
+          compacto
           rotulo="Faturado"
           valor={emReais(topo.faturado, false)}
           detalhe={`${conta("faturado", daBaseEscolhida)} boletim(ns)`}
           cor="bg-disponivel"
         />
         <CartaoIndicador
+          compacto
           rotulo="Saldo a faturar"
           valor={emReais(topo.saldo, false)}
           detalhe="medido e ainda não faturado"
@@ -216,6 +250,22 @@ export function Medicoes({
           )}
         </div>
 
+        {regionais.length > 1 || regional !== null ? (
+          <Chips
+            rotulo="Regional"
+            valor={regional === null ? "todas" : `r:${regional}`}
+            aoMudar={(v) => setRegional(v === "todas" ? null : v.slice(2))}
+            opcoes={[
+              { valor: "todas", rotulo: "Todas as regionais", contagem: doMesEscolhido.length },
+              ...regionais.map((r) => ({
+                valor: `r:${r.regional}`,
+                rotulo: r.regional ? rotuloDaRegional(r.regional) : "Sem regional",
+                contagem: r.boletins,
+              })),
+            ]}
+          />
+        ) : null}
+
         <Chips
           rotulo="Situação do boletim"
           valor={filtro}
@@ -237,7 +287,7 @@ export function Medicoes({
             {recortado
               ? `Nenhum boletim ${mes !== null ? `de ${meses.find((m) => m.chave === mes)?.rotulo ?? "este mês"}` : ""}${
                   base ? ` com a base "${base}"` : ""
-                } nesta situação.`
+                }${regional !== null ? ` na regional ${regional || "sem regional"}` : ""} nesta situação.`
               : "Nenhum boletim nesta situação."}
           </Vazio>
         ) : (

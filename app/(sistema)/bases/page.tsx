@@ -20,10 +20,11 @@ export default async function CadastroDeBases({
 }) {
   const q = await searchParams;
   const supabase = await createClient();
-  const [bases, boletins, sessao] = await Promise.all([
+  const [bases, boletins, sessao, regioes] = await Promise.all([
     supabase.from("bases").select("*").order("cliente").order("nome"),
     supabase.from("boletins").select("cliente, base, documento, criado_em"),
     sessaoAtual(),
+    supabase.from("controle_regioes").select("nome, ordem").order("ordem"),
   ]);
   if (bases.error) {
     return (
@@ -64,6 +65,12 @@ export default async function CadastroDeBases({
         bases={quadro}
         baseInicial={q.base ?? ""}
         podeMexer={podeLancar(sessao.papel, "boletim")}
+        regionais={[
+          ...new Set([
+            ...((regioes.data ?? []) as { nome: string }[]).map((r) => r.nome.trim().toUpperCase()),
+            ...((bases.data ?? []) as Base[]).map((b) => b.regional ?? "").filter(Boolean),
+          ]),
+        ]}
       />
     </div>
   );
