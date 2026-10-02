@@ -426,7 +426,7 @@ export async function mudarRecibos(
     })
     .eq("id", itemId)
     .select("id");
-  if (error) return { ok: false, erro: recado(error, "salvar os recibos") };
+  if (error) return { ok: false, erro: recado(error, "salvar a proposta e a OM entrega") };
   if (!data?.length) return fechado;
   refazer(boletimId);
   return { ok: true };
