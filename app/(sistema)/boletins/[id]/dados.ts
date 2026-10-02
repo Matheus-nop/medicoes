@@ -94,7 +94,7 @@ export async function carregarBoletim(id: number): Promise<Carga> {
   };
 }
 
-function ordenarPelaData(itens: ItemDoBoletim[]): ItemDoBoletim[] {
+export function ordenarPelaData(itens: ItemDoBoletim[]): ItemDoBoletim[] {
   const quando = (i: ItemDoBoletim) => {
     const d = dataDaOm(i);
     return d ? new Date(d).getTime() : Number.POSITIVE_INFINITY;

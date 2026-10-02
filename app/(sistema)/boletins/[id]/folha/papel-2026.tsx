@@ -86,10 +86,13 @@ export function Papel2026({
   boletim,
   itens,
   variante,
+  id = "folha",
 }: {
   boletim: BoletimAtual;
   itens: ItemDoBoletim[];
   variante: Variante;
+  /** Vazio no lote: o `#folha` é quem embrulha os vários papéis. */
+  id?: string;
 }) {
   const colunas = COLUNAS[variante];
   const soma = colunas.reduce((t, c) => t + c, 0);
@@ -113,7 +116,7 @@ export function Papel2026({
 
   return (
     <div
-      id="folha"
+      id={id}
       className="mx-auto w-[277mm] min-w-[277mm] bg-white px-[4mm] pt-[3mm] pb-[2mm] font-sans text-[#2B2B2B] [-webkit-print-color-adjust:exact] [print-color-adjust:exact] print:w-[325mm] print:min-w-0 print:[zoom:0.84]"
     >
       {/* ── Topo: a marca e o título ─────────────────────── */}
