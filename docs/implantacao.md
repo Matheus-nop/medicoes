@@ -61,6 +61,10 @@ Cole e rode **um arquivo por vez, nesta ordem**:
     setembro (145 OMs, R$ 195.477,00), fechados em 02/10/2026. A conferência no
     fim tem de dar 41, 145 e 195.477,00, e a lista de OMs em outro boletim tem
     de vir vazia.
+20. `supabase/migrations/0015_regional_da_base.sql` — a regional de cada base,
+    preenchida pelas pastas dos arquivos (49 bases). A conferência mostra
+    quantas bases há em cada regional; a que ficar sem se acerta em
+    **Cadastro de bases**.
 
 Cada uma (menos a 0000) termina numa conferência: **toda linha tem de dizer
 `✓ ok`**. Se aparecer `!!`, a colagem provavelmente chegou cortada — rode o

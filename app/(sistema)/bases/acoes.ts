@@ -20,6 +20,8 @@ export interface CamposDaBase {
   observacao: string;
   /** Vazio: o papel do cliente. */
   modelo: string;
+  /** A regional do controle (NORTE, VCG…). Vazio: sem regional. */
+  regional: string;
 }
 
 function recado(erro: { code?: string; message: string }, oQue: string): string {
@@ -44,6 +46,7 @@ export async function salvarBase(id: number | null, c: CamposDaBase): Promise<Re
     local_obra: t(c.localObra),
     observacao: t(c.observacao),
     modelo: c.modelo ? modeloLido(c.modelo) : null,
+    regional: t(c.regional.toUpperCase().replace(/\s+/g, " ")),
     atualizado_em: new Date().toISOString(),
     atualizado_por: auth.user?.id ?? null,
   };

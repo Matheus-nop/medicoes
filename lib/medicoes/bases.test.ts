@@ -2,7 +2,7 @@
 
 import { strictEqual as e, deepStrictEqual } from "node:assert/strict";
 import { test } from "node:test";
-import { acharBase, dadosDoBoletimNovo, proximoDocumento } from "./bases.ts";
+import { acharBase, dadosDoBoletimNovo, proximoDocumento, regionaisDosBoletins, regionalDoBoletim } from "./bases.ts";
 
 const CLI = "AEGEA SANEAMENTO E PARTICIPAÇÕES S.A";
 
@@ -43,4 +43,26 @@ test("o boletim novo: o cadastro manda, o último boletim completa, o modelo sai
   );
   e(dadosDoBoletimNovo(CLI, null, null).modelo, "aguas");
   e(dadosDoBoletimNovo("RIO + SANEAMENTO BL3 S.A", { modelo: null }, null).modelo, "rio_mais");
+});
+
+test("a regional do boletim vem do cadastro, na ordem do controle", () => {
+  const bases = [
+    { cliente: CLI, nome: "PENHA - CAV NORTE", regional: "VCG" },
+    { cliente: "AGUAS DO RIO 4 SPE S.A", nome: "BASE NORTE - MEIER", regional: "NORTE" },
+    { cliente: CLI, nome: "SEM CADASTRO DE REGIONAL", regional: null },
+  ];
+  const boletins = [
+    { cliente: CLI, base: "Penha - CAV Norte" },
+    { cliente: CLI, base: "PENHA - CAV NORTE" },
+    { cliente: "AGUAS DO RIO 4 SPE S.A.", base: "BASE NORTE - MEIER" },
+    { cliente: CLI, base: "SEM CADASTRO DE REGIONAL" },
+    { cliente: CLI, base: "BASE QUE NAO ESTA NO CADASTRO" },
+  ];
+  e(regionalDoBoletim(boletins[0], bases), "VCG");
+  e(regionalDoBoletim(boletins[4], bases), "");
+  deepStrictEqual(regionaisDosBoletins(boletins, bases, ["NORTE", "SUL", "VCG"]), [
+    { regional: "NORTE", boletins: 1 },
+    { regional: "VCG", boletins: 2 },
+    { regional: "", boletins: 2 },
+  ]);
 });

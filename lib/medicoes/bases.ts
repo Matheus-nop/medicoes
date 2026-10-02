@@ -14,7 +14,41 @@ export interface Base {
   local_obra: string | null;
   observacao: string | null;
   modelo: ModeloDoPapel | null;
+  /** A regional do controle onde a base fica — Norte, VCG… (0015). */
+  regional?: string | null;
   atualizado_em?: string;
+}
+
+/**
+ * As regionais dos boletins, na ordem das regiões do controle, com quantos
+ * boletins cada uma tem. O boletim cuja base não tem regional no cadastro
+ * conta em "" (sem regional), que vem por último.
+ */
+export function regionaisDosBoletins(
+  boletins: { cliente: string; base: string | null }[],
+  bases: Pick<Base, "cliente" | "nome" | "regional">[],
+  ordem: string[] = [],
+): { regional: string; boletins: number }[] {
+  const conta = new Map<string, number>();
+  for (const b of boletins) {
+    const r = regionalDoBoletim(b, bases);
+    conta.set(r, (conta.get(r) ?? 0) + 1);
+  }
+  const posicao = (r: string) => {
+    const i = ordem.findIndex((o) => o.toUpperCase() === r.toUpperCase());
+    return r === "" ? 1e6 : i < 0 ? 1e5 : i;
+  };
+  return [...conta.entries()]
+    .sort((a, b) => posicao(a[0]) - posicao(b[0]) || a[0].localeCompare(b[0]))
+    .map(([regional, n]) => ({ regional, boletins: n }));
+}
+
+/** A regional do boletim, pela base dele no cadastro. "" quando não tem. */
+export function regionalDoBoletim(
+  b: { cliente: string; base: string | null },
+  bases: Pick<Base, "cliente" | "nome" | "regional">[],
+): string {
+  return acharBase(bases, b.cliente, b.base)?.regional?.trim() ?? "";
 }
 
 /** A base do cadastro para este cliente e base — pela chave, não pela grafia. */

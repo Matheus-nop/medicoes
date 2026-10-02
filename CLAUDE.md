@@ -134,6 +134,12 @@ desfaz isso logo depois de criar.
   ao abrir o primeiro boletim. A base se acha pela chave do nome
   (`chave_do_nome` no banco = `chaveDoCliente` no código). Editar a base não
   muda boletim que já existe; "Puxar dados da base" traz para o aberto.
+- **regional**: a região do controle onde fica a base (Norte, Sul, Leste,
+  Baixada I e II, Comunidade, Interior, Grande Diâmetro, VCG, Vila Kosmos).
+  É campo do cadastro de bases (`0015`), porque o nome da base nem sempre a
+  diz ("PENHA - CAV NORTE" é VCG); nasceu das pastas dos arquivos de agosto e
+  setembro. A tela inicial filtra por ela (`?regional=VCG`), na ordem das
+  regiões do controle, e a base sem regional aparece em "Sem regional".
 - **mês de referência**: o "AGOSTO/2026" do boletim. A tela inicial filtra
   por ele (e pela base), e os números do topo passam a ser os do recorte. O
   mês se acha pela chave (`ordemDaReferencia`), não pela grafia; fica no

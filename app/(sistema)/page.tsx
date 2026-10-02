@@ -10,13 +10,13 @@ export const dynamic = "force-dynamic";
 export default async function PaginaMedicoes({
   searchParams,
 }: {
-  searchParams: Promise<{ mes?: string }>;
+  searchParams: Promise<{ mes?: string; regional?: string }>;
 }) {
   const q = await searchParams;
   const mesInicial = /^\d{6}$|^0$/.test(q.mes ?? "") ? Number(q.mes) : null;
   const supabase = await createClient();
 
-  const [boletins, porCliente, itens, bases, sessao] = await Promise.all([
+  const [boletins, porCliente, itens, bases, sessao, regioes] = await Promise.all([
     supabase.from("boletins_atual").select("*").order("id", { ascending: false }),
     supabase.from("por_cliente").select("*"),
     // Só o número da OM e o boletim dela: é o que a colagem precisa para dizer
@@ -26,7 +26,12 @@ export default async function PaginaMedicoes({
     // Sem a 0010 ele não existe, e a colagem segue sem ele.
     supabase.from("bases").select("*"),
     sessaoAtual(),
+    // A ordem das regiões do controle é a ordem dos botões de regional.
+    supabase.from("controle_regioes").select("nome, ordem").order("ordem"),
   ]);
+  const ordemDasRegionais = [
+    ...new Set(((regioes.data ?? []) as { nome: string }[]).map((r) => r.nome.trim().toUpperCase())),
+  ];
 
   const falha = boletins.error ?? porCliente.error ?? itens.error;
   if (falha) {
@@ -71,6 +76,8 @@ export default async function PaginaMedicoes({
       bases={bases.error ? [] : ((bases.data ?? []) as Base[])}
       podeMexer={podeLancar(sessao.papel, "boletim")}
       mesInicial={mesInicial}
+      regionalInicial={q.regional ?? null}
+      ordemDasRegionais={ordemDasRegionais}
     />
   );
 }
