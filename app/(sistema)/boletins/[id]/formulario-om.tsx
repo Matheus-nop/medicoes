@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Botao, CAMPO, Campo } from "@/components/ui";
-import { dataDaOm, lerValorDigitado, type ItemDoBoletim } from "@/lib/medicoes/medicoes";
+import { dataDaOm, lerValorDigitado, omValida, type ItemDoBoletim } from "@/lib/medicoes/medicoes";
 import type { CamposDaOm } from "../../acoes";
 
 /** "2026-07-23" no fuso de quem usa, para o `<input type="date">`. */
@@ -51,7 +51,7 @@ export function FormularioDaOm({
 
   function salvar() {
     const om = c.om.replace(/\s+/g, "");
-    if (!/^\d{3,10}$/.test(om)) return setProblema("O Nº OM tem de ser o número do Sisloc, só dígitos.");
+    if (!omValida(om)) return setProblema("O Nº OM é o número do Sisloc (só dígitos) ou o do comprovante (1170-01).");
     if (!c.equipamento.trim()) return setProblema("Diga qual é o equipamento ou o serviço.");
     const valor = c.valor.trim() ? lerValorDigitado(c.valor) : 0;
     if (valor === null) return setProblema("O valor não é um número. Use 1.234,56.");

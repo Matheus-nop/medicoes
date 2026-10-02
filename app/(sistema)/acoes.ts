@@ -16,6 +16,7 @@ import {
   descricaoDoEquipamento,
   mesDeReferencia,
   modeloLido,
+  omValida,
   type DemandaDoRoteiros,
   type ModeloDoPapel,
   type OmLida,
@@ -337,7 +338,7 @@ function linhaDigitada(c: CamposDaOm) {
 }
 
 function validar(c: CamposDaOm): string | null {
-  if (!/^\d{3,10}$/.test(c.om.replace(/\s+/g, ""))) return "O Nº OM tem de ser só dígitos.";
+  if (!omValida(c.om)) return "O Nº OM é o número do Sisloc (só dígitos) ou o do comprovante (1170-01).";
   if (!c.equipamento.trim()) return "Falta a descrição do equipamento ou do serviço.";
   if (!Number.isFinite(c.valor) || c.valor < 0) return "Valor tem de ser zero ou maior.";
   return null;

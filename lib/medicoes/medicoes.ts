@@ -719,6 +719,15 @@ export interface Comprovantes {
   deOnde: { retirada: OrigemDoComprovante | null; entrega: OrigemDoComprovante | null };
 }
 
+/**
+ * O Nº OM que o boletim aceita: a OM do Sisloc (só dígitos) ou o número do
+ * comprovante de substituição, devolução ou manutenção no local ("1170-01"),
+ * que é o que vai no papel quando a linha se cobra por ele (0014).
+ */
+export function omValida(om: string): boolean {
+  return /^\d{3,10}(-\d{1,3})?$/.test(om.replace(/\s+/g, ""));
+}
+
 /** "034292" e "34292" são a mesma OM: o Sisloc mostra os zeros, gente digita sem. */
 export const mesmaOm = (a: string | null | undefined, b: string | null | undefined) => {
   const limpa = (x: string) => x.replace(/\D/g, "").replace(/^0+/, "");

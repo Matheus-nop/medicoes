@@ -1,17 +1,19 @@
 -- =====================================================================
 -- Os boletins de manutenção de AGOSTO/2026 do Águas do Rio / AEGEA
--- (41 boletins, 165 OMs, R$ 227.115,00 — lidos dos arquivos padronizados)
--- Rode DEPOIS da 0008, no SQL Editor. Pode rodar duas vezes: boletim que já
--- existe (mesmo cliente, base, mês e documento) não é criado de novo, e OM que
--- já está em algum boletim fica onde está (uma OM, um boletim).
+-- (41 boletins, 167 OMs, R$ 227.975,00 — lidos dos arquivos padronizados)
+-- Rode no SQL Editor. Pode rodar duas vezes: boletim que já existe (mesmo
+-- cliente, base, mês e documento) não é criado de novo, e OM que já está em
+-- algum boletim fica onde está (uma OM, um boletim).
 --
--- Entram no papel padrão 2026 do Águas do Rio, FECHADOS na data de emissão do
--- arquivo (02/09/2026) — já foram emitidos. Enviar e faturar se marca na tela.
+-- Entram no papel padrão 2026 do Águas do Rio, FECHADOS na data de emissão
+-- (02/09/2026) — já foram emitidos. Enviar e faturar se marca na tela.
 -- Autor: matheus@novaopcaoequipamentos.com.br (criado_por, incluido_por e quem fechou).
 --
 -- Conferências feitas nos arquivos:
---   · VCG São Gonçalo (Setorizada Leste Bloco 1): o TOTAL digitado na planilha
---     era 712, mas as 16 OMs somam 38.044 — o sistema usa a soma das OMs.
+--   · VCG São Gonçalo (Setorizada Leste Bloco 1): 18 OMs, R$ 38.904,00 — a
+--     planilha tem linhas inseridas, e o leitor vai até a linha do TOTAL. (A
+--     primeira versão deste script lia só 16 linhas; quem já rodou completa
+--     com supabase/scripts/corrigir-agosto-setorizada-leste.sql.)
 --   · Base Sul Botafogo: emissão 02/08/2026 no arquivo; entrou 02/09/2026, como
 --     os outros 40.
 --   · As datas digitadas como texto (Norte Ilha Tauá e Campinho) foram lidas.
@@ -740,7 +742,9 @@ oms as (
   ('033006', '231125-029', 'CORTADORA MANUAL HUSQVARNA', '2026-07-30 12:00-03', 2624.00, '032888', '034189', null),
   ('033007', '250225-257', 'CORTADORA MANUAL HUSQVARNA', '2026-07-30 12:00-03', 2624.00, '032890', '034204', null),
   ('033008', '250225-401', 'CORTADORA MANUAL HUSQVARNA', '2026-07-30 12:00-03', 2624.00, '032898', '034218', null),
-  ('033009', '250225-341', 'CORTADORA MANUAL HUSQVARNA', '2026-07-30 12:00-03', 2654.00, '032902', '034209', null)
+  ('033009', '250225-341', 'CORTADORA MANUAL HUSQVARNA', '2026-07-30 12:00-03', 2654.00, '032902', '034209', null),
+  ('033046', '25012-192', 'CORTADORA PISO HUSQVARNA', '2026-07-30 12:00-03', 712.00, '032933', '033066', null),
+  ('033273', '250115-557', 'GRUPO GERADOR 3,5KVA', '2026-08-04 12:00-03', 148.00, '032744', '033326', null)
   ) v(om, pat, equip, dia, valor, ret, ent, obs)
   where (select id from alvo limit 1) is not null
   on conflict on constraint boletim_om_uma_vez do nothing
@@ -1418,7 +1422,17 @@ from (select id from alvo limit 1) a, u
 where (select count(*) from oms) >= 0
   and not exists (select 1 from boletim_andamentos x where x.boletim_id = a.id);
 
--- Conferência: 41 boletins de AGOSTO/2026 no padrão aguas, 165 OMs, 227.115,00.
+-- As bases que aparecem pela primeira vez entram no cadastro (0010), com os
+-- dados do boletim mais recente. Base que já está no cadastro fica como está.
+insert into bases (cliente, nome, responsavel, email, telefone, local_obra, modelo, atualizado_por)
+select distinct on (chave_do_nome(b.cliente), chave_do_nome(b.base))
+       b.cliente, b.base, b.contato, b.email, b.telefone, b.local_obra, b.modelo, null
+from boletins b
+where b.referencia = 'AGOSTO/2026' and b.base is not null and length(trim(b.base)) > 0
+order by chave_do_nome(b.cliente), chave_do_nome(b.base), b.id desc
+on conflict (chave_do_nome(cliente), chave_do_nome(nome)) do nothing;
+
+-- Conferência: 41 boletins de AGOSTO/2026 no padrão aguas, 167 OMs, 227.975,00.
 select count(*) as boletins, sum(oms) as oms, sum(valor) as valor,
        count(*) filter (where situacao = 'fechado') as fechados
 from boletins_atual
@@ -1498,6 +1512,8 @@ from (values
   ('033007'),
   ('033008'),
   ('033009'),
+  ('033046'),
+  ('033273'),
   ('030545'),
   ('031564'),
   ('031896'),

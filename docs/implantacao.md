@@ -51,6 +51,16 @@ Cole e rode **um arquivo por vez, nesta ordem**:
     controle** — é por ele que o medido entra no contrato — e registra os
     aditivos que já existem (prorrogações e reajustes), senão o reajuste
     aparece como atrasado.
+17. `supabase/migrations/0014_om_de_comprovante.sql` — o Nº OM passa a aceitar
+    o número do comprovante ("1170-01"), que vai no papel quando a linha se
+    cobra por ele.
+18. `supabase/scripts/corrigir-agosto-setorizada-leste.sql` — as duas OMs da
+    Setorizada Leste Bloco 1 que a importação de agosto deixou de fora (o
+    boletim vai a 18 OMs e R$ 38.904,00).
+19. `supabase/scripts/importar-boletins-setembro-2026.sql` — os 41 boletins de
+    setembro (145 OMs, R$ 195.477,00), fechados em 02/10/2026. A conferência no
+    fim tem de dar 41, 145 e 195.477,00, e a lista de OMs em outro boletim tem
+    de vir vazia.
 
 Cada uma (menos a 0000) termina numa conferência: **toda linha tem de dizer
 `✓ ok`**. Se aparecer `!!`, a colagem provavelmente chegou cortada — rode o
