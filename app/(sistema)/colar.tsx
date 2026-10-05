@@ -3,16 +3,18 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Aviso, Botao, Painel, Selo } from "@/components/ui";
+import { Aviso, Botao, CAMPO, Campo, Painel, Selo } from "@/components/ui";
 import { emReais } from "@/lib/medicoes/dinheiro";
-import { acharBase, dadosDoBoletimNovo, proximoDocumento, type Base } from "@/lib/medicoes/bases";
+import { acharBase, basesDoCliente, dadosDoBoletimNovo, proximoDocumento, type Base } from "@/lib/medicoes/bases";
 import {
   ROTULO_FONTE,
   ROTULO_MODELO,
   chaveDoCliente,
   chaveDoDestino,
+  dataDaOm,
   descricaoDoEquipamento,
   lerOmsDaMedicao,
+  mesDeReferencia,
   porDestino,
   rotuloDaEtapa,
   type GrupoDeDestino,
@@ -77,6 +79,13 @@ export function ColarDoSisloc({
   const [vendoOms, setVendoOms] = useState<Set<string>>(new Set());
   // O resultado do "abrir todos": um boletim por base, com o link.
   const [abertosAgora, setAbertosAgora] = useState<{ numero: string; id: number; base: string; oms: number }[]>([]);
+  // O destino que a pessoa acertou em cada cartão, antes de abrir: a base do
+  // cadastro (ou o nome da base nova), o Documento Nº e o mês. Vazio, vale o
+  // que o sistema propõe.
+  const [escolhas, setEscolhas] = useState<Record<string, { base?: string; documento?: string; referencia?: string }>>({});
+  const [editandoDestino, setEditandoDestino] = useState<Set<string>>(new Set());
+  const escolher = (chave: string, campo: "base" | "documento" | "referencia", valor: string) =>
+    setEscolhas((e) => ({ ...e, [chave]: { ...e[chave], [campo]: valor } }));
 
   const grupos = useMemo(() => (leitura ? porDestino(leitura.linhas) : []), [leitura]);
 
@@ -102,6 +111,8 @@ export function ColarDoSisloc({
     setTexto("");
     setLeitura(null);
     setComSemOrcamento(new Set());
+    setEscolhas({});
+    setEditandoDestino(new Set());
   }
 
   function incluir(boletimId: number | null, g: GrupoDeDestino, linhas: OmLida[]) {
@@ -109,7 +120,7 @@ export function ColarDoSisloc({
     setFeito(null);
     setAbertosAgora([]);
     iniciar(async () => {
-      const r = await incluirOms({ boletimId, cliente: g.cliente, base: g.base, linhas });
+      const r = await incluirOms({ boletimId, cliente: g.cliente, base: g.base, linhas, escolha: escolhaDe(g, linhas) });
       if (!r.ok) {
         setErro(r.erro ?? "Não foi possível incluir.");
         return;
@@ -140,10 +151,37 @@ export function ColarDoSisloc({
     const naoMedidas = g.linhas.filter((l) => !jaMedidas[l.om]);
     const levaSem = comSemOrcamento.has(g.chave);
     const novas = levaSem ? naoMedidas : naoMedidas.filter((l) => l.valor > 0);
+    // A base de verdade: a que a pessoa escolheu, ou a do cadastro que tem
+    // este nome (ou o tem entre os outros nomes dela), ou o nome do Sisloc.
+    const escolha = escolhas[g.chave] ?? {};
+    const baseEfetiva = escolha.base ?? acharBase(bases, g.cliente, g.base)?.nome ?? g.base;
+    const cadastro = acharBase(bases, g.cliente, baseEfetiva);
+    const chaveEfetiva = chaveDoDestino(g.cliente, cadastro?.nome ?? baseEfetiva);
     const destino =
-      boletim ?? abertos.find((b) => chaveDoDestino(b.cliente, b.base) === g.chave) ?? null;
-    return { naoMedidas, levaSem, novas, destino };
+      boletim ?? abertos.find((b) => chaveDoDestino(b.cliente, b.base) === chaveEfetiva) ?? null;
+    const nomeDaBase = cadastro?.nome ?? baseEfetiva;
+    const documento = escolha.documento ?? (nomeDaBase ? proximoDocumento(todos, g.cliente, nomeDaBase) : "");
+    const referencia =
+      escolha.referencia ??
+      mesDeReferencia(novas.map((l) => dataDaOm({ chegada_em: l.chegadaEm, aberta_em: l.abertaEm })));
+    return { naoMedidas, levaSem, novas, destino, cadastro, nomeDaBase, documento, referencia };
   };
+
+  // O que vai para o servidor: a base, o número e o mês do cartão, e o nome do
+  // Sisloc para a base aprender — só na tela inicial; dentro de um boletim o
+  // destino é ele mesmo.
+  function escolhaDe(g: GrupoDeDestino, linhas: OmLida[]) {
+    if (boletim) return undefined;
+    const d = doGrupo(g);
+    return {
+      base: d.nomeDaBase,
+      documento: d.documento,
+      referencia:
+        escolhas[g.chave]?.referencia ??
+        mesDeReferencia(linhas.map((l) => dataDaOm({ chegada_em: l.chegadaEm, aberta_em: l.abertaEm }))),
+      lembrarComo: g.base,
+    };
+  }
 
   /**
    * Abre (ou completa) o boletim de cada base com o que cobrar, um depois do
@@ -160,7 +198,13 @@ export function ColarDoSisloc({
       for (const g of lista) {
         const { novas, destino } = doGrupo(g);
         if (novas.length === 0) continue;
-        const r = await incluirOms({ boletimId: destino?.id ?? null, cliente: g.cliente, base: g.base, linhas: novas });
+        const r = await incluirOms({
+          boletimId: destino?.id ?? null,
+          cliente: g.cliente,
+          base: g.base,
+          linhas: novas,
+          escolha: escolhaDe(g, novas),
+        });
         if (!r.ok || !r.boletimId) {
           falhas.push(`${g.base || g.cliente}: ${r.erro ?? "não deu certo"}`);
           continue;
@@ -189,14 +233,18 @@ export function ColarDoSisloc({
   // Função que desenha, e não componente: um componente declarado dentro de
   // outro nasce de novo a cada render e perde o estado do que está embaixo.
   function desenharGrupo(g: GrupoDeDestino, deOutraBase = false) {
-    const { naoMedidas, levaSem, novas, destino } = doGrupo(g);
+    const { naoMedidas, levaSem, novas, destino, cadastro, nomeDaBase, documento, referencia } = doGrupo(g);
     const repetidas = g.linhas.length - naoMedidas.length;
+    const editando = editandoDestino.has(g.chave);
+    const doCliente = basesDoCliente(bases, g.cliente);
+    // A base nova (fora do cadastro) com o nome que a pessoa escreve.
+    const baseNova = !cadastro;
+    const outroNome = Boolean(g.base) && chaveDoDestino(g.cliente, g.base) !== chaveDoDestino(g.cliente, nomeDaBase);
     // Sem orçamento no Sisloc não há o que cobrar — a OM fica de fora, a não
     // ser que quem monta o boletim marque para levar (e ponha o valor depois).
     const semOrcamento = naoMedidas.filter((l) => l.valor === 0);
     const naOficina = novas.filter((l) => l.naOficina).length;
     const valorNovas = novas.reduce((t, l) => t + l.valor, 0);
-    const cadastro = acharBase(bases, g.cliente, g.base);
     const dados = dadosDoBoletimNovo(g.cliente, cadastro, null);
     const vendo = vendoOms.has(g.chave);
 
@@ -212,9 +260,14 @@ export function ColarDoSisloc({
             <p className="truncate text-[11px] font-semibold tracking-wide text-texto-3 uppercase" title={g.cliente}>
               {g.cliente}
             </p>
-            <h3 className="truncate text-sm font-semibold" title={g.base}>
-              {g.base || <span className="text-texto-3">base que o Sisloc não diz</span>}
+            <h3 className="truncate text-sm font-semibold" title={nomeDaBase}>
+              {nomeDaBase || <span className="text-texto-3">base que o Sisloc não diz</span>}
             </h3>
+            {outroNome && (
+              <p className="truncate text-[11px] text-texto-3" title={g.base}>
+                no Sisloc: {g.base}
+              </p>
+            )}
           </div>
           <div className="text-right">
             <p className="text-lg leading-tight font-semibold tabular-nums">{emReais(valorNovas)}</p>
@@ -226,16 +279,89 @@ export function ColarDoSisloc({
 
         {/* Para onde vai — é a pergunta que a tela tem de responder primeiro. */}
         <div className="mx-4 rounded-lg bg-superficie-2 px-3 py-2 text-xs">
-          {destino ? (
-            <p>
-              Entra no <strong>{destino.numero}</strong>, que está aberto para esta base.
-            </p>
-          ) : (
-            <p>
-              <strong>Boletim novo</strong>
-              {g.base && <> · Documento Nº {proximoDocumento(todos, g.cliente, g.base)}</>} ·{" "}
-              {ROTULO_MODELO[dados.modelo]}
-            </p>
+          <div className="flex items-start gap-2">
+            {destino ? (
+              <p className="flex-1">
+                Entra no <strong>{destino.numero}</strong>, que está aberto para esta base.
+              </p>
+            ) : (
+              <p className="flex-1">
+                <strong>Boletim novo</strong>
+                {nomeDaBase && <> · Documento Nº {documento || "—"}</>} · {referencia} ·{" "}
+                {ROTULO_MODELO[dados.modelo]}
+              </p>
+            )}
+            {!boletim && (
+              <button
+                type="button"
+                onClick={() =>
+                  setEditandoDestino((v) => {
+                    const n = new Set(v);
+                    if (n.has(g.chave)) n.delete(g.chave);
+                    else n.add(g.chave);
+                    return n;
+                  })
+                }
+                className="shrink-0 font-semibold text-acento underline"
+                aria-expanded={editando}
+              >
+                {editando ? "Pronto" : "Editar destino"}
+              </button>
+            )}
+          </div>
+          {editando && (
+            <div className="mt-2 grid gap-2 border-t border-borda pt-2 sm:grid-cols-3">
+              <Campo rotulo="Base" className="sm:col-span-3">
+                <select
+                  value={baseNova ? "__nova__" : (cadastro?.nome ?? "")}
+                  onChange={(e) =>
+                    escolher(g.chave, "base", e.target.value === "__nova__" ? g.base : e.target.value)
+                  }
+                  className={`${CAMPO} w-full`}
+                >
+                  {doCliente.map((b) => (
+                    <option key={b.nome} value={b.nome}>
+                      {b.nome}
+                    </option>
+                  ))}
+                  <option value="__nova__">Base nova (fora do cadastro)…</option>
+                </select>
+              </Campo>
+              {baseNova && (
+                <Campo rotulo="Nome da base nova" className="sm:col-span-3">
+                  <input
+                    value={nomeDaBase}
+                    onChange={(e) => escolher(g.chave, "base", e.target.value)}
+                    className={`${CAMPO} w-full`}
+                  />
+                </Campo>
+              )}
+              {!destino && (
+                <>
+                  <Campo rotulo="Documento Nº">
+                    <input
+                      value={documento}
+                      onChange={(e) => escolher(g.chave, "documento", e.target.value)}
+                      className={`${CAMPO} w-full`}
+                    />
+                  </Campo>
+                  <Campo rotulo="Mês de referência" className="sm:col-span-2">
+                    <input
+                      value={referencia}
+                      onChange={(e) => escolher(g.chave, "referencia", e.target.value.toUpperCase())}
+                      placeholder="OUTUBRO/2026"
+                      className={`${CAMPO} w-full`}
+                    />
+                  </Campo>
+                </>
+              )}
+              {outroNome && !baseNova && (
+                <p className="text-[11px] text-texto-2 sm:col-span-3">
+                  Ao abrir, &quot;{g.base}&quot; fica guardado como outro nome de {nomeDaBase}: da próxima
+                  colagem, vai sozinho para cá.
+                </p>
+              )}
+            </div>
           )}
           <p className="mt-0.5 text-texto-2">
             {cadastro ? (
