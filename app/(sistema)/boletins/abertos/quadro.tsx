@@ -68,7 +68,6 @@ export function QuadroDosAbertos({
   /** O instante da leitura, do servidor: o "há 3 dias" não muda na hidratação. */
   hoje: string;
 }) {
-  const agora = new Date(hoje);
   const mapaDeOms = new Map(Object.entries(oms).map(([k, v]) => [Number(k), v]));
   const [busca, setBusca] = useState("");
   const [ordem, setOrdem] = useState<OrdemDosAbertos>("base");
@@ -287,7 +286,7 @@ export function QuadroDosAbertos({
                       b={b}
                       oms={mapaDeOms.get(b.id)}
                       comCliente={variosClientes}
-                      agora={agora}
+                      hoje={hoje}
                     />
                   ))}
                 </div>
@@ -300,17 +299,20 @@ export function QuadroDosAbertos({
   );
 }
 
-function CartaoDoAberto({
+/** Um BM aberto em cartão: o que tem e o que pede. Também na pasta da base. */
+export function CartaoDoAberto({
   b,
   oms,
   comCliente,
-  agora,
+  hoje,
 }: {
   b: Aberto;
   oms: OmsDoAberto | undefined;
   comCliente: boolean;
-  agora: Date;
+  /** O instante da leitura, do servidor. */
+  hoje: string;
 }) {
+  const agora = new Date(hoje);
   const ultima = oms?.ultimaInclusao ?? null;
   const documento = b.documento?.trim() ? `Nº ${b.documento.trim()}` : b.numero;
   return (

@@ -64,6 +64,18 @@ export const ROTULO_SITUACAO: Record<SituacaoBoletim, string> = {
 };
 
 /** O botão que leva ao passo seguinte, no vocabulário de quem aperta. */
+/**
+ * O tom do selo de cada situação. Mora aqui, e não na tela: tela de servidor
+ * que importa constante de arquivo "use client" recebe uma referência, não o
+ * objeto.
+ */
+export const TOM_SITUACAO: Record<SituacaoBoletim, "acento" | "neutro" | "transito" | "ok"> = {
+  aberto: "acento",
+  fechado: "neutro",
+  enviado: "transito",
+  faturado: "ok",
+};
+
 export const ACAO_SEGUINTE: Record<SituacaoBoletim, string | null> = {
   aberto: "Fechar o boletim",
   fechado: "Marcar como enviado",
