@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  IconeAbertos,
   IconeArquivo,
   IconeBase,
   IconeContrato,
@@ -23,6 +24,9 @@ import {
 //
 // Os dois não se misturam: o boletim não alimenta o painel sozinho.
 //
+//   BMs em aberto — a conferência dos boletins que recebem OMs o mês todo. O
+//     contador é o de abertos pedindo atenção (`pendenciasDoAberto`).
+//
 //   Contratos — o que vence, o que reajusta e quanto já foi medido. O contador
 //     do item é o de contratos pedindo ação (ver `contratosPedindoAtencao`).
 const SECOES = [
@@ -30,6 +34,7 @@ const SECOES = [
     titulo: "Orçamento · manutenção",
     itens: [
       { href: "/", rotulo: "Lançar medições de manutenção", Icone: IconeMedicoes },
+      { href: "/boletins/abertos", rotulo: "BMs em aberto", Icone: IconeAbertos },
       { href: "/bases", rotulo: "Cadastro de bases", Icone: IconeBase },
     ],
   },

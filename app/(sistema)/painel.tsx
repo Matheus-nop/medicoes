@@ -175,7 +175,13 @@ export function Medicoes({
           valor={emReais(topo.emMedicao, false)}
           detalhe={`${conta("aberto", daBaseEscolhida)} boletim(ns) aberto(s)`}
           cor="bg-acento"
-        />
+        >
+          {abertos.length > 0 && (
+            <Link href="/boletins/abertos" className="mt-2 inline-block text-xs font-semibold text-acento underline">
+              Conferir os {abertos.length} em aberto
+            </Link>
+          )}
+        </CartaoIndicador>
         <CartaoIndicador
           compacto
           rotulo="Medido"
