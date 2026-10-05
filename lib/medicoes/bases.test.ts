@@ -2,7 +2,7 @@
 
 import { strictEqual as e, deepStrictEqual } from "node:assert/strict";
 import { test } from "node:test";
-import { acharBase, dadosDoBoletimNovo, proximoDocumento, regionaisDosBoletins, regionalDoBoletim } from "./bases.ts";
+import { acharBase, basesDoCliente, dadosDoBoletimNovo, proximoDocumento, regionaisDosBoletins, regionalDoBoletim } from "./bases.ts";
 
 const CLI = "AEGEA SANEAMENTO E PARTICIPAÇÕES S.A";
 
@@ -65,4 +65,20 @@ test("a regional do boletim vem do cadastro, na ordem do controle", () => {
     { regional: "VCG", boletins: 2 },
     { regional: "", boletins: 2 },
   ]);
+});
+
+test("a base se acha também pelos outros nomes dela (0017)", () => {
+  const bases = [
+    { cliente: "AGUAS DO RIO 1 SPE S.A", nome: "LESTE - MARICÁ", apelidos: ["BASE LESTE- MARICÁ"] },
+    { cliente: "AGUAS DO RIO 1 SPE S.A", nome: "LESTE - ITABORAÍ", apelidos: [] },
+    { cliente: "AGUAS DO RIO 4 SPE S.A", nome: "BASE NORTE - MEIER" },
+  ];
+  e(acharBase(bases, "AGUAS DO RIO 1 SPE S.A.", "Base Leste - Maricá")?.nome, "LESTE - MARICÁ");
+  e(acharBase(bases, "AGUAS DO RIO 1 SPE S.A", "LESTE - MARICÁ")?.nome, "LESTE - MARICÁ");
+  // O outro nome vale só para o cliente da base.
+  e(acharBase(bases, "AGUAS DO RIO 4 SPE S.A", "BASE LESTE- MARICÁ"), null);
+  deepStrictEqual(
+    basesDoCliente(bases, "AGUAS DO RIO 1 SPE S.A.").map((b) => b.nome),
+    ["LESTE - ITABORAÍ", "LESTE - MARICÁ"],
+  );
 });

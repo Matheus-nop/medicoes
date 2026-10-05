@@ -164,6 +164,14 @@ desfaz isso logo depois de criar.
   mês se acha pela chave (`ordemDaReferencia`), não pela grafia; fica no
   endereço (`/?mes=202608`) para voltar do boletim sem perder o filtro.
 - **colagem**: a lista do Sisloc copiada e colada, com a linha de títulos.
+  Ela agrupa as OMs por cliente e base, e cada grupo vai para o boletim
+  ABERTO da base — o mês se lança aos poucos no mesmo BM até o fechamento.
+  Antes de abrir, "Editar destino" no cartão troca a base (a do cadastro, ou
+  uma nova com o nome que se escrever), o Documento Nº e o mês de referência.
+- **outros nomes da base** (`bases.apelidos`, 0017): o Sisloc escreve "BASE
+  LESTE- MARICÁ" para a "LESTE - MARICÁ" do cadastro. Quando alguém escolhe a
+  base certa para um nome que não batia, o nome entra nos outros nomes dela, e
+  da próxima colagem o grupo vai sozinho (`acharBase` olha o nome e eles).
 - **contrato** (`/contratos`, 0013): com quem, o quê, até quando, quanto e
   por qual índice. O cadastro se corrige; o que MUDA o contrato é **aditivo**
   (prorrogação, reajuste, acréscimo ou supressão, encerramento), que não se

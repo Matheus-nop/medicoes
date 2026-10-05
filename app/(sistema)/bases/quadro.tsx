@@ -160,6 +160,7 @@ function CartaoDaBase({ b, aoEditar }: { b: BaseNoQuadro; aoEditar?: () => void 
         {linha("Telefone", b.telefone)}
         {linha("Local da obra", b.local_obra, true)}
         {linha("Regional", b.regional ?? null)}
+        {b.apelidos && b.apelidos.length > 0 && linha("No Sisloc também", b.apelidos.join(" · "))}
         <div className="flex justify-between gap-3">
           <dt className="text-texto-3">Papel</dt>
           <dd>{ROTULO_MODELO[b.modelo ?? modeloDoCliente(b.cliente)]}{!b.modelo && " (do cliente)"}</dd>

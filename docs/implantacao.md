@@ -72,6 +72,9 @@ Cole e rode **um arquivo por vez, nesta ordem**:
     "Setembro 2026" vira "Agosto 2026" —, o início do recebimento recua junto, e
     nenhum saldo muda (a lista do fim mostra o saldo de cada um: Agosto 2026 tem
     de dar 991.905,24). Roda uma vez só: rodar de novo não desloca outra vez.
+22. `supabase/migrations/0017_os_outros_nomes_da_base.sql` — os outros nomes
+    com que a base aparece no Sisloc. Na colagem, "Editar destino" escolhe a
+    base certa, e o nome do Sisloc fica guardado para a próxima vez.
 
 Cada uma (menos a 0000) termina numa conferência: **toda linha tem de dizer
 `✓ ok`**. Se aparecer `!!`, a colagem provavelmente chegou cortada — rode o

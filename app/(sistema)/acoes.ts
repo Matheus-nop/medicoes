@@ -105,6 +105,28 @@ function refazer(boletimId?: number) {
 /* ── Colar ─────────────────────────────────────────────────── */
 
 /**
+ * Guarda `nome` (como o Sisloc escreveu) entre os nomes da base `base` do
+ * cadastro, quando são diferentes. Sem a 0017, ou sem a base, não faz nada.
+ */
+async function lembrarNomeDaBase(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  cliente: string,
+  base: string | undefined,
+  nome: string | undefined,
+) {
+  if (!base?.trim() || !nome?.trim()) return;
+  if (chaveDoDestino(cliente, base) === chaveDoDestino(cliente, nome)) return;
+  const { data, error } = await supabase.from("bases").select("id, cliente, nome, apelidos");
+  if (error) return;
+  const alvo = acharBase((data ?? []) as Base[], cliente, base);
+  if (!alvo || acharBase([alvo], cliente, nome)) return;
+  await supabase
+    .from("bases")
+    .update({ apelidos: [...(alvo.apelidos ?? []), nome.trim()] })
+    .eq("id", alvo.id);
+}
+
+/**
  * Põe as OMs coladas num boletim — o aberto que a tela escolheu, ou um novo.
  *
  * A OM que já está em qualquer boletim fica de fora e volta na resposta com o
@@ -118,6 +140,13 @@ export async function incluirOms(entrada: {
   /** A base do boletim novo. Ignorada quando `boletimId` já existe. */
   base: string;
   linhas: OmLida[];
+  /**
+   * O que a pessoa acertou no cartão da colagem antes de abrir: a base do
+   * cadastro (ou o nome da base nova), o Documento Nº e o mês de referência —
+   * vazio, vale o que o sistema calcula. `lembrarComo` é o nome que o Sisloc
+   * escreveu: se a base escolhida tem outro nome, ele vira um dos nomes dela.
+   */
+  escolha?: { base?: string; documento?: string; referencia?: string; lembrarComo?: string };
 }): Promise<Resultado> {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
@@ -174,12 +203,15 @@ export async function incluirOms(entrada: {
     const chave = chaveDoCliente(entrada.cliente);
     const conhecido = lista.find((b) => chaveDoCliente(b.cliente) === chave)?.cliente;
     const nomeDoCliente = (conhecido ?? entrada.cliente).trim();
-    const destino = chaveDoDestino(entrada.cliente, entrada.base);
+    const baseEscolhida = entrada.escolha?.base?.trim() || entrada.base;
+    const daBase = acharBase(bases, entrada.cliente, baseEscolhida);
+    const destino = chaveDoDestino(entrada.cliente, daBase?.nome ?? baseEscolhida);
     const mesmaBase = lista.find((b) => chaveDoDestino(b.cliente, b.base) === destino);
-    const daBase = acharBase(bases, entrada.cliente, entrada.base);
     // O cadastro manda; o último boletim da base completa; o cliente dá o papel.
     const dados = dadosDoBoletimNovo(nomeDoCliente, daBase, mesmaBase ?? null);
-    const nomeDaBase = daBase?.nome ?? mesmaBase?.base ?? (entrada.base.trim() || null);
+    const nomeDaBase = daBase?.nome ?? mesmaBase?.base ?? (baseEscolhida.trim().replace(/\s+/g, " ") || null);
+    const documento = entrada.escolha?.documento?.trim();
+    const referencia = entrada.escolha?.referencia?.trim().toUpperCase().replace(/\s*\/\s*/, "/");
 
     const { data, error } = await supabase
       .from("boletins")
@@ -192,11 +224,12 @@ export async function incluirOms(entrada: {
         local_obra: dados.local_obra,
         observacao: dados.observacao,
         modelo: dados.modelo,
-        // O próximo número da base ("08" → "09"), como o cliente conta.
-        documento: nomeDaBase ? proximoDocumento(lista, nomeDoCliente, nomeDaBase) : null,
-        referencia: mesDeReferencia(
-          novas.map((l) => dataDaOm({ chegada_em: l.chegadaEm, aberta_em: l.abertaEm })),
-        ),
+        // O próximo número da base ("08" → "09"), como o cliente conta —
+        // ou o que a pessoa escreveu no cartão.
+        documento: documento || (nomeDaBase ? proximoDocumento(lista, nomeDoCliente, nomeDaBase) : null),
+        referencia:
+          referencia ||
+          mesDeReferencia(novas.map((l) => dataDaOm({ chegada_em: l.chegadaEm, aberta_em: l.abertaEm }))),
         criado_por: auth.user.id,
       })
       .select("id, numero")
@@ -218,6 +251,10 @@ export async function incluirOms(entrada: {
       });
     }
   }
+
+  // O nome do Sisloc vira um dos nomes da base escolhida: da próxima vez a
+  // colagem acha a base sozinha. Falhar aqui não desfaz o boletim.
+  await lembrarNomeDaBase(supabase, entrada.cliente, entrada.escolha?.base, entrada.escolha?.lembrarComo);
 
   // Os comprovantes, antes de gravar: o "OM RETIRADA" do Sisloc vale mais
   // que o achado; o achado preenche o que o Sisloc deixou vazio.

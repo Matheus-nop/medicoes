@@ -16,6 +16,8 @@ export interface Base {
   modelo: ModeloDoPapel | null;
   /** A regional do controle onde a base fica — Norte, VCG… (0015). */
   regional?: string | null;
+  /** Os outros nomes com que a base aparece na colagem do Sisloc (0017). */
+  apelidos?: string[] | null;
   atualizado_em?: string;
 }
 
@@ -51,15 +53,31 @@ export function regionalDoBoletim(
   return acharBase(bases, b.cliente, b.base)?.regional?.trim() ?? "";
 }
 
-/** A base do cadastro para este cliente e base — pela chave, não pela grafia. */
-export function acharBase<T extends Pick<Base, "cliente" | "nome">>(
+/**
+ * A base do cadastro para este cliente e base — pela chave, não pela grafia,
+ * e pelo nome ou por qualquer um dos outros nomes dela ("BASE LESTE- MARICÁ"
+ * acha a "LESTE - MARICÁ" depois que alguém disse que são a mesma).
+ */
+export function acharBase<T extends Pick<Base, "cliente" | "nome"> & { apelidos?: string[] | null }>(
   bases: T[],
   cliente: string,
   base: string | null | undefined,
 ): T | null {
   if (!base?.trim()) return null;
   const alvo = chaveDoDestino(cliente, base);
-  return bases.find((b) => chaveDoDestino(b.cliente, b.nome) === alvo) ?? null;
+  return (
+    bases.find((b) => chaveDoDestino(b.cliente, b.nome) === alvo) ??
+    bases.find((b) => (b.apelidos ?? []).some((a) => chaveDoDestino(b.cliente, a) === alvo)) ??
+    null
+  );
+}
+
+/** As bases do cadastro de um cliente, em ordem — a lista para escolher a base certa. */
+export function basesDoCliente<T extends Pick<Base, "cliente" | "nome">>(bases: T[], cliente: string): T[] {
+  const k = chaveDoDestino(cliente, "");
+  return bases
+    .filter((b) => chaveDoDestino(b.cliente, "") === k)
+    .sort((a, b) => a.nome.localeCompare(b.nome));
 }
 
 /**
