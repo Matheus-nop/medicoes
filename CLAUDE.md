@@ -116,6 +116,14 @@ desfaz isso logo depois de criar.
   (`abaDaMedicao`: a medição de agosto está na aba SET) e preenche o quadro — medido do mês = medido da planilha − saldo anterior do sistema, e o
   saldo que fica é o da planilha. Não salva sozinho; saldo zerado sem faturar
   aparece como aviso para conferir.
+  A planilha de **medições em aberto** ("MEDIÇÕES EM ABERTO SEM FATURAMENTO",
+  abas "ÁGUAS DO RIO - OUTUBRO") também entra, reconhecida pelos três SALDO A
+  FATURAR no título (`formatoDaAba`): cada região tem uma linha por mês ainda
+  em aberto. Medido = as linhas do mês da medição; saldo = a soma do SALDO A
+  FATURAR da região; faturado = anterior + medido − saldo (NORTE em setembro:
+  16.606 de agosto, 11.006 medidos, saldo 11.006 → 16.606 faturados). Faturado
+  que daria negativo (crédito passado de uma categoria para outra) vira ajuste
+  no medido, e a tela avisa (`lerAbaEmAberto`, `doEmAbertoParaOMes`).
 - **recebimento** (financeiro, `/controle/receber`, 0007): faturado não é
   pago. O mês guarda o recebido nele, numa tabela própria
   (`controle_recebimentos`) — na mesma linha do medido, o faturamento

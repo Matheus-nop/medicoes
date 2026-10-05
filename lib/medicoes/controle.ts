@@ -376,10 +376,15 @@ const ABREV = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "O
 export function abaDoMes(abas: string[], mes: string): string | null {
   const [ano, m] = mes.split("-");
   const abrev = ABREV[Number(m) - 1];
+  const nome = chave(MESES[Number(m) - 1]);
   const limpa = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().trim();
   return (
     abas.find((a) => limpa(a) === `${abrev} ${ano}`) ??
     abas.find((a) => new RegExp(`(^|-)${abrev}\\s+${ano}$`).test(limpa(a))) ??
+    // A planilha de medições em aberto: "ÁGUAS DO RIO - OUTUBRO 2026"…
+    abas.find((a) => new RegExp(`(^|[^A-Z])${nome}\\s*/?\\s*${ano}$`).test(limpa(a))) ??
+    // …ou, a do ano corrente, sem o ano: "ÁGUAS DO RIO - OUTUBRO".
+    abas.find((a) => new RegExp(`(^|[^A-Z])${nome}$`).test(limpa(a))) ??
     null
   );
 }
@@ -423,6 +428,144 @@ export function abaComoTexto(linhas: unknown[][]): string {
         .join("\t"),
     )
     .join("\n");
+}
+
+/* ── A aba das medições em aberto ──────────────────────────── */
+
+/**
+ * Qual planilha é a aba colada.
+ *
+ * - `controle`: a "CONTROLE DE MEDIÇÕES" — uma linha por região, com a foto
+ *   do mês (medido com o saldo anterior dentro, faturado, saldo).
+ * - `em_aberto`: a "MEDIÇÕES EM ABERTO SEM FATURAMENTO" — cada região com uma
+ *   linha por mês que ainda tem saldo (Junho, Julho, Agosto, Setembro…), e em
+ *   cada linha VALOR, VALOR FATURADO e SALDO A FATURAR de manutenção, locação
+ *   e indenização. Ela se reconhece pelos três "SALDO A FATURAR" no título.
+ */
+export function formatoDaAba(texto: string): "controle" | "em_aberto" {
+  return texto.split(/\r?\n/).some((l) => (chave(l).match(/SALDO A FATURAR/g) ?? []).length >= 3)
+    ? "em_aberto"
+    : "controle";
+}
+
+export interface RegiaoEmAberto {
+  regiao: string;
+  /** Por categoria: o medido do mês (as linhas do mês) e o saldo a faturar da aba. */
+  valores: Record<Categoria, { medido: number; saldo: number }>;
+}
+
+export interface LeituraEmAberto {
+  regioes: RegiaoEmAberto[];
+  desconhecidas: string[];
+}
+
+/** A linha é do mês? "Setembro" e "SET" são; "Abril a Agosto" e "Fevereiro e Setembro" não. */
+function linhaDoMes(rotulo: string, mes: string): boolean {
+  const palavras = chave(rotulo).replace(/[^A-Z0-9]+/g, " ").trim().split(" ");
+  const n = Number(mes.slice(5, 7));
+  const nome = chave(MESES[n - 1]);
+  const primeira = palavras[0] ?? "";
+  if (primeira !== nome && primeira !== nome.slice(0, 3)) return false;
+  // Faixa de meses ("SETEMBRO A NOVEMBRO") não é a medição de um mês só.
+  return !palavras.slice(1).some((p) => p === "A" || p === "E");
+}
+
+/**
+ * A aba "medições em aberto" do mês. Para cada região: o medido do mês é a
+ * soma das linhas daquele mês, e o saldo é a soma da coluna SALDO A FATURAR —
+ * de todos os meses que ainda estão em aberto. O faturado sai da conta, em
+ * `doEmAbertoParaOMes`. As colunas se acham pelos títulos (os três SALDO A
+ * FATURAR, com o VALOR duas colunas antes), e a leitura para na linha de
+ * TOTAL ou nas notas.
+ */
+export function lerAbaEmAberto(texto: string, regioes: string[], mes: string): LeituraEmAberto {
+  const conhecidas = new Map(regioes.map((r) => [chave(r), r]));
+  const linhas = texto.split(/\r?\n/).map((l) => l.split("\t"));
+  const titulo = linhas.findIndex((l) => l.filter((c) => chave(c) === "SALDO A FATURAR").length >= 3);
+  if (titulo < 0) return { regioes: [], desconhecidas: [] };
+  const saldos = linhas[titulo].flatMap((c, i) => (chave(c) === "SALDO A FATURAR" ? [i] : [])).slice(0, 3);
+  const colRegiao = Math.max(
+    0,
+    linhas[titulo].findIndex((c) => chave(c) === "REGIAO"),
+  );
+  const colMes = colRegiao + 1;
+
+  const porRegiao = new Map<string, RegiaoEmAberto>();
+  const desconhecidas: string[] = [];
+  let atual: string | null = null;
+  let ignorando = false;
+  for (const cel of linhas.slice(titulo + 1)) {
+    const nome = (cel[colRegiao] ?? "").trim();
+    const k = chave(nome);
+    if (k.startsWith("TOTAL") || k.startsWith("SALDO") || k.startsWith("NOTA")) break;
+    if (nome) {
+      const regiao = conhecidas.get(k);
+      if (!regiao) {
+        // A segunda linha do título ("MEDIÇÃO MANUTENÇÃO…") não é região.
+        if (!k.startsWith("MEDICAO") && !desconhecidas.includes(nome)) desconhecidas.push(nome);
+        atual = null;
+        ignorando = true;
+        continue;
+      }
+      atual = regiao;
+      ignorando = false;
+    }
+    if (!atual || ignorando) continue;
+    const rotulo = (cel[colMes] ?? "").trim();
+    if (!rotulo) continue;
+    const r =
+      porRegiao.get(atual) ??
+      ({
+        regiao: atual,
+        valores: {
+          manutencao: { medido: 0, saldo: 0 },
+          locacao: { medido: 0, saldo: 0 },
+          indenizacao: { medido: 0, saldo: 0 },
+        },
+      } as RegiaoEmAberto);
+    CATEGORIAS.forEach((c, i) => {
+      const col = saldos[i];
+      if (col === undefined) return;
+      r.valores[c].saldo = centavo(r.valores[c].saldo + (lerNumero(cel[col]) ?? 0));
+      if (linhaDoMes(rotulo, mes)) {
+        r.valores[c].medido = centavo(r.valores[c].medido + (lerNumero(cel[col - 2]) ?? 0));
+      }
+    });
+    porRegiao.set(atual, r);
+  }
+  return { regioes: [...porRegiao.values()], desconhecidas };
+}
+
+/**
+ * A aba em aberto no formato do sistema. O saldo que fica é o da aba; o
+ * medido é o das linhas do mês; o faturado é o que saiu do saldo:
+ * anterior + medido − saldo. NORTE em setembro: 16.606 de agosto, 11.006
+ * medidos, saldo 11.006 na aba → 16.606 faturados.
+ *
+ * Quando a conta dá faturado negativo — a aba trouxe de volta um saldo que já
+ * tinha saído, como o crédito passado de uma categoria para a outra —, o
+ * faturado fica zero e a diferença entra no medido, como ajuste.
+ */
+export function doEmAbertoParaOMes(
+  leitura: LeituraEmAberto,
+  saldoAnterior: (regiao: string, categoria: Categoria) => number,
+): (CelulaImportada & { ajuste: number })[] {
+  return leitura.regioes.flatMap((r) =>
+    CATEGORIAS.flatMap((c) => {
+      const { medido: doMes, saldo } = r.valores[c];
+      const anterior = saldoAnterior(r.regiao, c);
+      if (doMes === 0 && saldo === 0 && anterior === 0) return [];
+      let medido = doMes;
+      let faturado = centavo(anterior + doMes - saldo);
+      let ajuste = 0;
+      if (faturado < 0) {
+        ajuste = -faturado;
+        medido = centavo(doMes + ajuste);
+        faturado = 0;
+      }
+      return [{ regiao: r.regiao, categoria: c, anterior, medido, faturado, saldo, ajuste }];
+    }),
+  );
 }
 
 export interface CelulaImportada {
