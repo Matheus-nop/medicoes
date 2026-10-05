@@ -233,6 +233,19 @@ desfaz isso logo depois de criar.
       `importar-boletins-setembro-2026.sql`, depois da `0014`. Os scripts
       saem de um leitor que vai até a linha do TOTAL (o modelo cresce quando
       inserem linhas) e confere cada boletim contra o total do arquivo.
+- [~] Os da Rio+ Saneamento, de dezembro/2025 a setembro/2026 (51, 104 OMs,
+      R$ 64.550,00), entram por `importar-boletins-rio-mais-2026.sql`, no
+      papel `rio_mais`, fechados no dia 2 do mês seguinte. A fonte é o PDF de
+      cada boletim (três planilhas vieram corrompidas); as cópias "SEM
+      MANUTENÇÃO" das pastas entram uma vez só. Todas as OMs entram PENDENTE:
+      o faturado se marca pela planilha de saldo a faturar, e é o que faz
+      `faturar-rio-mais-pela-planilha.sql`: os 51 passam a enviados, 39 a
+      faturados com a NF na observação, e os 12 que sobram (R$ 18.822,00)
+      batem com a manutenção pendente da aba MEDIÇÕES SETEMBRO 2026.
+      O controle da Rio+ (`semear-controle-rio-mais.sql`) sai da mesma
+      planilha: uma região por base, dezembro/2025 (a abertura) a setembro/2026.
+      Na Rio+ a aba já tem o nome do mês da medição (não há o recuo da `0016`),
+      e o saldo de cada período bate com o SALDO A FATURAR da aba.
 - [~] Fase 4 — o financeiro: recebimento (`0007`) com mês de início e
       abertura, e a idade do saldo a faturar e do a receber no painel. `0007`
       aplicada; falta o financeiro definir o início e a abertura de cada cliente.
