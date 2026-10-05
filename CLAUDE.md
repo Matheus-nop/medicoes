@@ -101,7 +101,10 @@ desfaz isso logo depois de criar.
   indenização (extravios) de um cliente, por **região**, num **período**. Não é
   o boletim: é o contrato inteiro, lançado no sistema ou importado da aba do
   mês enquanto a planilha existir.
-- **período**: um mês. Guarda o medido e o faturado DO MÊS; o saldo anterior
+- **período**: um mês — o mês da MEDIÇÃO, e não o da aba da planilha. A
+  planilha nomeia a aba pelo mês em que fecha: a aba SETEMBRO é a medição de
+  agosto, o período "Agosto 2026" (0016). Em outubro se lança setembro. Guarda
+  o medido e o faturado DO MÊS; o saldo anterior
   não se digita nem se grava — sai da soma dos meses de antes
   (`controle_posicao`, 0006). Agosto: medido 100, faturado 30 → saldo 70.
   Setembro: saldo de agosto 70 + medido − faturado. Corrigiu agosto, setembro
@@ -109,8 +112,8 @@ desfaz isso logo depois de criar.
   nenhum saldo; onde a planilha zerou saldo sem faturar, ficou medido negativo
   naquele mês (o ajuste que ela fazia calada).
 - **importar a planilha** (enquanto ela existir): "Importar da planilha" no
-  lançamento lê o .xlsx (ou a colagem da aba), acha a aba do mês e preenche o
-  quadro — medido do mês = medido da planilha − saldo anterior do sistema, e o
+  lançamento lê o .xlsx (ou a colagem da aba), acha a aba do MÊS SEGUINTE
+  (`abaDaMedicao`: a medição de agosto está na aba SET) e preenche o quadro — medido do mês = medido da planilha − saldo anterior do sistema, e o
   saldo que fica é o da planilha. Não salva sozinho; saldo zerado sem faturar
   aparece como aviso para conferir.
 - **recebimento** (financeiro, `/controle/receber`, 0007): faturado não é
@@ -177,7 +180,8 @@ desfaz isso logo depois de criar.
 - [~] Fase 2 — um papel por cliente (TESTE 2 e Rio+) com a OM faturada uma a
       uma (`0004`), e o controle de medições (`0005`): manutenção, locação e
       indenização por região e período, append-only, com o saldo em view. O
-      histórico da planilha (abr/2025 a set/2026, 305 células) entra por
+      histórico da planilha (abas ABR/2025 a SET/2026, ou seja, as medições de
+      mar/2025 a ago/2026 depois da `0016`; 305 células) entra por
       `supabase/scripts/semear-controle-aguas-do-rio.sql`, e os totais batem
       com o RESUMO EXECUTIVO. `0004` a `0006` e a semente **aplicadas**. Falta
       rodar um mês lançando no sistema.
@@ -213,5 +217,7 @@ desfaz isso logo depois de criar.
       alertas no quadro, na ficha do cliente e no contador do menu. Falta
       aplicar a `0013` e cadastrar os contratos vigentes, a começar pelo do
       Águas do Rio / AEGEA.
+- [~] O mês da medição (`0016`): os períodos recuam um mês para ter o nome do
+      mês medido; nenhum saldo muda. Falta aplicar.
 - As provas de RLS de todas as migrações estão em
   `supabase/scripts/provar-as-travas.sql` (trechos 1 a 21).

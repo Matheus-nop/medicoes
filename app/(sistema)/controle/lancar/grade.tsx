@@ -16,10 +16,11 @@ import {
   CATEGORIAS,
   ROTULO_CATEGORIA,
   abaComoTexto,
-  abaDoMes,
+  abaDaMedicao,
   daPlanilhaParaOMes,
   lerColagemDoMes,
   lerNumero,
+  nomeDaAbaDaMedicao,
   soma,
   type CelulaImportada,
   type Categoria,
@@ -172,7 +173,7 @@ export function Grade({
       const folhas = (await lerXlsx(arquivo)) as unknown as { sheet: string; data: unknown[][] }[];
       const lidas = folhas.map((f) => ({ nome: f.sheet, linhas: f.data }));
       setAbas(lidas);
-      setAba(abaDoMes(lidas.map((l) => l.nome), periodo.mes) ?? "");
+      setAba(abaDaMedicao(lidas.map((l) => l.nome), periodo.mes) ?? "");
     } catch {
       setErro("Não consegui ler o arquivo. Confira se é a planilha .xlsx de controle de medições.");
     }
@@ -185,7 +186,9 @@ export function Grade({
       regioes.map((r) => r.nome),
     );
     if (linhas.length === 0) {
-      setErro("Não achei nenhuma base nesta aba. Escolha a aba do mês (ex.: SET 2026).");
+      setErro(
+        `Não achei nenhuma base nesta aba. A medição de ${periodo.rotulo.toLowerCase()} está na aba ${nomeDaAbaDaMedicao(periodo.mes)}.`,
+      );
       return;
     }
     const id = new Map(regioes.map((r) => [r.nome, r.id]));
@@ -318,8 +321,9 @@ export function Grade({
         {importando && (
           <div className="space-y-3 border-b border-borda bg-superficie-2 p-4">
             <p className="text-xs text-texto-2">
-              Escolha a planilha de controle (.xlsx) — a aba de {periodo.rotulo} vem marcada — ou cole
-              as linhas da aba do mês. A planilha guarda o medido com o saldo anterior dentro; o
+              Escolha a planilha de controle (.xlsx) — a medição de {periodo.rotulo.toLowerCase()} está
+              na aba <strong>{nomeDaAbaDaMedicao(periodo.mes)}</strong>, que vem marcada — ou cole as
+              linhas dela. A planilha guarda o medido com o saldo anterior dentro; o
               sistema desconta o saldo que já tem e preenche só o que é do mês. Nada é salvo antes de
               você conferir.
             </p>
@@ -348,7 +352,7 @@ export function Grade({
                 value={colagem}
                 onChange={(e) => setColagem(e.target.value)}
                 rows={4}
-                placeholder="…ou cole aqui as linhas da aba do mês, da coluna REGIÃO até a indenização"
+                placeholder="…ou cole aqui as linhas da aba, da coluna REGIÃO até a indenização"
                 className="w-full rounded-lg border border-borda bg-superficie p-2 font-mono text-xs outline-none focus:border-acento"
               />
             )}
@@ -468,15 +472,22 @@ export function NovoPeriodo({ cliente, clientes }: { cliente: string; clientes: 
   // um cliente novo, sem bases, e o mês nascia sem nada para lançar.
   const [nome, setNome] = useState(cliente);
   const [novo, setNovo] = useState(false);
+  // O período é o mês da MEDIÇÃO: em outubro se lança setembro. Por isso a
+  // sugestão é o mês passado.
   const [mes, setMes] = useState(() => {
     const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - 1);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
   const [erro, setErro] = useState<string | null>(null);
   const [abrindo, iniciar] = useTransition();
 
   return (
-    <Painel titulo="Abrir período" descricao="Um por mês. Cliente novo começa aqui também.">
+    <Painel
+      titulo="Abrir período"
+      descricao="Um por mês, com o nome do mês medido: a medição de setembro (a aba OUT da planilha) é o período Setembro. Cliente novo começa aqui também."
+    >
       <form
         className="flex flex-wrap items-end gap-3 p-4"
         onSubmit={(e) => {
@@ -520,7 +531,7 @@ export function NovoPeriodo({ cliente, clientes }: { cliente: string; clientes: 
             </select>
           )}
         </Campo>
-        <Campo rotulo="Mês">
+        <Campo rotulo="Mês da medição">
           <input
             type="month"
             value={mes}

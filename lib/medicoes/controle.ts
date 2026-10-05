@@ -384,6 +384,27 @@ export function abaDoMes(abas: string[], mes: string): string | null {
   );
 }
 
+/** "2026-08-01" → "2026-09-01". */
+export function mesSeguinte(mes: string): string {
+  const [ano, m] = mes.split("-").map(Number);
+  return m === 12 ? `${ano + 1}-01-01` : `${ano}-${String(m + 1).padStart(2, "0")}-01`;
+}
+
+/**
+ * A aba da planilha onde está a medição deste mês. A planilha nomeia a aba
+ * pelo mês em que ela fecha: a medição de AGOSTO está na aba SET (o saldo de
+ * julho mais o medido em agosto). Por isso, a aba do mês seguinte (0016).
+ */
+export function abaDaMedicao(abas: string[], mes: string): string | null {
+  return abaDoMes(abas, mesSeguinte(mes));
+}
+
+/** "SET 2026" — o nome da aba onde a medição deste mês está, para o aviso. */
+export function nomeDaAbaDaMedicao(mes: string): string {
+  const [ano, m] = mesSeguinte(mes).split("-");
+  return `${ABREV[Number(m) - 1]} ${ano}`;
+}
+
 /**
  * As linhas de uma aba lida do .xlsx viram o texto que a colagem já entende:
  * número com vírgula e duas casas (o Excel guarda 46857.11000000001).
