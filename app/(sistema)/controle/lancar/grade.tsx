@@ -18,6 +18,9 @@ import {
   abaComoTexto,
   abaDaMedicao,
   daPlanilhaParaOMes,
+  doEmAbertoParaOMes,
+  formatoDaAba,
+  lerAbaEmAberto,
   lerColagemDoMes,
   lerNumero,
   nomeDaAbaDaMedicao,
@@ -155,6 +158,53 @@ export function Grade({
     setValores((v) => ({ ...v, [k]: { ...v[k], [campo]: texto } }));
   }
 
+  // A aba "medições em aberto": uma linha por mês ainda em aberto em cada
+  // região. O medido é o das linhas do mês, o saldo é o da aba, e o faturado
+  // é o que saiu do saldo (lib/medicoes/controle.ts, doEmAbertoParaOMes).
+  function importarEmAberto(texto: string) {
+    const leitura = lerAbaEmAberto(
+      texto,
+      regioes.map((r) => r.nome),
+      periodo.mes,
+    );
+    if (leitura.regioes.length === 0) {
+      setErro("Não achei nenhuma região cadastrada nesta aba de medições em aberto.");
+      return;
+    }
+    const id = new Map(regioes.map((r) => [r.nome, r.id]));
+    const convertidas = doEmAbertoParaOMes(leitura, (reg, c) => veioDe(chave(id.get(reg)!, c)));
+    setValores((v) => {
+      const novo = { ...v };
+      for (const x of convertidas) {
+        novo[chave(id.get(x.regiao)!, x.categoria)] = {
+          medido: noCampo(x.medido),
+          faturado: noCampo(x.faturado),
+        };
+      }
+      return novo;
+    });
+    setAjustes([]);
+    const ajustadas = convertidas.filter((x) => x.ajuste > 0);
+    const faltam = regioes.filter((r) => !leitura.regioes.some((x) => x.regiao === r.nome)).map((r) => r.nome);
+    const mesDaMedicao = periodo.rotulo.split(" ")[0].toLowerCase();
+    setImportando(false);
+    setErro(null);
+    setRecado(
+      `${leitura.regioes.length} região(ões) preenchida(s) da aba de medições em aberto${aba ? ` (${aba})` : ""}: ` +
+        `medido = as linhas de ${mesDaMedicao}; o saldo que fica = o SALDO A FATURAR da aba; ` +
+        `faturado = o que saiu do saldo do mês anterior. Confira e salve.` +
+        (ajustadas.length
+          ? ` Saldo que voltou sem medição nova (entrou como ajuste no medido): ${ajustadas
+              .map((x) => `${x.regiao} · ${ROTULO_CATEGORIA[x.categoria]} (${emReais(x.ajuste)})`)
+              .join("; ")}.`
+          : "") +
+        (faltam.length ? ` Não aparecem na aba (ficaram como estavam): ${faltam.join(", ")}.` : "") +
+        (leitura.desconhecidas.length
+          ? ` Ficaram de fora, por não estarem cadastradas: ${leitura.desconhecidas.join(", ")}.`
+          : ""),
+    );
+  }
+
   // ── A importação da planilha ──────────────────────────────
   // Enquanto a planilha existir: lê a aba do mês (do .xlsx ou colada),
   // converte a foto dela para o mês do sistema e PREENCHE o quadro — quem
@@ -181,6 +231,7 @@ export function Grade({
 
   function importar() {
     const texto = abas.length ? abaComoTexto(abas.find((a) => a.nome === aba)?.linhas ?? []) : colagem;
+    if (formatoDaAba(texto) === "em_aberto") return importarEmAberto(texto);
     const { linhas, desconhecidas } = lerColagemDoMes(
       texto,
       regioes.map((r) => r.nome),
@@ -321,7 +372,8 @@ export function Grade({
         {importando && (
           <div className="space-y-3 border-b border-borda bg-superficie-2 p-4">
             <p className="text-xs text-texto-2">
-              Escolha a planilha de controle (.xlsx) — a medição de {periodo.rotulo.toLowerCase()} está
+              Escolha a planilha (.xlsx) — a de controle ou a de medições em aberto, que o sistema
+              reconhece sozinho — a medição de {periodo.rotulo.toLowerCase()} está
               na aba <strong>{nomeDaAbaDaMedicao(periodo.mes)}</strong>, que vem marcada — ou cole as
               linhas dela. A planilha guarda o medido com o saldo anterior dentro; o
               sistema desconta o saldo que já tem e preenche só o que é do mês. Nada é salvo antes de

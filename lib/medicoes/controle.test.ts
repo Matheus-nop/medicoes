@@ -19,6 +19,9 @@ import {
   abaDaMedicao,
   abaDoMes,
   daPlanilhaParaOMes,
+  doEmAbertoParaOMes,
+  formatoDaAba,
+  lerAbaEmAberto,
   emailDaRegiao,
   faixaDoFaturado,
   historicoDaRegiao,
@@ -217,6 +220,11 @@ test("a medição de um mês está na aba do mês seguinte (0016)", () => {
   e(abaDaMedicao(abas, "2026-09-01"), null);
   e(mesSeguinte("2025-12-01"), "2026-01-01");
   e(nomeDaAbaDaMedicao("2026-08-01"), "SET 2026");
+  // A planilha de medições em aberto: o mês por extenso, com ou sem o ano.
+  const emAberto = ["MEDIÇÕES FATURADAS OUTUBRO 22", "ÁGUAS DO RIO - OUTUBRO 2025", "ÁGUAS DO RIO - SETEMBRO", "ÁGUAS DO RIO - OUTUBRO"];
+  e(abaDaMedicao(emAberto, "2026-09-01"), "ÁGUAS DO RIO - OUTUBRO");
+  e(abaDaMedicao(emAberto, "2026-08-01"), "ÁGUAS DO RIO - SETEMBRO");
+  e(abaDaMedicao(emAberto, "2025-09-01"), "ÁGUAS DO RIO - OUTUBRO 2025");
 });
 
 test("a aba lida do .xlsx vira o texto da colagem, sem o float do Excel", () => {
@@ -338,4 +346,52 @@ test("idade: faturado a mais vira crédito, abate o medido seguinte, e o total �
   deepStrictEqual(negativo, [
     { mes: "crédito", rotulo: "Faturado a mais que o medido", valor: -78.6, credito: true },
   ]);
+});
+
+test("a aba de medições em aberto: medido do mês, saldo da aba, faturado é o que saiu", () => {
+  const T = (...c: (string | number)[]) => c.join("\t");
+  const texto = [
+    T("AGUAS DO RIO/AEGEA - MEDIÇÕES EM ABERTO SEM FATURAMENTO 2026"),
+    T("REGIÃO", "MÊS ", "VALOR ", "VALOR FATURADO", "SALDO A FATURAR", "VALOR ", "VALOR FATURADO", "SALDO A FATURAR", "VALOR ", "VALOR FATURADO", "SALDO A FATURAR", "FATURA/NFE"),
+    T("", "MEDIÇÃO", "MEDIÇÃO MANUTENÇÃO", "", "", "MEDIÇÃO LOCAÇÃO"),
+    T("NORTE", "Agosto", "16.606,00", "16.606,00", "0,00", "46.857,11", "46.857,11", "0,00", "0", "0", "0", "65666"),
+    T("", "Setembro", "11.006,00", "0,00", "11.006,00", "47.476,96", "0,00", "47.476,96", "0", "", ""),
+    T("SUL ", "Junho", "691,67", "0", "691,67", "0", "0", "0", "0", "0", "0"),
+    T("", "Setembro", "16.006,00", "", "16.006,00", "63.639,00", "", "63.639,00", "0", "0", "0"),
+    T("VILA KOSMOS", "Abril a Agosto", "443,60", "443,60", "0", "25.525,00", "25.525,00", "0"),
+    T("", "Setembro", "2.624,00", "0", "2.624,00", "5.105,00", "0", "5.105,00"),
+    T("PARQUE NOVO", "Setembro", "10", "0", "10"),
+    T("TOTAL  GERAL = ", "", "1.844.629,93"),
+    T("NORTE", "Setembro", "999", "0", "999"),
+  ].join("\n");
+  e(formatoDaAba(texto), "em_aberto");
+  const leitura = lerAbaEmAberto(texto, ["NORTE", "SUL", "VILA KOSMOS"], "2026-09-01");
+  deepStrictEqual(leitura.desconhecidas, ["PARQUE NOVO"]);
+  const anterior: Record<string, number> = {
+    "NORTE|manutencao": 16606,
+    "NORTE|locacao": 46857.11,
+    "SUL|manutencao": 590.34,
+    "SUL|locacao": 101.33,
+    "VILA KOSMOS|manutencao": 2218,
+    "VILA KOSMOS|locacao": 25525,
+  };
+  const cel = doEmAbertoParaOMes(leitura, (r, c) => anterior[`${r}|${c}`] ?? 0);
+  const de = (r: string, c: string) => cel.find((x) => x.regiao === r && x.categoria === c)!;
+  // O exemplo do time: 16 mil de saldo, 16 mil faturados, 11 mil medidos.
+  deepStrictEqual(
+    { medido: de("NORTE", "manutencao").medido, faturado: de("NORTE", "manutencao").faturado, saldo: de("NORTE", "manutencao").saldo },
+    { medido: 11006, faturado: 16606, saldo: 11006 },
+  );
+  e(de("VILA KOSMOS", "locacao").faturado, 25525);
+  // Saldo que volta sem medição nova vira ajuste no medido, não faturado negativo.
+  e(de("SUL", "manutencao").faturado, 0);
+  e(de("SUL", "manutencao").ajuste, 101.33);
+  e(de("SUL", "manutencao").medido, 16107.33);
+  e(de("SUL", "locacao").faturado, 101.33);
+  // A linha depois do TOTAL não entra.
+  e(de("NORTE", "manutencao").saldo, 11006);
+});
+
+test("a aba no formato do controle continua sendo controle", () => {
+  e(formatoDaAba("REGIÃO\tMedido\tFaturado\tSaldo\nNORTE\t1\t2\t3"), "controle");
 });
