@@ -37,6 +37,17 @@ export const IconeMedicoes = svg(
   </>,
 );
 
+// A prancheta com o relógio: o boletim que ainda está recebendo OMs.
+export const IconeAbertos = svg(
+  <>
+    <path d="M9 3.5h6v2.5H9z" />
+    <path d="M9 4.75H7.5A1.5 1.5 0 0 0 6 6.25V19a1.5 1.5 0 0 0 1.5 1.5h3.5M15 4.75h1.5A1.5 1.5 0 0 1 18 6.25V10" />
+    <path d="M9 10h4M9 13.5h2" />
+    <circle cx="16.5" cy="16.5" r="4" />
+    <path d="M16.5 14.5v2l1.3 1.2" />
+  </>,
+);
+
 export const IconePainel = svg(
   <>
     <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
