@@ -54,7 +54,7 @@ import {
 import { quemLanca } from "@/lib/medicoes/papeis";
 import { ColarDoSisloc } from "../../colar";
 import { dataCurta, periodo } from "../../formato";
-import { TOM_SITUACAO } from "../../painel";
+import { TOM_SITUACAO } from "@/lib/medicoes/medicoes";
 import type { Andamento } from "./dados";
 import { FormularioDaOm } from "./formulario-om";
 

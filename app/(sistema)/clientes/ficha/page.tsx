@@ -37,7 +37,7 @@ import {
   documentoDoBoletim,
   type BoletimAtual,
 } from "@/lib/medicoes/medicoes";
-import { TOM_SITUACAO } from "../../painel";
+import { TOM_SITUACAO } from "@/lib/medicoes/medicoes";
 import { carregarControle } from "../../controle/dados";
 import { dataCurta, periodo as periodoDasOms } from "../../formato";
 import { carregarClientes } from "../dados";
@@ -232,6 +232,14 @@ function Manutencao({
             key={g.base}
             titulo={g.base}
             descricao={`${g.boletins.length} boletim(ns) · medido ${emReais(valor)}`}
+            acoes={
+              <Link
+                href={`/boletins/base?${new URLSearchParams({ cliente: g.boletins[0].cliente, base: g.base }).toString()}`}
+                className="text-xs font-semibold text-acento underline"
+              >
+                Pasta da base
+              </Link>
+            }
           >
             <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {g.boletins.map((b) => {

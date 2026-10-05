@@ -19,10 +19,12 @@ import {
 import { basesDosBoletins, boletinsPorBase, daBase, doMes, mesesDosBoletins } from "@/lib/medicoes/arquivo";
 import { regionaisDosBoletins, regionalDoBoletim, type Base } from "@/lib/medicoes/bases";
 import { quemLanca } from "@/lib/medicoes/papeis";
+import { pastasPorBase } from "@/lib/medicoes/pastas";
 import { emReais } from "@/lib/medicoes/dinheiro";
 import {
   ROTULO_SITUACAO,
   SITUACOES,
+  TOM_SITUACAO,
   chaveDoCliente,
   documentoDoBoletim,
   saldoPorCliente,
@@ -44,14 +46,8 @@ export interface SaldoLido {
   ultimo_boletim: string;
 }
 
-export const TOM_SITUACAO: Record<SituacaoBoletim, "acento" | "neutro" | "transito" | "ok"> = {
-  aberto: "acento",
-  fechado: "neutro",
-  enviado: "transito",
-  faturado: "ok",
-};
-
 type Filtro = SituacaoBoletim | "todos";
+type Vista = "pastas" | "boletins";
 
 /** "GRANDE DIÂMETRO" → "Grande Diâmetro"; sigla ("VCG") fica como está. */
 function rotuloDaRegional(r: string): string {
@@ -92,6 +88,8 @@ export function Medicoes({
   ordemDasRegionais?: string[];
 }) {
   const [filtro, setFiltro] = useState<Filtro>("todos");
+  // Dentro do cliente: uma pasta por base (o padrão) ou os boletins soltos.
+  const [vista, setVista] = useState<Vista>("pastas");
 
   const soma = (f: (c: SaldoLido) => number) => porCliente.reduce((t, c) => t + f(c), 0);
   const conta = (s: SituacaoBoletim, lista = boletins) => lista.filter((b) => b.situacao === s).length;
@@ -157,7 +155,14 @@ export function Medicoes({
     .map((chave) => {
       const doCliente = visiveis.filter((b) => chaveDoCliente(b.cliente) === chave);
       const saldo = saldos.find((x) => chaveDoCliente(x.cliente) === chave)!;
-      return { chave, nome: saldo.cliente, saldo, boletins: doCliente, bases: boletinsPorBase(doCliente) };
+      return {
+        chave,
+        nome: saldo.cliente,
+        saldo,
+        boletins: doCliente,
+        bases: boletinsPorBase(doCliente),
+        pastas: pastasPorBase(doCliente, bases),
+      };
     })
     .sort((a, b) => b.saldo.saldo + b.saldo.emMedicao - (a.saldo.saldo + a.saldo.emMedicao));
 
@@ -303,6 +308,16 @@ export function Medicoes({
           ]}
         />
 
+        <Chips
+          rotulo="Dentro do cliente"
+          valor={vista}
+          aoMudar={setVista}
+          opcoes={[
+            { valor: "pastas" as Vista, rotulo: "Pastas por base" },
+            { valor: "boletins" as Vista, rotulo: "Todos os boletins" },
+          ]}
+        />
+
         {boletins.length === 0 ? (
           <Vazio>Nenhum boletim ainda. Cole as OMs do Sisloc acima para abrir o primeiro.</Vazio>
         ) : clientes.length === 0 ? (
@@ -320,7 +335,7 @@ export function Medicoes({
               <Painel
                 key={c.chave}
                 titulo={c.nome}
-                descricao={`${c.boletins.length} boletim(ns) · ${c.bases.length} base(s)${
+                descricao={`${c.boletins.length} boletim(ns) · ${c.pastas.length} base(s)${
                   c.saldo.emMedicao ? ` · ${emReais(c.saldo.emMedicao)} em medição` : ""
                 }`}
                 recolhido={fechado}
@@ -350,8 +365,41 @@ export function Medicoes({
                   </>
                 }
               >
-                {/* Um quadro só por cliente: a base é o título do cartão, que é
-                    o que se procura; o documento vem embaixo. */}
+                {vista === "pastas" ? (
+                  // Uma pasta por base: o que está aberto nela, o medido e o
+                  // saldo. Dentro, os BMs da base — abertos em cima.
+                  <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                    {c.pastas.map((p) => {
+                      const ultimo = p.boletins[0];
+                      return (
+                        <CartaoDoQuadro
+                          key={p.chave}
+                          href={`/boletins/base?${new URLSearchParams({ cliente: p.cliente, base: p.nome }).toString()}`}
+                          titulo={p.nome}
+                          subtitulo={`${p.boletins.length} BM(s) · último ${
+                            ultimo.documento?.trim() ? `Nº ${ultimo.documento.trim()}` : ultimo.numero
+                          }${ultimo.referencia?.trim() ? ` · ${ultimo.referencia.trim()}` : ""}`}
+                          selo={
+                            p.abertos ? (
+                              <Selo tom="acento">{p.abertos} aberto(s)</Selo>
+                            ) : (
+                              <Selo tom={TOM_SITUACAO[ultimo.situacao]}>{ROTULO_SITUACAO[ultimo.situacao]}</Selo>
+                            )
+                          }
+                          linhas={[
+                            ...(p.abertos ? [{ rotulo: "Em aberto", valor: emReais(p.emMedicao) }] : []),
+                            { rotulo: "Medido", valor: emReais(p.medido) },
+                            { rotulo: "Faturado", valor: emReais(p.faturado) },
+                          ]}
+                          destaque={{ rotulo: "Saldo", valor: emReais(p.saldo) }}
+                          fracao={p.medido > 0 ? p.faturado / p.medido : null}
+                        />
+                      );
+                    })}
+                  </div>
+                ) : (
+                  // Os boletins soltos: a base é o título do cartão, que é o
+                  // que se procura; o documento vem embaixo.
                 <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                   {c.bases.flatMap((g) =>
                     g.boletins.map((b) => {
@@ -378,6 +426,7 @@ export function Medicoes({
                     }),
                   )}
                 </div>
+                )}
               </Painel>
             );
           })

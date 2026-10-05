@@ -175,6 +175,12 @@ desfaz isso logo depois de criar.
   do cadastro ou sem regional, sem OM, OM sem valor, ou parado há 7 dias ou
   mais. Nada disso se grava: sai na hora. O contador do menu é o de abertos
   pedindo atenção.
+- **pasta da base** (`/boletins/base?cliente=&base=`): o mini arquivo da base
+  dentro do cliente. Na tela inicial, cada cliente mostra uma pasta por base
+  (ou, no chip "Todos os boletins", os boletins soltos); a pasta abre com os
+  BMs abertos em cima, com o que pedem, e os apresentados mês a mês. Os
+  outros nomes da base caem na mesma pasta (`chaveDaPasta`,
+  `lib/medicoes/pastas.ts`).
 - **outros nomes da base** (`bases.apelidos`, 0017): o Sisloc escreve "BASE
   LESTE- MARICÁ" para a "LESTE - MARICÁ" do cadastro. Quando alguém escolhe a
   base certa para um nome que não batia, o nome entra nos outros nomes dela, e
