@@ -91,7 +91,12 @@ export interface CelulaLancada {
  * Grava o que mudou na grade. Append-only: cada célula que mudou vira uma
  * linha nova, e a antiga fica na história. A tela manda só as que mudaram.
  */
-export async function lancar(periodoId: number, celulas: CelulaLancada[]): Promise<Resultado> {
+export async function lancar(
+  periodoId: number,
+  celulas: CelulaLancada[],
+  /** Por que se lançou — vai em todas as células (a compensação da importação). */
+  observacao?: string,
+): Promise<Resultado> {
   const validas = celulas.filter(
     (c) =>
       CATEGORIAS.includes(c.categoria) &&
@@ -111,6 +116,7 @@ export async function lancar(periodoId: number, celulas: CelulaLancada[]): Promi
       categoria: c.categoria,
       medido: Math.round(c.medido * 100) / 100,
       faturado: Math.round(c.faturado * 100) / 100,
+      observacao: observacao?.trim() || null,
       quem: auth.user!.id,
     })),
   );

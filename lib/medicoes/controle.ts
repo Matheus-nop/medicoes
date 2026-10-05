@@ -536,36 +536,72 @@ export function lerAbaEmAberto(texto: string, regioes: string[], mes: string): L
   return { regioes: [...porRegiao.values()], desconhecidas };
 }
 
+/** Um acerto no mês ANTERIOR: quanto muda o faturado de uma célula de lá. */
+export interface Compensacao {
+  regiao: string;
+  categoria: Categoria;
+  /** Somado ao faturado do mês anterior: negativo devolve saldo, positivo tira. */
+  faturado: number;
+}
+
 /**
  * A aba em aberto no formato do sistema. O saldo que fica é o da aba; o
  * medido é o das linhas do mês; o faturado é o que saiu do saldo:
  * anterior + medido − saldo. NORTE em setembro: 16.606 de agosto, 11.006
  * medidos, saldo 11.006 na aba → 16.606 faturados.
  *
- * Quando a conta dá faturado negativo — a aba trouxe de volta um saldo que já
- * tinha saído, como o crédito passado de uma categoria para a outra —, o
- * faturado fica zero e a diferença entra no medido, como ajuste.
+ * Quando a conta dá faturado negativo numa categoria e positivo noutra da
+ * mesma região, é uma COMPENSAÇÃO de meses antigos — a SUL usou o crédito de
+ * R$ 101,33 da locação de julho para abater a manutenção de junho. Ela não é
+ * de setembro: vai para o mês anterior (faturado −101,33 na locação, +101,33
+ * na manutenção), e setembro fica igual à planilha. O que sobrar sem par vira
+ * ajuste no medido do mês, e a tela avisa.
  */
 export function doEmAbertoParaOMes(
   leitura: LeituraEmAberto,
   saldoAnterior: (regiao: string, categoria: Categoria) => number,
-): (CelulaImportada & { ajuste: number })[] {
-  return leitura.regioes.flatMap((r) =>
-    CATEGORIAS.flatMap((c) => {
-      const { medido: doMes, saldo } = r.valores[c];
+): { celulas: (CelulaImportada & { ajuste: number })[]; compensacoes: Compensacao[] } {
+  const celulas: (CelulaImportada & { ajuste: number })[] = [];
+  const compensacoes: Compensacao[] = [];
+  for (const r of leitura.regioes) {
+    const conta = CATEGORIAS.map((c) => {
+      const { medido, saldo } = r.valores[c];
       const anterior = saldoAnterior(r.regiao, c);
-      if (doMes === 0 && saldo === 0 && anterior === 0) return [];
-      let medido = doMes;
-      let faturado = centavo(anterior + doMes - saldo);
-      let ajuste = 0;
-      if (faturado < 0) {
-        ajuste = -faturado;
-        medido = centavo(doMes + ajuste);
-        faturado = 0;
+      return { c, medido, saldo, anterior, faturado: centavo(anterior + medido - saldo), ajuste: 0 };
+    });
+    const acerto = new Map<Categoria, number>();
+    for (const neg of conta.filter((x) => x.faturado < 0)) {
+      for (const pos of conta.filter((x) => x.faturado > 0)) {
+        const leva = centavo(Math.min(-neg.faturado, pos.faturado));
+        if (leva <= 0) continue;
+        neg.faturado = centavo(neg.faturado + leva);
+        pos.faturado = centavo(pos.faturado - leva);
+        acerto.set(neg.c, centavo((acerto.get(neg.c) ?? 0) - leva));
+        acerto.set(pos.c, centavo((acerto.get(pos.c) ?? 0) + leva));
       }
-      return [{ regiao: r.regiao, categoria: c, anterior, medido, faturado, saldo, ajuste }];
-    }),
-  );
+      if (neg.faturado < 0) {
+        neg.ajuste = -neg.faturado;
+        neg.medido = centavo(neg.medido + neg.ajuste);
+        neg.faturado = 0;
+      }
+    }
+    for (const [categoria, faturado] of acerto) {
+      if (faturado) compensacoes.push({ regiao: r.regiao, categoria, faturado });
+    }
+    for (const x of conta) {
+      if (x.medido === 0 && x.saldo === 0 && x.anterior === 0) continue;
+      celulas.push({
+        regiao: r.regiao,
+        categoria: x.c,
+        anterior: centavo(x.anterior - (acerto.get(x.c) ?? 0)),
+        medido: x.medido,
+        faturado: x.faturado,
+        saldo: x.saldo,
+        ajuste: x.ajuste,
+      });
+    }
+  }
+  return { celulas, compensacoes };
 }
 
 export interface CelulaImportada {

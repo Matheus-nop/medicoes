@@ -139,6 +139,8 @@ export default async function LancarMedicoes({
           regioes={regioes}
           celulas={celulas}
           anterior={anterior?.rotulo ?? null}
+          anteriorId={anterior?.id ?? null}
+          celulasDoAnterior={anterior ? carga.historia.filter((c) => c.periodo_id === anterior.id) : []}
           historico={historico}
           podeLancar={pode}
         />

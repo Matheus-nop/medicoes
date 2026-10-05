@@ -121,9 +121,13 @@ desfaz isso logo depois de criar.
   FATURAR no título (`formatoDaAba`): cada região tem uma linha por mês ainda
   em aberto. Medido = as linhas do mês da medição; saldo = a soma do SALDO A
   FATURAR da região; faturado = anterior + medido − saldo (NORTE em setembro:
-  16.606 de agosto, 11.006 medidos, saldo 11.006 → 16.606 faturados). Faturado
-  que daria negativo (crédito passado de uma categoria para outra) vira ajuste
-  no medido, e a tela avisa (`lerAbaEmAberto`, `doEmAbertoParaOMes`).
+  16.606 de agosto, 11.006 medidos, saldo 11.006 → 16.606 faturados). Quando
+  o faturado daria negativo numa categoria e positivo noutra da mesma região, é
+  **compensação** de meses antigos (o crédito de R$ 101,33 da locação de julho
+  da SUL abatendo a manutenção de junho): ela vai para o MÊS ANTERIOR ao salvar
+  (faturado −101,33 numa, +101,33 na outra, com observação; o total de lá não
+  muda), e o mês importado fica igual à planilha. O que sobrar sem par vira
+  ajuste no medido, e a tela avisa (`lerAbaEmAberto`, `doEmAbertoParaOMes`).
 - **recebimento** (financeiro, `/controle/receber`, 0007): faturado não é
   pago. O mês guarda o recebido nele, numa tabela própria
   (`controle_recebimentos`) — na mesma linha do medido, o faturamento
