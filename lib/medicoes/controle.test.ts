@@ -375,7 +375,7 @@ test("a aba de medições em aberto: medido do mês, saldo da aba, faturado é o
     "VILA KOSMOS|manutencao": 2218,
     "VILA KOSMOS|locacao": 25525,
   };
-  const cel = doEmAbertoParaOMes(leitura, (r, c) => anterior[`${r}|${c}`] ?? 0);
+  const { celulas: cel, compensacoes } = doEmAbertoParaOMes(leitura, (r, c) => anterior[`${r}|${c}`] ?? 0);
   const de = (r: string, c: string) => cel.find((x) => x.regiao === r && x.categoria === c)!;
   // O exemplo do time: 16 mil de saldo, 16 mil faturados, 11 mil medidos.
   deepStrictEqual(
@@ -383,11 +383,19 @@ test("a aba de medições em aberto: medido do mês, saldo da aba, faturado é o
     { medido: 11006, faturado: 16606, saldo: 11006 },
   );
   e(de("VILA KOSMOS", "locacao").faturado, 25525);
-  // Saldo que volta sem medição nova vira ajuste no medido, não faturado negativo.
+  // A SUL: o crédito de uma categoria abateu a outra. É compensação do mês
+  // anterior, e setembro fica igual à planilha.
+  e(de("SUL", "manutencao").medido, 16006);
   e(de("SUL", "manutencao").faturado, 0);
-  e(de("SUL", "manutencao").ajuste, 101.33);
-  e(de("SUL", "manutencao").medido, 16107.33);
-  e(de("SUL", "locacao").faturado, 101.33);
+  e(de("SUL", "manutencao").ajuste, 0);
+  e(de("SUL", "locacao").medido, 63639);
+  e(de("SUL", "locacao").faturado, 0);
+  deepStrictEqual(compensacoes, [
+    { regiao: "SUL", categoria: "manutencao", faturado: -101.33 },
+    { regiao: "SUL", categoria: "locacao", faturado: 101.33 },
+  ]);
+  // O saldo que fica continua o da planilha.
+  e(de("SUL", "manutencao").anterior + 16006 - 0, 16697.67);
   // A linha depois do TOTAL não entra.
   e(de("NORTE", "manutencao").saldo, 11006);
 });

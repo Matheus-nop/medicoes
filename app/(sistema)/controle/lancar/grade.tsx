@@ -96,6 +96,8 @@ export function Grade({
   celulas,
   historico,
   podeLancar,
+  anteriorId = null,
+  celulasDoAnterior = [],
 }: {
   periodo: Periodo;
   /** O rótulo do mês anterior ("Agosto 2026"), para dizer de onde veio o saldo. */
@@ -105,6 +107,9 @@ export function Grade({
   historico: Lancamento[];
   /** O papel é do faturamento ou da diretoria (a 0011). Quem não é, só lê. */
   podeLancar: boolean;
+  /** O período anterior e as células dele: onde a compensação da importação é lançada. */
+  anteriorId?: number | null;
+  celulasDoAnterior?: Celula[];
 }) {
   const router = useRouter();
   const inicial = useMemo(() => dasCelulas(regioes, celulas), [regioes, celulas]);
@@ -119,7 +124,15 @@ export function Grade({
     for (const x of celulas) m.set(chave(x.regiao_id, x.categoria), Number(x.saldo_anterior ?? 0));
     return m;
   }, [celulas]);
-  const veioDe = (k: string) => veio.get(k) ?? 0;
+  // A compensação da importação (crédito de uma categoria abatendo outra, de
+  // meses antigos) é lançada no mês anterior ao salvar. Até lá, o quadro já
+  // mostra o saldo que veio com ela, para a conta do cartão bater com a aba.
+  const [compensacoes, setCompensacoes] = useState<
+    { regiaoId: number; regiao: string; categoria: Categoria; faturado: number }[]
+  >([]);
+  const veioDe = (k: string) =>
+    (veio.get(k) ?? 0) -
+    compensacoes.filter((x) => chave(x.regiaoId, x.categoria) === k).reduce((t, x) => t + x.faturado, 0);
 
   const mudadas: CelulaLancada[] = regioes.flatMap((r) =>
     CATEGORIAS.flatMap((c) => {
@@ -172,7 +185,14 @@ export function Grade({
       return;
     }
     const id = new Map(regioes.map((r) => [r.nome, r.id]));
-    const convertidas = doEmAbertoParaOMes(leitura, (reg, c) => veioDe(chave(id.get(reg)!, c)));
+    const { celulas: convertidas, compensacoes: acertos } = doEmAbertoParaOMes(leitura, (reg, c) =>
+      veio.get(chave(id.get(reg)!, c)) ?? 0,
+    );
+    // Sem o período anterior no sistema não há onde lançar a compensação: ela
+    // volta a ser ajuste no medido, como antes.
+    setCompensacoes(
+      anteriorId ? acertos.map((x) => ({ ...x, regiaoId: id.get(x.regiao)! })) : [],
+    );
     setValores((v) => {
       const novo = { ...v };
       for (const x of convertidas) {
@@ -185,6 +205,7 @@ export function Grade({
     });
     setAjustes([]);
     const ajustadas = convertidas.filter((x) => x.ajuste > 0);
+    const regioesCompensadas = [...new Set(acertos.map((x) => x.regiao))];
     const faltam = regioes.filter((r) => !leitura.regioes.some((x) => x.regiao === r.nome)).map((r) => r.nome);
     const mesDaMedicao = periodo.rotulo.split(" ")[0].toLowerCase();
     setImportando(false);
@@ -193,6 +214,11 @@ export function Grade({
       `${leitura.regioes.length} região(ões) preenchida(s) da aba de medições em aberto${aba ? ` (${aba})` : ""}: ` +
         `medido = as linhas de ${mesDaMedicao}; o saldo que fica = o SALDO A FATURAR da aba; ` +
         `faturado = o que saiu do saldo do mês anterior. Confira e salve.` +
+        (anteriorId && regioesCompensadas.length
+          ? ` Compensação entre categorias de meses antigos (${regioesCompensadas.join(", ")}): vai para ${
+              anterior ?? "o mês anterior"
+            } ao salvar, e ${mesDaMedicao} fica igual à planilha.`
+          : "") +
         (ajustadas.length
           ? ` Saldo que voltou sem medição nova (entrou como ajuste no medido): ${ajustadas
               .map((x) => `${x.regiao} · ${ROTULO_CATEGORIA[x.categoria]} (${emReais(x.ajuste)})`)
@@ -243,7 +269,8 @@ export function Grade({
       return;
     }
     const id = new Map(regioes.map((r) => [r.nome, r.id]));
-    const convertidas = daPlanilhaParaOMes(linhas, (reg, c) => veioDe(chave(id.get(reg)!, c)));
+    setCompensacoes([]);
+    const convertidas = daPlanilhaParaOMes(linhas, (reg, c) => veio.get(chave(id.get(reg)!, c)) ?? 0);
     setValores((v) => {
       const novo = { ...v };
       for (const x of convertidas) {
@@ -269,6 +296,34 @@ export function Grade({
   function salvar() {
     setErro(null);
     iniciar(async () => {
+      // A compensação primeiro, no mês anterior: o valor do mês de lá com o
+      // faturado acertado (a célula nova vale por cima da antiga).
+      if (compensacoes.length && anteriorId) {
+        const deLa = compensacoes.map((x) => {
+          const c = celulasDoAnterior.find((y) => y.regiao_id === x.regiaoId && y.categoria === x.categoria);
+          return {
+            regiaoId: x.regiaoId,
+            categoria: x.categoria,
+            medido: Number(c?.medido ?? 0),
+            faturado: Number(c?.faturado ?? 0) + x.faturado,
+          };
+        });
+        const comp = await lancar(
+          anteriorId,
+          deLa,
+          `compensação entre categorias de meses antigos (importação de ${periodo.rotulo.toLowerCase()})`,
+        );
+        if (!comp.ok) {
+          setErro(comp.erro ?? "Não deu certo.");
+          return;
+        }
+        setCompensacoes([]);
+      }
+      if (mudadas.length === 0) {
+        setRecado(`Compensação lançada em ${anterior ?? "o mês anterior"}. O painel já mostra.`);
+        router.refresh();
+        return;
+      }
       const res = await lancar(periodo.id, mudadas);
       if (!res.ok) {
         setErro(res.erro ?? "Não deu certo.");
@@ -349,20 +404,21 @@ export function Grade({
                 onClick={() => {
                   setValores(inicial);
                   setAjustes([]);
+                  setCompensacoes([]);
                 }}
-                disabled={salvando || mudadas.length === 0}
+                disabled={salvando || (mudadas.length === 0 && compensacoes.length === 0)}
               >
                 Desfazer
               </Botao>
               <Botao
                 variante="primario"
                 onClick={salvar}
-                disabled={salvando || mudadas.length === 0 || invalidas > 0}
+                disabled={salvando || (mudadas.length === 0 && compensacoes.length === 0) || invalidas > 0}
               >
                 {salvando
                   ? "Salvando…"
-                  : mudadas.length
-                    ? `Salvar ${mudadas.length} alteração(ões)`
+                  : mudadas.length + compensacoes.length
+                    ? `Salvar ${mudadas.length + compensacoes.length} alteração(ões)`
                     : "Nada mudou"}
               </Botao>
             </>
@@ -420,6 +476,25 @@ export function Grade({
                 Cancelar
               </Botao>
             </div>
+          </div>
+        )}
+
+        {compensacoes.length > 0 && (
+          <div className="border-b border-borda px-4 py-3">
+            <Aviso tom="ok">
+              Compensação de meses antigos, que vai para {anterior ?? "o mês anterior"} ao salvar —{" "}
+              {[...new Set(compensacoes.map((x) => x.regiao))]
+                .map((reg) => {
+                  const da = compensacoes.filter((x) => x.regiao === reg);
+                  const credito = da.find((x) => x.faturado < 0);
+                  const abatida = da.find((x) => x.faturado > 0);
+                  return credito && abatida
+                    ? `${reg}: crédito de ${emReais(-credito.faturado)} da ${ROTULO_CATEGORIA[credito.categoria].toLowerCase()} abatendo a ${ROTULO_CATEGORIA[abatida.categoria].toLowerCase()}`
+                    : reg;
+                })
+                .join("; ")}
+              . O mês de {periodo.rotulo.toLowerCase()} fica igual à planilha.
+            </Aviso>
           </div>
         )}
 
