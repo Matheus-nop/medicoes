@@ -3,6 +3,11 @@
 -- Rode DEPOIS da 0005, no SQL Editor. Pode rodar duas vezes: região e período
 -- que já existem ficam, e célula que já tem valor não é sobrescrita.
 --
+-- RODE SÓ NA PRIMEIRA INSTALAÇÃO, entre a 0005 e a 0006. Os valores estão no
+-- formato antigo (a foto da aba, que a 0006 converte), e os meses são os das
+-- ABAS — a 0016 recua cada período para o mês da medição (a aba SET 2026 é o
+-- período Agosto 2026). Rodar de novo depois delas lança número no mês errado.
+--
 -- Gerado das abas mensais (ABR 2025 a SET 2026). Só entram as células que a
 -- planilha preencheu; "-" e vazio ficam de fora (o painel lê como zero).
 -- As linhas entram com `quem` nulo: vieram da planilha, não de alguém logado.

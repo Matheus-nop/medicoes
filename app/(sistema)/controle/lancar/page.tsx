@@ -11,7 +11,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * Lançar as medições de um período: medido e faturado de cada região, nas
- * três categorias. É a aba do mês da planilha — e se cola dela.
+ * três categorias. O período é o mês MEDIDO: a medição de agosto é a aba SET
+ * da planilha, e é dela que se importa.
  */
 export default async function LancarMedicoes({
   searchParams,

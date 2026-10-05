@@ -18,6 +18,7 @@ Cole e rode **um arquivo por vez, nesta ordem**:
 7. `supabase/scripts/semear-controle-aguas-do-rio.sql` — o histórico da
    planilha. A conferência do fim lista cada período: tem de bater com o
    RESUMO EXECUTIVO (setembro/2026: 1.558.887,59 medido, 566.982,35 faturado).
+   Os períodos nascem com o nome da ABA; a 0016 os recua para o mês medido.
 8. `supabase/migrations/0006_saldo_que_passa.sql` — o mês passa a guardar só
    o medido e o faturado dele, e o saldo anterior vem sozinho. Converte o
    histórico (uma vez só) sem mudar nenhum saldo: a lista do fim tem de dar
@@ -65,6 +66,12 @@ Cole e rode **um arquivo por vez, nesta ordem**:
     preenchida pelas pastas dos arquivos (49 bases). A conferência mostra
     quantas bases há em cada regional; a que ficar sem se acerta em
     **Cadastro de bases**.
+21. `supabase/migrations/0016_o_mes_da_medicao.sql` — o período passa a ter o
+    nome do mês MEDIDO, e não o da aba da planilha: a aba SETEMBRO é a medição
+    de agosto (saldo de julho + medido em agosto). Cada período recua um mês —
+    "Setembro 2026" vira "Agosto 2026" —, o início do recebimento recua junto, e
+    nenhum saldo muda (a lista do fim mostra o saldo de cada um: Agosto 2026 tem
+    de dar 991.905,24). Roda uma vez só: rodar de novo não desloca outra vez.
 
 Cada uma (menos a 0000) termina numa conferência: **toda linha tem de dizer
 `✓ ok`**. Se aparecer `!!`, a colagem provavelmente chegou cortada — rode o

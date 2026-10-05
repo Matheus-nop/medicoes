@@ -16,6 +16,7 @@ import {
   porFaixa,
   resumirRecebimento,
   abaComoTexto,
+  abaDaMedicao,
   abaDoMes,
   daPlanilhaParaOMes,
   emailDaRegiao,
@@ -23,6 +24,8 @@ import {
   historicoDaRegiao,
   lerColagemDoMes,
   lerNumero,
+  mesSeguinte,
+  nomeDaAbaDaMedicao,
   periodoDoMes,
   recadoDaRegiao,
   resumirPeriodo,
@@ -202,6 +205,18 @@ test("a aba do mês na planilha", () => {
   e(abaDoMes(abas, "2026-09-01"), "SET 2026");
   e(abaDoMes(abas, "2025-07-01"), "JUN-JUL 2025");
   e(abaDoMes(abas, "2026-10-01"), null);
+});
+
+test("a medição de um mês está na aba do mês seguinte (0016)", () => {
+  const abas = ["📊 RESUMO EXECUTIVO", "JUN-JUL 2025", "AGO 2026", "SET 2026", "JAN 2026"];
+  e(abaDaMedicao(abas, "2026-08-01"), "SET 2026");
+  e(abaDaMedicao(abas, "2026-07-01"), "AGO 2026");
+  // O período de dois meses (Mai/Jun) está na aba JUN-JUL.
+  e(abaDaMedicao(abas, "2025-06-01"), "JUN-JUL 2025");
+  e(abaDaMedicao(abas, "2025-12-01"), "JAN 2026");
+  e(abaDaMedicao(abas, "2026-09-01"), null);
+  e(mesSeguinte("2025-12-01"), "2026-01-01");
+  e(nomeDaAbaDaMedicao("2026-08-01"), "SET 2026");
 });
 
 test("a aba lida do .xlsx vira o texto da colagem, sem o float do Excel", () => {
