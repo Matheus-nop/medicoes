@@ -107,7 +107,20 @@ export function situacaoLida(cru: unknown): SituacaoBoletim {
  * espaço dobrado, as duas viram a mesma chave — sem isso a colagem abriria
  * dois boletins para o mesmo cliente.
  */
+// A chave se calcula muitas vezes para os mesmos poucos nomes (cada boletim,
+// cada base, cada filtro). Guardar a resposta poupa a normalização.
+const chaves = new Map<string, string>();
+
 export function chaveDoCliente(nome: string): string {
+  const pronta = chaves.get(nome);
+  if (pronta !== undefined) return pronta;
+  if (chaves.size > 5000) chaves.clear();
+  const chave = calcularChave(nome);
+  chaves.set(nome, chave);
+  return chave;
+}
+
+function calcularChave(nome: string): string {
   // O ponto some sem deixar espaço — "S.A." e "SA" são a mesma sigla —, e o
   // resto da pontuação vira espaço, para "LTDA-EPP" não virar "LTDAEPP".
   return normalizar(nome)

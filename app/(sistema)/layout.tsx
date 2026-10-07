@@ -2,7 +2,6 @@ import { sessaoAtual, ROTULO_PAPEL } from "@/lib/supabase/papel";
 import { createClient } from "@/lib/supabase/server";
 import { contratoLido, contratosPedindoAtencao, hojeNaCasa } from "@/lib/medicoes/contratos";
 import { sair } from "@/app/login/actions";
-import { lerAbertos } from "./boletins/abertos/dados";
 import { Casca } from "@/components/casca";
 import { BotaoTema } from "@/components/tema";
 import { BotaoAtualizar } from "@/components/atualizar";
@@ -29,24 +28,10 @@ async function contratosDoMenu(): Promise<number> {
   }
 }
 
-/** Quantos BMs abertos pedem atenção. Se a leitura falhar, zero. */
-async function abertosDoMenu(): Promise<number> {
-  try {
-    const { abertos } = await lerAbertos(await createClient());
-    return abertos.filter((b) => b.pendencias.length > 0).length;
-  } catch {
-    return 0;
-  }
-}
-
 export default async function LayoutSistema({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const [sessao, contratos, abertos] = await Promise.all([
-    sessaoAtual(),
-    contratosDoMenu(),
-    abertosDoMenu(),
-  ]);
+  const [sessao, contratos] = await Promise.all([sessaoAtual(), contratosDoMenu()]);
 
   const hoje = new Date().toLocaleDateString("pt-BR", {
     day: "2-digit",
@@ -57,7 +42,7 @@ export default async function LayoutSistema({
 
   return (
     <Casca
-      pendencias={{ "/contratos": contratos, "/boletins/abertos": abertos }}
+      pendencias={{ "/contratos": contratos }}
       gestor={sessao.papel === "diretoria"}
       marca={
         <div className="flex items-center gap-3">
