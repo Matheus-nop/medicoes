@@ -24,8 +24,8 @@ import {
 //
 // Os dois não se misturam: o boletim não alimenta o painel sozinho.
 //
-//   BMs em aberto — a conferência dos boletins que recebem OMs o mês todo. O
-//     contador é o de abertos pedindo atenção (`pendenciasDoAberto`).
+//   BMs em aberto — a conferência dos boletins que recebem OMs o mês todo. Sem
+//     contador: contar pedia três consultas pesadas a cada tela aberta.
 //
 //   Contratos — o que vence, o que reajusta e quanto já foi medido. O contador
 //     do item é o de contratos pedindo ação (ver `contratosPedindoAtencao`).

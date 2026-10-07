@@ -64,12 +64,32 @@ export function acharBase<T extends Pick<Base, "cliente" | "nome"> & { apelidos?
   base: string | null | undefined,
 ): T | null {
   if (!base?.trim()) return null;
-  const alvo = chaveDoDestino(cliente, base);
-  return (
-    bases.find((b) => chaveDoDestino(b.cliente, b.nome) === alvo) ??
-    bases.find((b) => (b.apelidos ?? []).some((a) => chaveDoDestino(b.cliente, a) === alvo)) ??
-    null
-  );
+  return (indiceDasBases(bases).get(chaveDoDestino(cliente, base)) as T | undefined) ?? null;
+}
+
+// O índice do cadastro pela chave do nome e dos outros nomes, montado uma vez
+// por lista. Sem ele, cada boletim percorria o cadastro inteiro normalizando
+// cada nome — e a tela inicial faz isso centenas de vezes a cada clique.
+const indices = new WeakMap<object, Map<string, unknown>>();
+function indiceDasBases<T extends Pick<Base, "cliente" | "nome"> & { apelidos?: string[] | null }>(
+  bases: T[],
+): Map<string, T> {
+  let mapa = indices.get(bases) as Map<string, T> | undefined;
+  if (!mapa) {
+    mapa = new Map<string, T>();
+    // O nome manda sobre o apelido: primeiro os nomes, depois os outros nomes.
+    for (const b of bases) {
+      const k = chaveDoDestino(b.cliente, b.nome);
+      if (!mapa.has(k)) mapa.set(k, b);
+    }
+    for (const b of bases)
+      for (const a of b.apelidos ?? []) {
+        const k = chaveDoDestino(b.cliente, a);
+        if (!mapa.has(k)) mapa.set(k, b);
+      }
+    indices.set(bases, mapa);
+  }
+  return mapa;
 }
 
 /** As bases do cadastro de um cliente, em ordem — a lista para escolher a base certa. */
