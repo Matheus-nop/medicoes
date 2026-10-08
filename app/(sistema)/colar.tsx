@@ -439,11 +439,11 @@ export function ColarDoSisloc({
             <table className="w-full min-w-[52rem] text-left text-xs">
               <thead className="text-texto-3">
                 <tr className="border-b border-borda">
-                  <th className="px-3 py-2 font-medium">OM</th>
+                  <th className="px-3 py-2 font-medium">Proposta</th>
                   <th className="py-2 pr-2 font-medium">Data</th>
                   <th className="py-2 pr-2 font-medium">Patrimônio</th>
                   <th className="py-2 pr-2 font-medium">Equipamento</th>
-                  <th className="py-2 pr-2 font-medium">Proposta</th>
+                  <th className="py-2 pr-2 font-medium">Nº OM</th>
                   <th className="py-2 pr-2 font-medium">Etapa</th>
                   <th className="py-2 pr-3 text-right font-medium">Valor</th>
                 </tr>

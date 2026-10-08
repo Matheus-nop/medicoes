@@ -51,7 +51,7 @@ export function FormularioDaOm({
 
   function salvar() {
     const om = c.om.replace(/\s+/g, "");
-    if (!omValida(om)) return setProblema("O Nº OM é o número do Sisloc (só dígitos) ou o do comprovante (1170-01).");
+    if (!omValida(om)) return setProblema("A proposta é a OM principal do Sisloc (só dígitos) ou o número do comprovante (1170-01).");
     if (!c.equipamento.trim()) return setProblema("Diga qual é o equipamento ou o serviço.");
     const valor = c.valor.trim() ? lerValorDigitado(c.valor) : 0;
     if (valor === null) return setProblema("O valor não é um número. Use 1.234,56.");
@@ -77,7 +77,7 @@ export function FormularioDaOm({
       className="space-y-3"
     >
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Campo rotulo="Nº OM" obrigatorio>
+        <Campo rotulo="Proposta (OM do Sisloc)" obrigatorio>
           <input value={c.om} onChange={muda("om")} inputMode="numeric" placeholder="032731" className={`${CAMPO} w-full font-mono`} />
         </Campo>
         <Campo rotulo="Descrição do equipamento / serviço" obrigatorio className="sm:col-span-2 lg:col-span-3">
@@ -89,7 +89,7 @@ export function FormularioDaOm({
         <Campo rotulo="Data">
           <input type="date" value={c.data} onChange={muda("data")} className={`${CAMPO} w-full`} />
         </Campo>
-        <Campo rotulo="Proposta">
+        <Campo rotulo="Nº OM (entrada)">
           <input value={c.omRetirada} onChange={muda("omRetirada")} inputMode="numeric" placeholder="032344" className={`${CAMPO} w-full font-mono`} />
         </Campo>
         <Campo rotulo="OM entrega">

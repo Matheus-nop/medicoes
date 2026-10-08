@@ -187,7 +187,7 @@ export function Boletim({
       ? [
           {
             ok: semRecibo === 0,
-            texto: semRecibo ? `${semRecibo} OM(s) sem proposta ou OM entrega` : "Proposta e OM entrega preenchidas",
+            texto: semRecibo ? `${semRecibo} OM(s) sem Nº OM ou OM entrega` : "Nº OM e OM entrega preenchidos",
             acao:
               semRecibo > 0 && mexe ? (
                 <button type="button" onClick={buscar} disabled={enviando} className="font-semibold text-acento underline">
@@ -270,7 +270,7 @@ export function Boletim({
             titulo={`OMs do boletim · ${itens.length}`}
             descricao={
               mexe
-                ? "O valor, a proposta e a OM entrega se corrigem no próprio cartão; o resto em Editar."
+                ? "O valor, o Nº OM e a OM entrega se corrigem no próprio cartão; o resto em Editar."
                 : faturavel
                   ? "Marque cada OM faturada — é o STATUS do papel e o faturado do painel."
                   : undefined
@@ -552,7 +552,6 @@ function CartaoDaOm({
   const [texto, setTexto] = useState("");
   const [invalido, setInvalido] = useState(false);
   const [retirada, setRetirada] = useState(item.om_retirada ?? "");
-  const [editandoProposta, setEditandoProposta] = useState(false);
   const [entrega, setEntrega] = useState(item.recibo_entrega ?? "");
   const naOficina = entrouNaOficina(item.etapa_om);
   const custoNoPreco = item.fonte === "previsto" || item.fonte === "gasto" || item.fonte === "nenhum";
@@ -615,45 +614,9 @@ function CartaoDaOm({
       <header className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            {/* No papel com recibos o número que se procura é o da proposta;
-                a OM vai para baixo, junto da OM entrega. */}
-            {comRecibo && aberto && editandoProposta ? (
-              // Alterar a proposta: o campo só aparece quando se pede.
-              <input
-                value={retirada}
-                onChange={(e) => setRetirada(e.target.value)}
-                onBlur={() => {
-                  setEditandoProposta(false);
-                  salvarRecibos();
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                  if (e.key === "Escape") {
-                    setRetirada(item.om_retirada ?? "");
-                    setEditandoProposta(false);
-                  }
-                }}
-                autoFocus
-                disabled={ocupado}
-                aria-label={`Proposta da OM ${item.om}`}
-                placeholder="Nº da proposta"
-                className={`${CAMPO} h-7 w-32 px-2 font-mono text-sm font-semibold`}
-              />
-            ) : (
-              <span className="font-mono text-sm font-semibold">
-                {comRecibo && retirada.trim() ? `Proposta ${retirada.trim()}` : `OM ${item.om}`}
-              </span>
-            )}
-            {comRecibo && aberto && !editandoProposta && (
-              <button
-                type="button"
-                onClick={() => setEditandoProposta(true)}
-                disabled={ocupado}
-                className={`text-xs underline ${retirada.trim() ? "text-texto-3" : "font-semibold text-reservado"}`}
-              >
-                {retirada.trim() ? "alterar" : "incluir proposta"}
-              </button>
-            )}
+            {/* A proposta é a OM principal do Sisloc — a da colagem, o número
+                que não entra em dois boletins. Fixa: corrige-se em Editar. */}
+            <span className="font-mono text-sm font-semibold">Proposta {item.om}</span>
             <span className="text-xs text-texto-3">{dataCurta(dataDaOm(item))}</span>
           </p>
           <p className="truncate text-sm" title={item.equipamento ?? ""}>
@@ -719,7 +682,7 @@ function CartaoDaOm({
         <div className="mt-3 grid grid-cols-2 gap-2">
           <div>
             <p className="mb-0.5 text-[11px] text-texto-3">Nº OM</p>
-            <p className={`font-mono text-xs ${aberto ? "flex h-8 items-center" : ""}`}>{item.om}</p>
+            {recibo(retirada, setRetirada, "Nº OM")}
           </div>
           <div>
             <p className="mb-0.5 text-[11px] text-texto-3">OM entrega</p>

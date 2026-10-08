@@ -58,17 +58,23 @@ desfaz isso logo depois de criar.
   `BM-0001 - AGOSTO/2026`. O papel é o modelo da **Ação** Serviços e Máquinas.
 - **base**: a fiscalização do cliente que confere o boletim — o "Nome local de
   entrega" do Sisloc.
-- **OM**: a ordem de manutenção do Sisloc. Três momentos, três números:
-  entrada (recibo de retirada), corretiva (a que se cobra), retorno
-  (comprovante de entrega). Quando a linha se cobra por um comprovante de
+- **OM**: a ordem de manutenção do Sisloc. Três momentos, três números, com
+  os nomes do papel: **PROPOSTA** é a OM principal do Sisloc — a corretiva,
+  a que vem na colagem e se cobra (`om`, a que não entra em dois boletins);
+  **Nº OM** é a OM de entrada (`om_retirada`); **OM ENTREGA** é a de retorno
+  (`recibo_entrega`), que a colagem não traz e o time digita. No cartão da
+  OM a proposta fica fixa no topo, e embaixo o Nº OM e a OM entrega. O papel
+  de agosto chamava a entrada de RECIBO RETIRADA e a principal de Nº OM; o de
+  setembro passou a chamar a principal de PROPOSTA e a entrada de Nº OM — a
+  importação de setembro guardou as duas trocadas, e
+  `destrocar-proposta-setembro.sql` acerta. Quando a linha se cobra por um comprovante de
   substituição, devolução ou manutenção no local, o "Nº OM" é o número dele,
   com traço ("1170-01") — a `0014` aceita os dois formatos (`omValida`).
   A colagem do Sisloc continua só com a OM numérica.
 - **modelo**: o papel que o cliente recebe. `aguas` é o "Águas do Rio padrão
-  2026" (0008): a base no topo e os recibos de retirada e entrega, com os
-  títulos PROPOSTA e OM ENTREGA, como o papel do cliente desde setembro/2026
-  — os mesmos no TESTE 2 e nas telas (o campo continua `om_retirada` e
-  `recibo_entrega`). `rio_mais` é
+  2026" (0008): a base no topo e as colunas Nº OM, PROPOSTA e OM ENTREGA,
+  como o papel do cliente desde setembro/2026 — as mesmas no TESTE 2. Na
+  Rio+ a coluna da OM principal também se chama PROPOSTA. `rio_mais` é
   o da Rio+ Saneamento — a base no topo, sem recibos e com o STATUS
   (PENDENTE/FATURADO) de cada OM. Os dois moram em `papel-2026.tsx`. `acao` é o
   TESTE 2, o anterior, para o que já saiu nele. Nasce do nome do cliente e se

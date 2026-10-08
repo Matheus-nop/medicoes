@@ -146,7 +146,7 @@ export function Extrato({
                       <table className="mt-[1mm] w-full border-collapse text-[7pt]">
                         <thead>
                           <tr className="bg-[#16365C] text-[6.5pt] text-white">
-                            <th className={th1}>OM</th>
+                            <th className={th1}>Proposta</th>
                             <th className={th1}>Data</th>
                             <th className={th1}>Patrimônio</th>
                             <th className={th1}>Equipamento / serviço</th>

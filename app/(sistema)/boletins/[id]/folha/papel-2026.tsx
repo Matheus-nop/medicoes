@@ -21,7 +21,8 @@ import { dataCurta } from "../../../formato";
  *
  *   rio_mais — STATUS de cada OM (PENDENTE ou FATURADO, de `om_faturadas`),
  *              e a contagem de pendentes e faturados no pé. Sem recibos.
- *   aguas    — PROPOSTA e OM ENTREGA (o recibo de retirada e o de entrega,
+ *   aguas    — Nº OM (a de entrada), PROPOSTA (a OM principal do Sisloc) e OM
+ *              ENTREGA (a de retorno, digitada à mão),
  *              com os títulos que o papel do cliente usa desde setembro/2026;
  *              o TESTE 2 usa os mesmos). Sem status.
  *
@@ -42,7 +43,7 @@ const CABECALHO: Record<Variante, string[]> = {
     "DESCRIÇÃO DO EQUIPAMENTO / SERVIÇO",
     "Nº PATRIMÔNIO",
     "DATA",
-    "Nº OM",
+    "PROPOSTA",
     "VALOR (R$)",
     "STATUS",
     "OBSERVAÇÃO",
@@ -202,10 +203,11 @@ export function Papel2026({
               <td className="border border-[#D8DBE4] px-1 leading-tight">{i.equipamento ?? ""}</td>
               <td className="border border-[#D8DBE4] text-center">{i.patrimonio ?? ""}</td>
               <td className="border border-[#D8DBE4] text-center">{dataCurta(dataDaOm(i))}</td>
-              <td className="border border-[#D8DBE4] text-center">{i.om}</td>
+              {/* Nº OM é a OM de entrada; PROPOSTA, a OM principal do Sisloc. */}
               {!comStatus && (
                 <td className="border border-[#D8DBE4] text-center">{i.om_retirada ?? ""}</td>
               )}
+              <td className="border border-[#D8DBE4] text-center">{i.om}</td>
               <td className="border border-[#D8DBE4] px-1 text-center tabular-nums">
                 {emReais(i.valor)}
               </td>

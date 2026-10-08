@@ -232,8 +232,9 @@ export function PapelDoBoletim({
             <td className="border border-[#E4E5EA] px-1 leading-tight">{i.equipamento ?? ""}</td>
             <td className="border border-[#E4E5EA] text-center">{i.patrimonio ?? ""}</td>
             <td className="border border-[#E4E5EA] text-center">{dataCurta(dataDaOm(i))}</td>
-            <td className="border border-[#E4E5EA] text-center">{i.om}</td>
+            {/* Nº OM é a OM de entrada; PROPOSTA, a OM principal do Sisloc. */}
             <td className="border border-[#E4E5EA] text-center">{i.om_retirada ?? ""}</td>
+            <td className="border border-[#E4E5EA] text-center">{i.om}</td>
             <td className="border border-[#E4E5EA] px-1 text-right tabular-nums">
               {emReais(i.valor)}
             </td>
