@@ -11,10 +11,9 @@ import {
   ROTULO_MODELO,
   chaveDoCliente,
   chaveDoDestino,
-  dataDaOm,
   descricaoDoEquipamento,
   lerOmsDaMedicao,
-  mesDeReferencia,
+  mesDaColagem,
   porDestino,
   rotuloDaEtapa,
   type GrupoDeDestino,
@@ -120,7 +119,7 @@ export function ColarDoSisloc({
     setFeito(null);
     setAbertosAgora([]);
     iniciar(async () => {
-      const r = await incluirOms({ boletimId, cliente: g.cliente, base: g.base, linhas, escolha: escolhaDe(g, linhas) });
+      const r = await incluirOms({ boletimId, cliente: g.cliente, base: g.base, linhas, escolha: escolhaDe(g) });
       if (!r.ok) {
         setErro(r.erro ?? "Não foi possível incluir.");
         return;
@@ -162,23 +161,20 @@ export function ColarDoSisloc({
     const nomeDaBase = cadastro?.nome ?? baseEfetiva;
     const documento = escolha.documento ?? (nomeDaBase ? proximoDocumento(todos, g.cliente, nomeDaBase) : "");
     const referencia =
-      escolha.referencia ??
-      mesDeReferencia(novas.map((l) => dataDaOm({ chegada_em: l.chegadaEm, aberta_em: l.abertaEm })));
+      escolha.referencia ?? mesDaColagem();
     return { naoMedidas, levaSem, novas, destino, cadastro, nomeDaBase, documento, referencia };
   };
 
   // O que vai para o servidor: a base, o número e o mês do cartão, e o nome do
   // Sisloc para a base aprender — só na tela inicial; dentro de um boletim o
   // destino é ele mesmo.
-  function escolhaDe(g: GrupoDeDestino, linhas: OmLida[]) {
+  function escolhaDe(g: GrupoDeDestino) {
     if (boletim) return undefined;
     const d = doGrupo(g);
     return {
       base: d.nomeDaBase,
       documento: d.documento,
-      referencia:
-        escolhas[g.chave]?.referencia ??
-        mesDeReferencia(linhas.map((l) => dataDaOm({ chegada_em: l.chegadaEm, aberta_em: l.abertaEm }))),
+      referencia: escolhas[g.chave]?.referencia ?? mesDaColagem(),
       lembrarComo: g.base,
     };
   }
@@ -203,7 +199,7 @@ export function ColarDoSisloc({
           cliente: g.cliente,
           base: g.base,
           linhas: novas,
-          escolha: escolhaDe(g, novas),
+          escolha: escolhaDe(g),
         });
         if (!r.ok || !r.boletimId) {
           falhas.push(`${g.base || g.cliente}: ${r.erro ?? "não deu certo"}`);

@@ -438,6 +438,17 @@ const MESES = [
  * em setembro (o antigo tem data 02/09 e diz AGOSTO). Sem data nenhuma, o mês
  * passado — é o que se está medindo quando se abre o boletim no começo do mês.
  */
+/**
+ * O mês do boletim que se abre pela colagem: o mês de hoje, no fuso da casa.
+ * O BM recebe OMs o mês todo e é a medição do mês em que se lança — a OM que
+ * chegou em 23/09 e entra no BM aberto em outubro é de OUTUBRO, porque o de
+ * setembro já foi emitido. Pela data da OM, ela abria um BM de setembro.
+ */
+export function mesDaColagem(hoje = new Date()): string {
+  const [a, m] = hoje.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }).split("-").map(Number);
+  return `${MESES[m - 1]}/${a}`;
+}
+
 export function mesDeReferencia(datas: (string | null)[], hoje = new Date()): string {
   const validas = datas
     .filter((d): d is string => Boolean(d))

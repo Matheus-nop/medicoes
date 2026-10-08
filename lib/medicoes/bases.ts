@@ -64,7 +64,17 @@ export function acharBase<T extends Pick<Base, "cliente" | "nome"> & { apelidos?
   base: string | null | undefined,
 ): T | null {
   if (!base?.trim()) return null;
-  return (indiceDasBases(bases).get(chaveDoDestino(cliente, base)) as T | undefined) ?? null;
+  return (indiceDasBases(bases).get(chaveDaBase(cliente, base)) as T | undefined) ?? null;
+}
+
+/**
+ * A chave com que a base se acha: a do nome, sem o "BASE" da frente — o Sisloc
+ * escreve "BASE SUL - ROCHA" para a "SUL - ROCHA" do cadastro, e por esse
+ * "BASE" a colagem abria uma base nova, sem regional e com Nº 01.
+ */
+export function chaveDaBase(cliente: string, base: string): string {
+  const [c, b] = chaveDoDestino(cliente, base).split("|");
+  return `${c}|${b.replace(/^BASE /, "")}`;
 }
 
 // O índice do cadastro pela chave do nome e dos outros nomes, montado uma vez
@@ -78,13 +88,18 @@ function indiceDasBases<T extends Pick<Base, "cliente" | "nome"> & { apelidos?: 
   if (!mapa) {
     mapa = new Map<string, T>();
     // O nome manda sobre o apelido: primeiro os nomes, depois os outros nomes.
-    for (const b of bases) {
-      const k = chaveDoDestino(b.cliente, b.nome);
+    // Entre duas bases com a mesma chave ("BASE SUL - ROCHA" aberta pela
+    // colagem e a "SUL - ROCHA" do cadastro), vale a que tem regional.
+    const ordem = [...bases].sort(
+      (a, b) => Number(Boolean((b as { regional?: string | null }).regional)) - Number(Boolean((a as { regional?: string | null }).regional)),
+    );
+    for (const b of ordem) {
+      const k = chaveDaBase(b.cliente, b.nome);
       if (!mapa.has(k)) mapa.set(k, b);
     }
-    for (const b of bases)
+    for (const b of ordem)
       for (const a of b.apelidos ?? []) {
-        const k = chaveDoDestino(b.cliente, a);
+        const k = chaveDaBase(b.cliente, a);
         if (!mapa.has(k)) mapa.set(k, b);
       }
     indices.set(bases, mapa);

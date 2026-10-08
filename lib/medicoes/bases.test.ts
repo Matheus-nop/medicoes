@@ -82,3 +82,14 @@ test("a base se acha também pelos outros nomes dela (0017)", () => {
     ["LESTE - ITABORAÍ", "LESTE - MARICÁ"],
   );
 });
+
+test("o BASE da frente do Sisloc não abre base nova", () => {
+  const bases = [
+    { cliente: CLI, nome: "BASE SUL - ROCHA", regional: null },
+    { cliente: CLI, nome: "SUL - ROCHA", regional: "SUL" },
+    { cliente: CLI, nome: "COMUNIDADES - GÁVEA", regional: "COMUNIDADE" },
+  ];
+  e(acharBase(bases, CLI, "BASE SUL - ROCHA")?.regional, "SUL");
+  e(acharBase(bases, CLI, "BASE COMUNIDADES- GÁVEA")?.nome, "COMUNIDADES - GÁVEA");
+  e(acharBase(bases, CLI, "BASEADO"), null);
+});

@@ -12,9 +12,8 @@ import {
   acharComprovantes,
   chaveDoCliente,
   chaveDoDestino,
-  dataDaOm,
   descricaoDoEquipamento,
-  mesDeReferencia,
+  mesDaColagem,
   modeloLido,
   omValida,
   type DemandaDoRoteiros,
@@ -227,9 +226,7 @@ export async function incluirOms(entrada: {
         // O próximo número da base ("08" → "09"), como o cliente conta —
         // ou o que a pessoa escreveu no cartão.
         documento: documento || (nomeDaBase ? proximoDocumento(lista, nomeDoCliente, nomeDaBase) : null),
-        referencia:
-          referencia ||
-          mesDeReferencia(novas.map((l) => dataDaOm({ chegada_em: l.chegadaEm, aberta_em: l.abertaEm }))),
+        referencia: referencia || mesDaColagem(),
         criado_por: auth.user.id,
       })
       .select("id, numero")
