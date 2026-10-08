@@ -16,6 +16,7 @@ import {
   porDestino,
   chaveDoDestino,
   mesDeReferencia,
+  mesDaColagem,
   descricaoDoEquipamento,
   dataDaOm,
   entrouNaOficina,
@@ -402,4 +403,10 @@ test("o Nº OM: a do Sisloc ou o comprovante com traço (0014)", () => {
   ok(!omValida("1170-"));
   ok(!omValida("1170-0001"));
   ok(!omValida("OM 034292"));
+});
+
+test("a colagem abre o BM do mês em que se lança, não o da data da OM", () => {
+  e(mesDaColagem(new Date("2026-10-08T12:00:00-03:00")), "OUTUBRO/2026");
+  // 31/10 às 22h em Brasília ainda é outubro, mesmo já sendo novembro em UTC.
+  e(mesDaColagem(new Date("2026-11-01T01:00:00Z")), "OUTUBRO/2026");
 });

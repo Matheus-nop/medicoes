@@ -168,6 +168,10 @@ desfaz isso logo depois de criar.
   ABERTO da base — o mês se lança aos poucos no mesmo BM até o fechamento.
   Antes de abrir, "Editar destino" no cartão troca a base (a do cadastro, ou
   uma nova com o nome que se escrever), o Documento Nº e o mês de referência.
+  O mês do BM novo é o mês em que se lança (`mesDaColagem`), não o da data
+  das OMs: a OM que chegou em 23/09 e entra em outubro é do BM de outubro,
+  porque o de setembro já saiu. E o "BASE" da frente do nome do Sisloc não
+  conta para achar a base (`chaveDaBase`: "BASE SUL - ROCHA" é a "SUL - ROCHA").
 - **BMs em aberto** (`/boletins/abertos`): a conferência dos boletins que
   recebem OMs o mês todo, por regional, um cartão por base. Cada cartão diz o
   que pede antes de fechar (`pendenciasDoAberto`, `lib/medicoes/abertos.ts`):
