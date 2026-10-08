@@ -614,7 +614,11 @@ function CartaoDaOm({
       <header className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-baseline gap-x-2">
-            <span className="font-mono text-sm font-semibold">OM {item.om}</span>
+            {/* No papel com recibos o número que se procura é o da proposta;
+                a OM vai para baixo, junto da OM entrega. */}
+            <span className="font-mono text-sm font-semibold">
+              {comRecibo && retirada.trim() ? `Proposta ${retirada.trim()}` : `OM ${item.om}`}
+            </span>
             <span className="text-xs text-texto-3">{dataCurta(dataDaOm(item))}</span>
           </p>
           <p className="truncate text-sm" title={item.equipamento ?? ""}>
@@ -677,10 +681,17 @@ function CartaoDaOm({
       )}
 
       {comRecibo && (
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className={`mt-3 grid gap-2 ${aberto ? "grid-cols-3" : "grid-cols-2"}`}>
+          {/* Aberto, a proposta ainda se digita aqui; fechado, ela já está no topo. */}
+          {aberto && (
+            <div>
+              <p className="mb-0.5 text-[11px] text-texto-3">Proposta</p>
+              {recibo(retirada, setRetirada, "Proposta")}
+            </div>
+          )}
           <div>
-            <p className="mb-0.5 text-[11px] text-texto-3">Proposta</p>
-            {recibo(retirada, setRetirada, "Proposta")}
+            <p className="mb-0.5 text-[11px] text-texto-3">Nº OM</p>
+            <p className={`font-mono text-xs ${aberto ? "flex h-8 items-center" : ""}`}>{item.om}</p>
           </div>
           <div>
             <p className="mb-0.5 text-[11px] text-texto-3">OM entrega</p>
