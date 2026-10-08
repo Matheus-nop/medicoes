@@ -613,12 +613,28 @@ function CartaoDaOm({
     >
       <header className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <p className="flex flex-wrap items-baseline gap-x-2">
+          <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
             {/* No papel com recibos o número que se procura é o da proposta;
                 a OM vai para baixo, junto da OM entrega. */}
-            <span className="font-mono text-sm font-semibold">
-              {comRecibo && retirada.trim() ? `Proposta ${retirada.trim()}` : `OM ${item.om}`}
-            </span>
+            {comRecibo && aberto ? (
+              // Aberto, a proposta se digita no próprio número do topo.
+              <label className="flex min-w-0 items-baseline gap-1.5">
+                <span className="font-mono text-sm font-semibold">Proposta</span>
+                <input
+                  value={retirada}
+                  onChange={(e) => setRetirada(e.target.value)}
+                  onBlur={salvarRecibos}
+                  disabled={ocupado}
+                  aria-label={`Proposta da OM ${item.om}`}
+                  placeholder="digite"
+                  className={`${CAMPO} h-7 w-28 min-w-[5.5rem] shrink px-2 font-mono text-sm font-semibold ${retirada ? "" : "border-reservado/60"}`}
+                />
+              </label>
+            ) : (
+              <span className="font-mono text-sm font-semibold">
+                {comRecibo && retirada.trim() ? `Proposta ${retirada.trim()}` : `OM ${item.om}`}
+              </span>
+            )}
             <span className="text-xs text-texto-3">{dataCurta(dataDaOm(item))}</span>
           </p>
           <p className="truncate text-sm" title={item.equipamento ?? ""}>
@@ -681,14 +697,7 @@ function CartaoDaOm({
       )}
 
       {comRecibo && (
-        <div className={`mt-3 grid gap-2 ${aberto ? "grid-cols-3" : "grid-cols-2"}`}>
-          {/* Aberto, a proposta ainda se digita aqui; fechado, ela já está no topo. */}
-          {aberto && (
-            <div>
-              <p className="mb-0.5 text-[11px] text-texto-3">Proposta</p>
-              {recibo(retirada, setRetirada, "Proposta")}
-            </div>
-          )}
+        <div className="mt-3 grid grid-cols-2 gap-2">
           <div>
             <p className="mb-0.5 text-[11px] text-texto-3">Nº OM</p>
             <p className={`font-mono text-xs ${aberto ? "flex h-8 items-center" : ""}`}>{item.om}</p>
