@@ -552,6 +552,7 @@ function CartaoDaOm({
   const [texto, setTexto] = useState("");
   const [invalido, setInvalido] = useState(false);
   const [retirada, setRetirada] = useState(item.om_retirada ?? "");
+  const [editandoProposta, setEditandoProposta] = useState(false);
   const [entrega, setEntrega] = useState(item.recibo_entrega ?? "");
   const naOficina = entrouNaOficina(item.etapa_om);
   const custoNoPreco = item.fonte === "previsto" || item.fonte === "gasto" || item.fonte === "nenhum";
@@ -616,24 +617,42 @@ function CartaoDaOm({
           <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
             {/* No papel com recibos o número que se procura é o da proposta;
                 a OM vai para baixo, junto da OM entrega. */}
-            {comRecibo && aberto ? (
-              // Aberto, a proposta se digita no próprio número do topo.
-              <label className="flex min-w-0 items-baseline gap-1.5">
-                <span className="font-mono text-sm font-semibold">Proposta</span>
-                <input
-                  value={retirada}
-                  onChange={(e) => setRetirada(e.target.value)}
-                  onBlur={salvarRecibos}
-                  disabled={ocupado}
-                  aria-label={`Proposta da OM ${item.om}`}
-                  placeholder="digite"
-                  className={`${CAMPO} h-7 w-28 min-w-[5.5rem] shrink px-2 font-mono text-sm font-semibold ${retirada ? "" : "border-reservado/60"}`}
-                />
-              </label>
+            {comRecibo && aberto && editandoProposta ? (
+              // Alterar a proposta: o campo só aparece quando se pede.
+              <input
+                value={retirada}
+                onChange={(e) => setRetirada(e.target.value)}
+                onBlur={() => {
+                  setEditandoProposta(false);
+                  salvarRecibos();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                  if (e.key === "Escape") {
+                    setRetirada(item.om_retirada ?? "");
+                    setEditandoProposta(false);
+                  }
+                }}
+                autoFocus
+                disabled={ocupado}
+                aria-label={`Proposta da OM ${item.om}`}
+                placeholder="Nº da proposta"
+                className={`${CAMPO} h-7 w-32 px-2 font-mono text-sm font-semibold`}
+              />
             ) : (
               <span className="font-mono text-sm font-semibold">
                 {comRecibo && retirada.trim() ? `Proposta ${retirada.trim()}` : `OM ${item.om}`}
               </span>
+            )}
+            {comRecibo && aberto && !editandoProposta && (
+              <button
+                type="button"
+                onClick={() => setEditandoProposta(true)}
+                disabled={ocupado}
+                className={`text-xs underline ${retirada.trim() ? "text-texto-3" : "font-semibold text-reservado"}`}
+              >
+                {retirada.trim() ? "alterar" : "incluir proposta"}
+              </button>
             )}
             <span className="text-xs text-texto-3">{dataCurta(dataDaOm(item))}</span>
           </p>
