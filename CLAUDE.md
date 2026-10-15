@@ -205,8 +205,19 @@ desfaz isso logo depois de criar.
   próximo reajuste e os alertas dependem de hoje e saem de
   `lib/medicoes/contratos.ts`. O reajuste registrado cobre o aniversário a até
   meio ano dele. O contador do menu é o de contratos pedindo ação (vence,
-  venceu, reajuste sem registro, 90% do valor medido). Faturamento e
-  diretoria lançam.
+  venceu, reajuste sem registro, 90% do valor medido, o valor que acaba
+  antes do prazo no ritmo atual). Faturamento e diretoria lançam.
+- **ciclo** (0018): o período do contrato entre a assinatura e a primeira
+  **renovação**, ou entre duas renovações. A renovação é um aditivo com o
+  período e o valor do ciclo que ela abre, e o consumo recomeça do zero —
+  a não ser que o termo **incorpore o saldo** do anterior. Os ciclos não são
+  tabela: saem dos aditivos em `ciclosDoContrato`, e o mês a mês sai de
+  `contrato_meses` (medido e faturado do controle por contrato e mês).
+- **saldo do contrato**: o valor do ciclo menos o **faturado** — anda sozinho
+  quando a nota sai. O medido que ainda não virou nota aparece ao lado, como
+  **medido a faturar**. Os alertas de consumo (80% avisa, 90% pede ação) e o
+  **ritmo** (média do medido dos últimos 6 meses do ciclo) olham o medido, que
+  é o que de fato gasta o contrato.
 
 ## Aparência
 - App instalável (PWA): `app/manifest.ts`, `public/sw.js` e o convite de
@@ -272,7 +283,10 @@ desfaz isso logo depois de criar.
       de hoje contra o medido do controle, o reajuste pelo aniversário, os
       alertas no quadro, na ficha do cliente e no contador do menu. Falta
       aplicar a `0013` e cadastrar os contratos vigentes, a começar pelo do
-      Águas do Rio / AEGEA.
+      Águas do Rio / AEGEA. Com a `0018`, os ciclos: a renovação como aditivo
+      (inclusive as que já aconteceram), o saldo pelo faturado, o gráfico de
+      consumo com a projeção, o mês a mês e o alerta do valor que acaba antes
+      do prazo. Falta aplicar a `0018` e lançar as renovações passadas.
 - [~] O mês da medição (`0016`): os períodos recuam um mês para ter o nome do
       mês medido; nenhum saldo muda. Falta aplicar.
 - As provas de RLS de todas as migrações estão em

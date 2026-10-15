@@ -8,6 +8,8 @@ import {
   INDICES,
   ROTULO_ADITIVO,
   TIPOS_DE_ADITIVO,
+  sugestaoDaRenovacao,
+  type Ciclo,
   type ContratoAtual,
   type TipoDeAditivo,
 } from "@/lib/medicoes/contratos";
@@ -181,17 +183,40 @@ export function FormularioDoContrato({
 }
 
 const VAZIO: CamposDoAditivo = {
-  tipo: "prorrogacao",
+  tipo: "renovacao",
   data: "",
   numero: "",
   novaVigenciaFim: "",
+  novaVigenciaInicio: "",
+  valorCiclo: "",
+  incorporaSaldo: false,
   valorDelta: "",
   percentual: "",
   descricao: "",
 };
 
+const emTexto = (v: number | null) =>
+  v === null ? "" : v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** O formulário em branco, com a renovação já proposta a partir do último ciclo. */
+function vazioPara(ultimo?: Ciclo): CamposDoAditivo {
+  if (!ultimo) return VAZIO;
+  const s = sugestaoDaRenovacao(ultimo);
+  return { ...VAZIO, novaVigenciaInicio: s.inicio, novaVigenciaFim: s.fim, valorCiclo: emTexto(s.valor) };
+}
+
 /** O que cada tipo pede, além da data. */
-const PEDE: Record<TipoDeAditivo, { vigencia?: boolean; valor?: boolean; percentual?: boolean; ajuda: string }> = {
+const PEDE: Record<
+  TipoDeAditivo,
+  { ciclo?: boolean; vigencia?: boolean; valor?: boolean; percentual?: boolean; ajuda: string }
+> = {
+  renovacao: {
+    ciclo: true,
+    vigencia: true,
+    percentual: true,
+    ajuda:
+      "Abre um ciclo novo, que começa do zero: o medido do ciclo anterior não consome o novo. Renovação que já aconteceu entra com as datas dela.",
+  },
   prorrogacao: { vigencia: true, valor: true, ajuda: "A nova data de fim. Se a prorrogação traz valor, informe o acréscimo." },
   reajuste: {
     percentual: true,
@@ -203,9 +228,18 @@ const PEDE: Record<TipoDeAditivo, { vigencia?: boolean; valor?: boolean; percent
   outro: { ajuda: "Qualquer outro termo: descreva o que mudou." },
 };
 
-export function FormularioDoAditivo({ contratoId, aoFechar }: { contratoId: number; aoFechar: () => void }) {
+export function FormularioDoAditivo({
+  contratoId,
+  ultimo,
+  aoFechar,
+}: {
+  contratoId: number;
+  /** O último ciclo, de onde a renovação tira o período e o valor propostos. */
+  ultimo?: Ciclo;
+  aoFechar: () => void;
+}) {
   const router = useRouter();
-  const [a, setA] = useState(VAZIO);
+  const [a, setA] = useState(() => vazioPara(ultimo));
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, iniciar] = useTransition();
   const muda = (k: keyof CamposDoAditivo) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
@@ -222,11 +256,13 @@ export function FormularioDoAditivo({ contratoId, aoFechar }: { contratoId: numb
           const r = await registrarAditivo(contratoId, {
             ...a,
             novaVigenciaFim: pede.vigencia ? a.novaVigenciaFim : "",
+            novaVigenciaInicio: pede.ciclo ? a.novaVigenciaInicio : "",
+            valorCiclo: pede.ciclo ? a.valorCiclo : "",
+            incorporaSaldo: pede.ciclo ? a.incorporaSaldo : false,
             valorDelta: pede.valor ? a.valorDelta : "",
             percentual: pede.percentual ? a.percentual : "",
           });
           if (!r.ok) return setErro(r.erro ?? "Não deu certo.");
-          setA(VAZIO);
           aoFechar();
           router.refresh();
         });
@@ -239,7 +275,16 @@ export function FormularioDoAditivo({ contratoId, aoFechar }: { contratoId: numb
       )}
       <div className="grid gap-3 sm:grid-cols-3">
         <Campo rotulo="Tipo" obrigatorio>
-          <select value={a.tipo} onChange={muda("tipo")} className={`${CAMPO} w-full`}>
+          <select
+            value={a.tipo}
+            onChange={(e) => {
+              const tipo = e.target.value;
+              // O período proposto é da renovação: na prorrogação a data se digita.
+              const base = vazioPara(ultimo);
+              setA((x) => ({ ...x, tipo, novaVigenciaFim: tipo === "renovacao" ? base.novaVigenciaFim : "" }));
+            }}
+            className={`${CAMPO} w-full`}
+          >
             {TIPOS_DE_ADITIVO.map((t) => (
               <option key={t} value={t}>
                 {ROTULO_ADITIVO[t]}
@@ -253,13 +298,35 @@ export function FormularioDoAditivo({ contratoId, aoFechar }: { contratoId: numb
         <Campo rotulo="Número no papel">
           <input value={a.numero} onChange={muda("numero")} placeholder="1º Termo Aditivo" className={`${CAMPO} w-full`} />
         </Campo>
+        {pede.ciclo && (
+          <Campo rotulo="Ciclo novo de" obrigatorio>
+            <input
+              type="date"
+              value={a.novaVigenciaInicio}
+              onChange={muda("novaVigenciaInicio")}
+              required
+              className={`${CAMPO} w-full`}
+            />
+          </Campo>
+        )}
         {pede.vigencia && (
-          <Campo rotulo="Nova vigência até" obrigatorio>
+          <Campo rotulo={pede.ciclo ? "Ciclo novo até" : "Nova vigência até"} obrigatorio>
             <input type="date" value={a.novaVigenciaFim} onChange={muda("novaVigenciaFim")} required className={`${CAMPO} w-full`} />
           </Campo>
         )}
+        {pede.ciclo && (
+          <Campo rotulo="Valor do ciclo novo (R$)">
+            <input
+              value={a.valorCiclo}
+              onChange={muda("valorCiclo")}
+              inputMode="decimal"
+              placeholder="vazio: preço unitário"
+              className={`${CAMPO} w-full text-right tabular-nums`}
+            />
+          </Campo>
+        )}
         {pede.percentual && (
-          <Campo rotulo="Percentual (%)">
+          <Campo rotulo={pede.ciclo ? "Reajuste na renovação (%)" : "Percentual (%)"}>
             <input value={a.percentual} onChange={muda("percentual")} inputMode="decimal" placeholder="4,52" className={`${CAMPO} w-full text-right`} />
           </Campo>
         )}
@@ -273,6 +340,16 @@ export function FormularioDoAditivo({ contratoId, aoFechar }: { contratoId: numb
               className={`${CAMPO} w-full text-right tabular-nums`}
             />
           </Campo>
+        )}
+        {pede.ciclo && (
+          <label className="flex items-center gap-2 self-end pb-2 text-sm sm:col-span-3">
+            <input
+              type="checkbox"
+              checked={a.incorporaSaldo}
+              onChange={(e) => setA((x) => ({ ...x, incorporaSaldo: e.target.checked }))}
+            />
+            O termo leva o saldo do ciclo anterior para o novo
+          </label>
         )}
         <Campo rotulo="Descrição" className="sm:col-span-3">
           <input value={a.descricao} onChange={muda("descricao")} className={`${CAMPO} w-full`} />

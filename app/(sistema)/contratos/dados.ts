@@ -1,10 +1,58 @@
 import { createClient } from "@/lib/supabase/server";
-import { contratoLido, type ContratoAtual } from "@/lib/medicoes/contratos";
+import {
+  aditivoLido,
+  contratoLido,
+  contratoNoCiclo,
+  hojeNaCasa,
+  mesLido,
+  type Aditivo,
+  type ContratoAtual,
+  type MesDoContrato,
+} from "@/lib/medicoes/contratos";
 import { chaveDoCliente } from "@/lib/medicoes/medicoes";
 
+type Cliente = Awaited<ReturnType<typeof createClient>>;
+
 export type CargaDosContratos =
-  | { ok: true; contratos: ContratoAtual[]; clientes: string[] }
+  | { ok: true; contratos: ContratoAtual[]; clientes: string[]; aditivos: Aditivo[]; semCiclos: boolean }
   | { ok: false; erro: string; faltaMigracao: boolean };
+
+/**
+ * Os contratos com os ciclos montados (0018): o valor, o medido e o faturado
+ * do ciclo de hoje, e a projeção. Sem a 0018, os contratos voltam como a view
+ * os dá — a tela não quebra por causa dela, só fica sem ciclo.
+ */
+export async function contratosComCiclos(
+  supabase: Cliente,
+  crus: Record<string, unknown>[],
+  hoje = hojeNaCasa(),
+): Promise<{ contratos: ContratoAtual[]; aditivos: Aditivo[]; semCiclos: boolean }> {
+  const lidos = crus.map(contratoLido);
+  if (lidos.length === 0) return { contratos: lidos, aditivos: [], semCiclos: false };
+  const ids = lidos.map((c) => c.id);
+  const [aditivos, meses] = await Promise.all([
+    supabase.from("contrato_aditivos").select("*").in("contrato_id", ids).order("data").order("id"),
+    supabase.from("contrato_meses").select("*").in("contrato_id", ids),
+  ]);
+  if (aditivos.error || meses.error) return { contratos: lidos, aditivos: [], semCiclos: true };
+  const todos = (aditivos.data ?? []).map((a) => aditivoLido(a as Record<string, unknown>));
+  const porContrato = new Map<number, MesDoContrato[]>();
+  for (const m of (meses.data ?? []).map((x) => mesLido(x as Record<string, unknown>))) {
+    porContrato.set(m.contrato_id, [...(porContrato.get(m.contrato_id) ?? []), m]);
+  }
+  return {
+    contratos: lidos.map((c) =>
+      contratoNoCiclo(
+        c,
+        todos.filter((a) => a.contrato_id === c.id),
+        porContrato.get(c.id) ?? [],
+        hoje,
+      ),
+    ),
+    aditivos: todos,
+    semCiclos: false,
+  };
+}
 
 /**
  * Os contratos de hoje, e os nomes de cliente que a casa já usa — o do
@@ -25,9 +73,10 @@ export async function carregarContratos(): Promise<CargaDosContratos> {
     const k = chaveDoCliente(r.cliente);
     if (!nomes.has(k)) nomes.set(k, r.cliente);
   }
+  const comCiclos = await contratosComCiclos(supabase, (contratos.data ?? []) as Record<string, unknown>[]);
   return {
     ok: true,
-    contratos: (contratos.data ?? []).map((c) => contratoLido(c as Record<string, unknown>)),
+    ...comCiclos,
     clientes: [...nomes.values()].sort((a, b) => a.localeCompare(b)),
   };
 }

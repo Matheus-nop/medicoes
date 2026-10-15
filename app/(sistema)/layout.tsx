@@ -1,6 +1,7 @@
 import { sessaoAtual, ROTULO_PAPEL } from "@/lib/supabase/papel";
 import { createClient } from "@/lib/supabase/server";
-import { contratoLido, contratosPedindoAtencao, hojeNaCasa } from "@/lib/medicoes/contratos";
+import { contratosPedindoAtencao, hojeNaCasa } from "@/lib/medicoes/contratos";
+import { contratosComCiclos } from "./contratos/dados";
 import { sair } from "@/app/login/actions";
 import { Casca } from "@/components/casca";
 import { BotaoTema } from "@/components/tema";
@@ -19,10 +20,9 @@ async function contratosDoMenu(): Promise<number> {
     const supabase = await createClient();
     const { data, error } = await supabase.from("contratos_atual").select("*");
     if (error || !data) return 0;
-    return contratosPedindoAtencao(
-      data.map((c) => contratoLido(c as Record<string, unknown>)),
-      hojeNaCasa(),
-    );
+    const hoje = hojeNaCasa();
+    const { contratos } = await contratosComCiclos(supabase, data as Record<string, unknown>[], hoje);
+    return contratosPedindoAtencao(contratos, hoje);
   } catch {
     return 0;
   }

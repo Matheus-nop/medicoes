@@ -1,15 +1,17 @@
-import { CartaoDoQuadro, Selo } from "@/components/ui";
+import { CartaoDoQuadro, ProgressoDuplo, Selo } from "@/components/ui";
 import {
+  CONSUMO_DE_ATENCAO,
   ROTULO_SITUACAO_CONTRATO,
   TOM_SITUACAO_CONTRATO,
   alertasDoContrato,
   consumoDoContrato,
   dataDoContrato,
   diasEntre,
+  saldoDoContrato,
   situacaoDoContrato,
   type ContratoAtual,
 } from "@/lib/medicoes/contratos";
-import { emReais } from "@/lib/medicoes/dinheiro";
+import { emPorcento, emReais } from "@/lib/medicoes/dinheiro";
 
 /** "set/2026" — o último mês do controle que entrou no medido. */
 export function mesCurto(d: string | null): string {
@@ -36,6 +38,10 @@ export function CartaoDoContrato({
   const faltam = diasEntre(hoje, c.vigencia_atual);
   const consumo = consumoDoContrato(c);
   const alertas = alertasDoContrato(c, hoje);
+  const conta = saldoDoContrato(c);
+  const ciclo = c.ciclos && c.ciclos.length > 1 && c.ciclo ? `Ciclo ${c.ciclo.n} · ` : "";
+  // Vermelho só no que ainda corre: o encerrado já não tem o que fazer.
+  const vermelho = consumo !== null && consumo >= CONSUMO_DE_ATENCAO && s !== "encerrado";
   return (
     <CartaoDoQuadro
       href={`/contratos/${c.id}`}
@@ -48,20 +54,36 @@ export function CartaoDoContrato({
           valor:
             s === "encerrado"
               ? `encerrado em ${dataDoContrato(c.encerrado_em)}`
-              : `até ${dataDoContrato(c.vigencia_atual)}${faltam >= 0 && s !== "a_iniciar" ? ` · ${faltam} dia(s)` : ""}`,
+              : `${ciclo}até ${dataDoContrato(c.vigencia_atual)}${faltam >= 0 && s !== "a_iniciar" ? ` · ${faltam} dia(s)` : ""}`,
         },
-        { rotulo: "Valor", valor: c.valor_atual === null ? "por preço unitário" : emReais(c.valor_atual) },
         {
-          rotulo: `Medido${c.medido_ate ? ` até ${mesCurto(c.medido_ate)}` : ""}`,
-          valor: emReais(c.medido),
+          rotulo: ciclo ? "Valor do ciclo" : "Valor",
+          valor: c.valor_atual === null ? "por preço unitário" : emReais(c.valor_atual),
         },
+        ...(conta
+          ? [
+              { rotulo: "Faturado", valor: emReais(conta.faturado) },
+              { rotulo: "Medido a faturar", valor: emReais(conta.aFaturar) },
+            ]
+          : [{ rotulo: `Medido${c.medido_ate ? ` até ${mesCurto(c.medido_ate)}` : ""}`, valor: emReais(c.medido) }]),
       ]}
       destaque={
-        c.valor_atual === null ? undefined : { rotulo: "Saldo do contrato", valor: emReais(c.valor_atual - c.medido) }
+        c.valor_atual === null
+          ? undefined
+          : { rotulo: "Saldo do contrato", valor: emReais(conta ? conta.saldo : c.valor_atual - c.medido) }
       }
       fracao={consumo === null ? undefined : consumo}
-      // Vermelho só no que ainda corre: o encerrado já não tem o que fazer.
-      corDaBarra={consumo !== null && consumo >= 0.9 && s !== "encerrado" ? "bg-manutencao" : "bg-disponivel"}
+      corDaBarra={vermelho ? "bg-manutencao" : "bg-disponivel"}
+      barra={
+        conta && c.valor_atual ? (
+          <ProgressoDuplo
+            primeira={conta.faturado / c.valor_atual}
+            segunda={conta.aFaturar / c.valor_atual}
+            corSegunda={vermelho ? "bg-manutencao" : "bg-acento"}
+            titulo={`${emPorcento(conta.faturado / c.valor_atual)} faturado · ${emPorcento(c.medido / c.valor_atual)} medido`}
+          />
+        ) : undefined
+      }
       rodape={
         alertas.length ? (
           <ul className="space-y-0.5">
