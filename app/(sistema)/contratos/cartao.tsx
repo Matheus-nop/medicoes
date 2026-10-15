@@ -46,7 +46,11 @@ export function CartaoDoContrato({
     <CartaoDoQuadro
       href={`/contratos/${c.id}`}
       titulo={c.numero}
-      subtitulo={[comCliente ? c.cliente : null, c.objeto].filter(Boolean).join(" · ") || undefined}
+      subtitulo={
+        [comCliente ? c.cliente : null, c.regioes?.length ? c.regioes.join(", ") : null, c.objeto]
+          .filter(Boolean)
+          .join(" · ") || undefined
+      }
       selo={<Selo tom={TOM_SITUACAO_CONTRATO[s]}>{ROTULO_SITUACAO_CONTRATO[s]}</Selo>}
       linhas={[
         {

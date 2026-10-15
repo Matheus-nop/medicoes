@@ -213,6 +213,11 @@ desfaz isso logo depois de criar.
   a não ser que o termo **incorpore o saldo** do anterior. Os ciclos não são
   tabela: saem dos aditivos em `ciclosDoContrato`, e o mês a mês sai de
   `contrato_meses` (medido e faturado do controle por contrato e mês).
+- **regionais do contrato** (`contratos.regioes`, 0019): o cliente do contrato
+  é o do controle (ÁGUAS DO RIO / AEGEA), e a regional que ele cobre (BAIXADA
+  II) é este campo — vazio, todas. Regional escrita no nome do cliente deixa o
+  contrato sem medido; `acertar-regional-dos-contratos.sql` acerta os que
+  foram cadastrados assim.
 - **saldo do contrato**: o valor do ciclo menos o **faturado** — anda sozinho
   quando a nota sai. O medido que ainda não virou nota aparece ao lado, como
   **medido a faturar**. Os alertas de consumo (80% avisa, 90% pede ação) e o

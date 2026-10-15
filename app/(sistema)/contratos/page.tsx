@@ -1,4 +1,4 @@
-import { Cabecalho } from "@/components/ui";
+import { Aviso, Cabecalho } from "@/components/ui";
 import { hojeNaCasa } from "@/lib/medicoes/contratos";
 import { podeLancar } from "@/lib/medicoes/papeis";
 import { sessaoAtual } from "@/lib/supabase/papel";
@@ -33,9 +33,13 @@ export default async function Contratos() {
         titulo="Contratos"
         resumo="Com quem, até quando, quanto e por qual índice — e quanto do valor já foi medido no controle. O que vence, o que está para reajustar e o que passou do valor aparecem primeiro."
       />
+      {carga.erroCiclos && (
+        <Aviso tom="erro">Os ciclos e o faturado dos contratos não carregaram: {carga.erroCiclos}</Aviso>
+      )}
       <QuadroDeContratos
         contratos={carga.contratos}
         clientes={carga.clientes}
+        regionais={carga.regionais}
         hoje={hojeNaCasa()}
         podeMexer={podeLancar(sessao.papel, "contrato")}
       />
