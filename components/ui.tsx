@@ -214,6 +214,7 @@ export function CartaoDoQuadro({
   destaque,
   fracao,
   corDaBarra = "bg-disponivel",
+  barra,
   href,
   rodape,
 }: {
@@ -225,6 +226,8 @@ export function CartaoDoQuadro({
   destaque?: { rotulo: string; valor: ReactNode };
   fracao?: number | null;
   corDaBarra?: string;
+  /** No lugar da barra simples — a de duas partes, por exemplo. */
+  barra?: ReactNode;
   href?: string;
   rodape?: ReactNode;
 }) {
@@ -264,7 +267,7 @@ export function CartaoDoQuadro({
           </div>
         )}
       </dl>
-      {fracao !== undefined && <Progresso fracao={fracao} cor={corDaBarra} />}
+      {barra ?? (fracao !== undefined && <Progresso fracao={fracao} cor={corDaBarra} />)}
       {rodape && <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs">{rodape}</div>}
     </>
   );
@@ -446,6 +449,34 @@ export function Progresso({ fracao, cor = "bg-acento" }: { fracao: number | null
     <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-superficie-3">
       {/* A largura é o dado da barra: a única coisa que muda por uso. */}
       <div className={`h-full rounded-full ${cor}`} style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
+/**
+ * A barra de duas partes: o que já foi (faturado) e o que está a caminho
+ * (medido a faturar), lado a lado, contra o todo. O que passa do todo corta.
+ */
+export function ProgressoDuplo({
+  primeira,
+  segunda,
+  corPrimeira = "bg-disponivel",
+  corSegunda = "bg-acento",
+  titulo,
+}: {
+  primeira: number;
+  segunda: number;
+  corPrimeira?: string;
+  corSegunda?: string;
+  titulo?: string;
+}) {
+  const a = Math.min(100, Math.max(0, primeira * 100));
+  const b = Math.min(100 - a, Math.max(0, segunda * 100));
+  return (
+    <div className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-superficie-3" title={titulo}>
+      {/* As larguras são o dado da barra. */}
+      <div className={`h-full ${corPrimeira}`} style={{ width: `${a}%` }} />
+      <div className={`h-full ${corSegunda}`} style={{ width: `${b}%` }} />
     </div>
   );
 }

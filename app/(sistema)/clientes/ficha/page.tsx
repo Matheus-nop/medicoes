@@ -11,7 +11,7 @@ import {
   Vazio,
 } from "@/components/ui";
 import { emPorcento, emReais } from "@/lib/medicoes/dinheiro";
-import { contratoLido, hojeNaCasa } from "@/lib/medicoes/contratos";
+import { hojeNaCasa } from "@/lib/medicoes/contratos";
 import { podeLancar } from "@/lib/medicoes/papeis";
 import { createClient } from "@/lib/supabase/server";
 import { sessaoAtual } from "@/lib/supabase/papel";
@@ -44,6 +44,7 @@ import { carregarClientes } from "../dados";
 import { FiltrarBase } from "../extrato/escolher";
 import { NomesDoCliente } from "./nomes";
 import { CartaoDoContrato } from "../../contratos/cartao";
+import { contratosComCiclos } from "../../contratos/dados";
 
 /** Os números da manutenção só dos boletins filtrados. */
 function resumoDaManutencao(
@@ -108,9 +109,10 @@ export default async function FichaDoCliente({
     .filter((v) => chaveDoCliente(v.cliente) === chave && v.id !== undefined)
     .map((v) => ({ id: v.id!, nome: ficha.nomes.find((n) => chaveDoCliente(n) === chaveDoCliente(v.nome)) ?? v.nome }));
   const hoje = hojeNaCasa();
-  const dosContratos = (contratos.error ? [] : (contratos.data ?? []))
-    .map((c) => contratoLido(c as Record<string, unknown>))
-    .filter((c) => chaveDaFicha(c.cliente, carga.vinculos) === chave);
+  const crus = ((contratos.error ? [] : (contratos.data ?? [])) as Record<string, unknown>[]).filter(
+    (c) => chaveDaFicha(String(c.cliente), carga.vinculos) === chave,
+  );
+  const { contratos: dosContratos } = await contratosComCiclos(await createClient(), crus, hoje);
   const destinos = new Set(carga.vinculos.map((v) => chaveDoCliente(v.cliente)));
   const outros = carga.fichas.filter((f) => f.chave !== chave && !destinos.has(f.chave)).map((f) => f.nome);
   const base = (q.base ?? "").trim();

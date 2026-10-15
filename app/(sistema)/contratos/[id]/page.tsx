@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { hojeNaCasa, type Aditivo } from "@/lib/medicoes/contratos";
+import { aditivoLido, hojeNaCasa } from "@/lib/medicoes/contratos";
 import { podeLancar } from "@/lib/medicoes/papeis";
 import { sessaoAtual } from "@/lib/supabase/papel";
 import { carregarContratos } from "../dados";
@@ -30,7 +30,7 @@ export default async function PaginaDoContrato({ params }: { params: Promise<{ i
   const contrato = carga.contratos.find((c) => c.id === contratoId);
   if (!contrato) notFound();
 
-  const lista = (aditivos.data ?? []) as Aditivo[];
+  const lista = (aditivos.data ?? []).map((a) => aditivoLido(a as Record<string, unknown>));
   const ids = [...new Set(lista.map((a) => a.quem))];
   const { data: perfis } = ids.length
     ? await supabase.from("perfis").select("id, nome").in("id", ids)
@@ -42,8 +42,6 @@ export default async function PaginaDoContrato({ params }: { params: Promise<{ i
       contrato={contrato}
       aditivos={lista.map((a) => ({
         ...a,
-        valor_delta: a.valor_delta === null ? null : Number(a.valor_delta),
-        percentual: a.percentual === null ? null : Number(a.percentual),
         quem_nome: nome.get(a.quem) ?? "—",
       }))}
       clientes={carga.clientes}

@@ -4,7 +4,14 @@ import { strictEqual as e, deepStrictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import {
   alertasDoContrato,
+  ciclosDoContrato,
   consumoDoContrato,
+  contratoNoCiclo,
+  projecaoDoCiclo,
+  saldoDoContrato,
+  sugestaoDaRenovacao,
+  type Aditivo,
+  type MesDoContrato,
   contratosPedindoAtencao,
   diasEntre,
   hojeNaCasa,
@@ -93,4 +100,173 @@ test("os alertas, e quem conta no menu", () => {
     2,
   );
   e(contratosPedindoAtencao([contrato()], "2027-02-15"), 1);
+});
+
+/* ── Os ciclos (0018) ─────────────────────────────────────── */
+
+const aditivo = (a: Partial<Aditivo>): Aditivo => ({
+  id: 1,
+  contrato_id: 1,
+  tipo: "outro",
+  data: "2025-01-01",
+  numero: null,
+  nova_vigencia_fim: null,
+  nova_vigencia_inicio: null,
+  valor_ciclo: null,
+  incorpora_saldo: false,
+  valor_delta: null,
+  percentual: null,
+  descricao: null,
+  quem: "x",
+  em: "2025-01-01T00:00:00Z",
+  ...a,
+});
+const mes = (m: string, medido: number, faturado = 0): MesDoContrato => ({ mes: `${m}-01`, medido, faturado });
+const assinado = { vigencia_inicio: "2025-04-01", vigencia_fim: "2026-03-31", valor: 1200 };
+
+test("sem renovação há um ciclo só, com o medido e o faturado de todos os meses", () => {
+  const [k, ...resto] = ciclosDoContrato(assinado, [], [mes("2025-04", 100, 80), mes("2025-05", 200, 100)]);
+  e(resto.length, 0);
+  e(k.valor, 1200);
+  e(k.medido, 300);
+  e(k.faturado, 180);
+});
+
+test("a renovação abre um ciclo que começa do zero, com o valor dela", () => {
+  const renovacao = aditivo({
+    id: 2,
+    tipo: "renovacao",
+    data: "2026-03-20",
+    nova_vigencia_inicio: "2026-04-01",
+    nova_vigencia_fim: "2027-03-31",
+    valor_ciclo: 1500,
+  });
+  const ciclos = ciclosDoContrato(assinado, [renovacao], [mes("2026-03", 900, 900), mes("2026-04", 100, 0)]);
+  e(ciclos.length, 2);
+  e(ciclos[0].medido, 900);
+  e(ciclos[1].medido, 100);
+  e(ciclos[1].valor, 1500);
+  e(ciclos[1].inicio, "2026-04-01");
+  e(ciclos[1].abertura?.id, 2);
+});
+
+test("renovação sem início começa na data dela, e o ciclo anterior para na véspera", () => {
+  const ciclos = ciclosDoContrato(
+    assinado,
+    [aditivo({ tipo: "renovacao", data: "2026-02-01", nova_vigencia_fim: "2027-01-31", valor_ciclo: 1000 })],
+    [],
+  );
+  e(ciclos[1].inicio, "2026-02-01");
+  e(ciclos[0].fim, "2026-01-31");
+});
+
+test("o saldo incorporado é o que sobrou do medido no ciclo anterior", () => {
+  const ciclos = ciclosDoContrato(
+    assinado,
+    [
+      aditivo({
+        tipo: "renovacao",
+        data: "2026-04-01",
+        nova_vigencia_fim: "2027-03-31",
+        valor_ciclo: 1000,
+        incorpora_saldo: true,
+      }),
+    ],
+    [mes("2025-06", 700)],
+  );
+  e(ciclos[1].incorporado, 500);
+  e(ciclos[1].valor, 1500);
+});
+
+test("os outros aditivos caem no ciclo da data deles", () => {
+  const ciclos = ciclosDoContrato(
+    assinado,
+    [
+      aditivo({ id: 1, tipo: "valor", data: "2025-10-01", valor_delta: 300 }),
+      aditivo({ id: 2, tipo: "renovacao", data: "2026-04-01", nova_vigencia_fim: "2027-03-31", valor_ciclo: 1000 }),
+      aditivo({ id: 3, tipo: "prorrogacao", data: "2027-02-01", nova_vigencia_fim: "2027-06-30" }),
+      aditivo({ id: 4, tipo: "valor", data: "2027-02-01", valor_delta: -100 }),
+    ],
+    [],
+  );
+  e(ciclos[0].valor, 1500);
+  e(ciclos[1].valor, 900);
+  e(ciclos[1].fim, "2027-06-30");
+});
+
+test("preço unitário: o ciclo não tem valor nem projeção de fim", () => {
+  const [k] = ciclosDoContrato({ ...assinado, valor: null }, [], [mes("2025-04", 100), mes("2025-05", 100)]);
+  e(k.valor, null);
+  const p = projecaoDoCiclo(k);
+  e(p.ritmo, 100);
+  e(p.acabaEm, null);
+});
+
+test("a projeção usa a média dos últimos meses e diz quanto antes do fim o valor acaba", () => {
+  // 1200 no ano; medindo 200/mês desde abril, acaba em setembro — 6 meses antes de março.
+  const [k] = ciclosDoContrato(assinado, [], [mes("2025-04", 200), mes("2025-05", 200), mes("2025-06", 200)]);
+  const p = projecaoDoCiclo(k);
+  e(p.ritmo, 200);
+  e(p.mesesNaMedia, 3);
+  e(p.acabaEm, "2025-09-01");
+  e(p.mesesAntes, 6);
+});
+
+test("o mês sem medido no meio entra como zero, e com um mês só não há ritmo", () => {
+  const [k] = ciclosDoContrato(assinado, [], [mes("2025-04", 300), mes("2025-06", 300)]);
+  e(projecaoDoCiclo(k).ritmo, 200);
+  const [so] = ciclosDoContrato(assinado, [], [mes("2025-04", 300)]);
+  e(projecaoDoCiclo(so).ritmo, null);
+});
+
+test("no ritmo que cabe no prazo não há alerta de projeção", () => {
+  const c = contratoNoCiclo(
+    contrato({ vigencia_inicio: "2025-04-01", vigencia_fim: "2026-03-31", valor: 1200, vigencia_atual: "2026-03-31" }),
+    [],
+    [mes("2025-04", 50), mes("2025-05", 50)],
+    "2025-06-15",
+  );
+  e(c.projecao?.mesesAntes, 0);
+  e(alertasDoContrato(c, "2025-06-15").some((a) => a.texto.startsWith("No ritmo")), false);
+});
+
+test("o contrato no ciclo: valor, medido e faturado do ciclo de hoje, saldo pelo faturado", () => {
+  const c = contratoNoCiclo(
+    contrato({ vigencia_inicio: "2025-04-01", vigencia_fim: "2026-03-31", valor: 1200, ultimo_reajuste: null }),
+    [
+      aditivo({
+        tipo: "renovacao",
+        data: "2026-04-01",
+        nova_vigencia_fim: "2027-03-31",
+        valor_ciclo: 2000,
+        percentual: 0.05,
+      }),
+    ],
+    [mes("2025-12", 1100, 1100), mes("2026-04", 300, 100)],
+    "2026-05-10",
+  );
+  e(c.ciclo?.n, 2);
+  e(c.valor_atual, 2000);
+  e(c.medido, 300);
+  e(c.faturado, 100);
+  e(c.vigencia_atual, "2027-03-31");
+  // A renovação com percentual conta como o reajuste do ano.
+  e(c.ultimo_reajuste, "2026-04-01");
+  deepStrictEqual(saldoDoContrato(c), { faturado: 100, aFaturar: 200, saldo: 1900 });
+  // 1100 de 1200 no ciclo 1 não pede nada: ele já passou.
+  e(alertasDoContrato(c, "2026-05-10").some((a) => /medido/.test(a.texto)), false);
+});
+
+test("80% medido avisa sem pedir ação; 90% pede", () => {
+  const de = (medido: number) => alertasDoContrato(contrato({ valor_atual: 1000, medido }), "2026-06-01");
+  deepStrictEqual(de(850).map((a) => a.tom), ["info"]);
+  deepStrictEqual(de(920).map((a) => a.tom), ["aviso"]);
+});
+
+test("a renovação proposta é o dia seguinte, um ano, e o valor sem o incorporado", () => {
+  deepStrictEqual(sugestaoDaRenovacao({ fim: "2026-03-31", valorBase: 1000, deltas: 200 }), {
+    inicio: "2026-04-01",
+    fim: "2027-03-31",
+    valor: 1200,
+  });
 });

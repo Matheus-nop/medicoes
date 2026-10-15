@@ -34,6 +34,10 @@ export interface CamposDoAditivo {
   data: string;
   numero: string;
   novaVigenciaFim: string;
+  /** Renovação: onde começa o ciclo novo, o valor dele e se leva o que sobrou. */
+  novaVigenciaInicio: string;
+  valorCiclo: string;
+  incorporaSaldo: boolean;
   valorDelta: string;
   percentual: string;
   descricao: string;
@@ -44,6 +48,9 @@ function recado(erro: { code?: string; message: string }, oQue: string): string 
   if (erro.code === "23514") return "Confira as datas: o fim da vigência não pode vir antes do início.";
   if (erro.code === "42501") return `Seu usuário não pode ${oQue}: quem lança contrato é ${quemLanca("contrato")}.`;
   if (erro.code === "42P01") return "Falta aplicar a migração 0013_contratos.sql no Supabase.";
+  if (erro.code === "42703" || erro.code === "PGRST204" || /tipo_check/.test(erro.message)) {
+    return "Falta aplicar a migração 0018_ciclos_do_contrato.sql no Supabase para registrar renovação.";
+  }
   return `Não foi possível ${oQue}: ${erro.message}`;
 }
 
@@ -117,7 +124,19 @@ export async function registrarAditivo(contratoId: number, a: CamposDoAditivo): 
   const quando = data(a.data);
   if (!quando) return { ok: false, erro: "Diga a data do aditivo." };
   const novaVigencia = data(a.novaVigenciaFim);
-  if (tipo === "prorrogacao" && !novaVigencia) return { ok: false, erro: "Diga até quando vai a nova vigência." };
+  if ((tipo === "prorrogacao" || tipo === "renovacao") && !novaVigencia) {
+    return { ok: false, erro: tipo === "renovacao" ? "Diga até quando vai o ciclo novo." : "Diga até quando vai a nova vigência." };
+  }
+  const renovacao = tipo === "renovacao";
+  const inicioDoCiclo = renovacao ? data(a.novaVigenciaInicio) : null;
+  if (renovacao && !inicioDoCiclo) return { ok: false, erro: "Diga onde começa o ciclo novo." };
+  if (inicioDoCiclo && novaVigencia && novaVigencia < inicioDoCiclo) {
+    return { ok: false, erro: "O fim do ciclo novo vem antes do início." };
+  }
+  const valorCiclo = renovacao && a.valorCiclo.trim() ? lerNumero(a.valorCiclo) : null;
+  if (renovacao && a.valorCiclo.trim() && (valorCiclo === null || valorCiclo < 0)) {
+    return { ok: false, erro: `Valor do ciclo que não se lê: "${a.valorCiclo}".` };
+  }
   const delta = a.valorDelta.trim() ? lerNumero(a.valorDelta) : null;
   if (a.valorDelta.trim() && delta === null) return { ok: false, erro: `Valor que não se lê: "${a.valorDelta}".` };
   const pct = a.percentual.trim() ? lerNumero(a.percentual.replace("%", "")) : null;
@@ -132,7 +151,11 @@ export async function registrarAditivo(contratoId: number, a: CamposDoAditivo): 
     data: quando,
     numero: texto(a.numero),
     nova_vigencia_fim: novaVigencia,
-    valor_delta: delta,
+    // Os campos da 0018 só vão na renovação: o resto registra sem ela.
+    ...(renovacao
+      ? { nova_vigencia_inicio: inicioDoCiclo, valor_ciclo: valorCiclo, incorpora_saldo: a.incorporaSaldo }
+      : {}),
+    valor_delta: renovacao ? null : delta,
     // Digita-se "4,52" e guarda-se 0,0452.
     percentual: pct === null ? null : pct / 100,
     descricao: a.descricao.trim() || null,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Botao, CartaoIndicador, Chips, Painel, SoLeitura, Vazio } from "@/components/ui";
+import { Botao, CartaoIndicador, Chips, Painel, ProgressoDuplo, SoLeitura, Vazio } from "@/components/ui";
 import {
   alertasDoContrato,
   situacaoDoContrato,
@@ -39,6 +39,9 @@ export function QuadroDeContratos({
   const comValor = ativos.filter((c) => c.valor_atual !== null);
   const valor = comValor.reduce((t, c) => t + (c.valor_atual ?? 0), 0);
   const medido = comValor.reduce((t, c) => t + c.medido, 0);
+  // Com a 0018 o saldo anda pelo faturado; sem ela, pelo medido, como antes.
+  const comFaturado = comValor.every((c) => c.faturado !== undefined);
+  const faturado = comValor.reduce((t, c) => t + (c.faturado ?? 0), 0);
   const vencem = ativos.filter((c) => situacaoDoContrato(c, hoje) === "vence").length;
 
   const lista = { atencao, vigentes: ativos, fora, todos: contratos }[filtro];
@@ -65,13 +68,28 @@ export function QuadroDeContratos({
           destaque={atencao.length > 0}
         />
         <CartaoIndicador compacto rotulo="Valor dos vigentes" valor={emReais(valor, false)} detalhe={`${comValor.length} com valor global`} cor="bg-acento" />
-        <CartaoIndicador
-          compacto
-          rotulo="Medido nos vigentes"
-          valor={emReais(medido, false)}
-          detalhe={`${emPorcento(valor > 0 ? medido / valor : null)} do valor`}
-          cor="bg-saldo"
-        />
+        {comFaturado ? (
+          <CartaoIndicador
+            compacto
+            rotulo="Saldo dos vigentes"
+            valor={<span className="text-saldo">{emReais(valor - faturado, false)}</span>}
+            detalhe={`${emPorcento(valor > 0 ? faturado / valor : null)} faturado · ${emReais(Math.max(0, medido - faturado), false)} medido a faturar`}
+            cor="bg-saldo"
+          >
+            <ProgressoDuplo
+              primeira={valor > 0 ? faturado / valor : 0}
+              segunda={valor > 0 ? Math.max(0, medido - faturado) / valor : 0}
+            />
+          </CartaoIndicador>
+        ) : (
+          <CartaoIndicador
+            compacto
+            rotulo="Medido nos vigentes"
+            valor={emReais(medido, false)}
+            detalhe={`${emPorcento(valor > 0 ? medido / valor : null)} do valor`}
+            cor="bg-saldo"
+          />
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
