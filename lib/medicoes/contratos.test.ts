@@ -270,3 +270,9 @@ test("a renovação proposta é o dia seguinte, um ano, e o valor sem o incorpor
     valor: 1200,
   });
 });
+
+test("valor dez vezes estourado é dígito faltando, e o alerta diz isso", () => {
+  const a = alertasDoContrato(contrato({ valor_atual: 13, medido: 123372 }), "2026-06-01");
+  e(a.some((x) => x.texto.includes("parece faltar dígito")), true);
+  e(a.some((x) => x.texto.includes("passou o valor")), false);
+});

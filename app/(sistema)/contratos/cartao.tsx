@@ -61,7 +61,7 @@ export function CartaoDoContrato({
               : `${ciclo}até ${dataDoContrato(c.vigencia_atual)}${faltam >= 0 && s !== "a_iniciar" ? ` · ${faltam} dia(s)` : ""}`,
         },
         {
-          rotulo: ciclo ? "Valor do ciclo" : "Valor",
+          rotulo: ciclo ? "Valor do ciclo" : "Valor global",
           valor: c.valor_atual === null ? "por preço unitário" : emReais(c.valor_atual),
         },
         ...(conta
@@ -74,7 +74,10 @@ export function CartaoDoContrato({
       destaque={
         c.valor_atual === null
           ? undefined
-          : { rotulo: "Saldo do contrato", valor: emReais(conta ? conta.saldo : c.valor_atual - c.medido) }
+          : (() => {
+              const saldo = conta ? conta.saldo : c.valor_atual - c.medido;
+              return { rotulo: saldo < 0 ? "Faturado além do valor" : "Saldo do contrato", valor: emReais(Math.abs(saldo)) };
+            })()
       }
       fracao={consumo === null ? undefined : consumo}
       corDaBarra={vermelho ? "bg-manutencao" : "bg-disponivel"}
