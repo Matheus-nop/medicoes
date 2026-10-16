@@ -149,7 +149,7 @@ export function Contrato({
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <CartaoIndicador
             compacto
-            rotulo={varios ? `Valor do ciclo ${k?.n}` : "Valor do contrato"}
+            rotulo={varios ? `Valor do ciclo ${k?.n}` : "Valor global do contrato"}
             valor={emReais(c.valor_atual, false)}
             detalhe={k ? `${dataDoContrato(k.inicio)} a ${dataDoContrato(fimDoCiclo)}` : undefined}
             cor="bg-texto-3"
@@ -158,7 +158,11 @@ export function Contrato({
             compacto
             rotulo="Faturado"
             valor={emReais(conta.faturado, false)}
-            detalhe={`${emPorcento(c.valor_atual > 0 ? conta.faturado / c.valor_atual : null)} do valor`}
+            detalhe={
+              c.valor_atual > 0 && conta.faturado > c.valor_atual
+                ? "passou do valor global"
+                : `${emPorcento(c.valor_atual > 0 ? conta.faturado / c.valor_atual : null)} do valor`
+            }
             cor="bg-disponivel"
           />
           <CartaoIndicador
@@ -170,9 +174,9 @@ export function Contrato({
           />
           <CartaoIndicador
             compacto
-            rotulo="Saldo do contrato"
-            valor={<span className="text-saldo">{emReais(conta.saldo, false)}</span>}
-            detalhe="valor menos o faturado"
+            rotulo={conta.saldo < 0 ? "Faturado além do valor" : "Saldo do contrato"}
+            valor={<span className="text-saldo">{emReais(Math.abs(conta.saldo), false)}</span>}
+            detalhe={conta.saldo < 0 ? "faturado menos o valor global" : "valor global menos o faturado"}
             cor="bg-saldo"
             destaque={vermelho}
           >

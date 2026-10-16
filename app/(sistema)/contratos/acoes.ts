@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { lerNumero } from "@/lib/medicoes/controle";
+import { emReais } from "@/lib/medicoes/dinheiro";
 import { INDICES, TIPOS_DE_ADITIVO, type Indice, type TipoDeAditivo } from "@/lib/medicoes/contratos";
 import { quemLanca } from "@/lib/medicoes/papeis";
 
@@ -59,6 +60,9 @@ function recado(erro: { code?: string; message: string }, oQue: string): string 
   return `Não foi possível ${oQue}: ${erro.message}`;
 }
 
+/** Abaixo disto o valor global é dígito faltando ("13" querendo dizer 13 milhões). */
+const VALOR_MINIMO = 1000;
+
 const data = (v: string) => (/^\d{4}-\d{2}-\d{2}$/.test(v.trim()) ? v.trim() : null);
 const texto = (v: string) => v.trim().replace(/\s+/g, " ") || null;
 
@@ -79,6 +83,9 @@ export async function salvarContrato(id: number | null, c: CamposDoContrato): Pr
   if (fim < inicio) return { ok: false, erro: "O fim da vigência vem antes do início." };
   const valor = c.valor.trim() ? lerNumero(c.valor) : null;
   if (c.valor.trim() && (valor === null || valor < 0)) return { ok: false, erro: `Valor que não se lê: "${c.valor}".` };
+  if (valor !== null && valor > 0 && valor < VALOR_MINIMO) {
+    return { ok: false, erro: `Valor global de ${emReais(valor)}? Digite o valor inteiro, com os milhares: 13.000.000,00.` };
+  }
   const aviso = c.avisoDias.trim() ? Number(c.avisoDias) : 90;
   if (!Number.isInteger(aviso) || aviso < 0 || aviso > 365) {
     return { ok: false, erro: "O aviso é em dias, de 0 a 365." };
@@ -142,6 +149,9 @@ export async function registrarAditivo(contratoId: number, a: CamposDoAditivo): 
   const valorCiclo = renovacao && a.valorCiclo.trim() ? lerNumero(a.valorCiclo) : null;
   if (renovacao && a.valorCiclo.trim() && (valorCiclo === null || valorCiclo < 0)) {
     return { ok: false, erro: `Valor do ciclo que não se lê: "${a.valorCiclo}".` };
+  }
+  if (valorCiclo !== null && valorCiclo > 0 && valorCiclo < VALOR_MINIMO) {
+    return { ok: false, erro: `Valor do ciclo de ${emReais(valorCiclo)}? Digite o valor inteiro, com os milhares.` };
   }
   const delta = a.valorDelta.trim() ? lerNumero(a.valorDelta) : null;
   if (a.valorDelta.trim() && delta === null) return { ok: false, erro: `Valor que não se lê: "${a.valorDelta}".` };

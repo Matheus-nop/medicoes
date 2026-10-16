@@ -179,6 +179,9 @@ export interface Alerta {
   tom: "aviso" | "info";
 }
 
+const emReaisCurto = (v: number) =>
+  v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 /** O que o contrato pede hoje. Vazio quando não pede nada. */
 export function alertasDoContrato(c: ContratoAtual, hoje: string): Alerta[] {
   const s = situacaoDoContrato(c, hoje);
@@ -200,6 +203,10 @@ export function alertasDoContrato(c: ContratoAtual, hoje: string): Alerta[] {
     alertas.push({ texto: `Reajuste (${c.indice}) em ${r.dias} dia(s), ${dataDoContrato(r.data)}`, tom: "info" });
   }
   const consumo = consumoDoContrato(c);
+  // Dez vezes o valor não é contrato estourado: é valor digitado sem os milhares.
+  if (consumo !== null && consumo >= 10) {
+    return [...alertas, { texto: `Valor global de ${emReaisCurto(c.valor_atual ?? 0)} no cadastro: confira, parece faltar dígito`, tom: "aviso" }];
+  }
   const doCiclo = c.ciclo && c.ciclos && c.ciclos.length > 1 ? " do ciclo" : "";
   if (consumo !== null && consumo >= CONSUMO_DE_ATENCAO) {
     alertas.push({
