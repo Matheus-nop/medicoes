@@ -26,6 +26,8 @@ export function camposDoContrato(c?: ContratoAtual): CamposDoContrato {
     vigenciaInicio: c?.vigencia_inicio ?? "",
     vigenciaFim: c?.vigencia_fim ?? "",
     valor: dinheiro(c?.valor ?? null),
+    saldoConferido: dinheiro(c?.saldo_conferido ?? null),
+    saldoAte: c?.saldo_ate ? c.saldo_ate.slice(0, 7) : "",
     categorias: c?.categorias ?? [],
     regioes: c?.regioes ?? [],
     indice: c?.indice ?? "",
@@ -121,13 +123,31 @@ export function FormularioDoContrato({
         <Campo rotulo="Fim da vigência" obrigatorio>
           <input type="date" value={c.vigenciaFim} onChange={muda("vigenciaFim")} required className={`${CAMPO} w-full`} />
         </Campo>
-        <Campo rotulo="Valor global (R$)">
+        <Campo rotulo="Valor global do papel (R$)">
           <input
             value={c.valor}
             onChange={muda("valor")}
             inputMode="decimal"
-            placeholder="vazio: preço unitário"
+            placeholder="vazio se não souber"
             className={`${CAMPO} w-full text-right tabular-nums`}
+          />
+        </Campo>
+        <Campo rotulo="Saldo que resta (R$)">
+          <input
+            value={c.saldoConferido}
+            onChange={muda("saldoConferido")}
+            inputMode="decimal"
+            placeholder="o que o time conferiu"
+            className={`${CAMPO} w-full text-right tabular-nums`}
+          />
+        </Campo>
+        <Campo rotulo="Depois do faturamento de" obrigatorio={!!c.saldoConferido.trim()}>
+          <input
+            type="month"
+            value={c.saldoAte}
+            onChange={muda("saldoAte")}
+            required={!!c.saldoConferido.trim()}
+            className={`${CAMPO} w-full`}
           />
         </Campo>
         <Campo rotulo="Avisar o vencimento com (dias)">
@@ -212,6 +232,9 @@ export function FormularioDoContrato({
         </Campo>
       </div>
       <p className="text-xs text-texto-3">
+        O valor global é o total assinado no papel. O saldo que resta é o que o time confere hoje, depois do
+        faturamento de um mês do controle: dali em diante ele desce sozinho a cada nota. Com os dois, o sistema
+        sabe também o que foi faturado antes dele; sem nenhum, o contrato é por preço unitário, sem teto.
         A data-base vazia é o início da vigência. Prorrogação, reajuste e mudança de valor não se corrigem aqui:
         registre o aditivo, que fica no histórico.
       </p>

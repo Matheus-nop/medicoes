@@ -21,6 +21,9 @@ export interface CamposDoContrato {
   vigenciaInicio: string;
   vigenciaFim: string;
   valor: string;
+  /** O que restava, e o mês ("AAAA-MM") até o qual esse saldo conta o faturado. */
+  saldoConferido: string;
+  saldoAte: string;
   categorias: string[];
   /** As regionais do controle; vazio é o cliente inteiro. */
   regioes: string[];
@@ -51,6 +54,9 @@ function recado(erro: { code?: string; message: string }, oQue: string): string 
   if (erro.code === "23514") return "Confira as datas: o fim da vigência não pode vir antes do início.";
   if (erro.code === "42501") return `Seu usuário não pode ${oQue}: quem lança contrato é ${quemLanca("contrato")}.`;
   if (erro.code === "42P01") return "Falta aplicar a migração 0013_contratos.sql no Supabase.";
+  if (/saldo_conferido|saldo_ate/.test(erro.message)) {
+    return "Falta aplicar a migração 0020_saldo_conferido.sql no Supabase.";
+  }
   if (/regioes/.test(erro.message)) {
     return "Falta aplicar a migração 0019_regionais_do_contrato.sql no Supabase.";
   }
@@ -86,6 +92,17 @@ export async function salvarContrato(id: number | null, c: CamposDoContrato): Pr
   if (valor !== null && valor > 0 && valor < VALOR_MINIMO) {
     return { ok: false, erro: `Valor global de ${emReais(valor)}? Digite o valor inteiro, com os milhares: 13.000.000,00.` };
   }
+  const saldoConferido = c.saldoConferido.trim() ? lerNumero(c.saldoConferido) : null;
+  if (c.saldoConferido.trim() && saldoConferido === null) {
+    return { ok: false, erro: `Saldo que não se lê: "${c.saldoConferido}".` };
+  }
+  const saldoAte = /^\d{4}-\d{2}$/.test(c.saldoAte.trim()) ? `${c.saldoAte.trim()}-01` : null;
+  if (saldoConferido !== null && !saldoAte) {
+    return { ok: false, erro: "Diga depois do faturamento de que mês é esse saldo." };
+  }
+  if (valor !== null && saldoConferido !== null && saldoConferido > valor) {
+    return { ok: false, erro: "O saldo conferido é maior que o valor global: confira os dois." };
+  }
   const aviso = c.avisoDias.trim() ? Number(c.avisoDias) : 90;
   if (!Number.isInteger(aviso) || aviso < 0 || aviso > 365) {
     return { ok: false, erro: "O aviso é em dias, de 0 a 365." };
@@ -105,6 +122,8 @@ export async function salvarContrato(id: number | null, c: CamposDoContrato): Pr
     valor,
     // As três marcadas é o mesmo que nenhuma: o contrato cobre tudo.
     categorias: categorias.length === 0 || categorias.length === 3 ? null : categorias,
+    saldo_conferido: saldoConferido,
+    saldo_ate: saldoConferido === null ? null : saldoAte,
     regioes: c.regioes.length ? [...new Set(c.regioes.map((r) => r.trim()).filter(Boolean))] : null,
     indice,
     data_base: data(c.dataBase),

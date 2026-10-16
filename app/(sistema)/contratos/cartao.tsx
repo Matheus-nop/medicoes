@@ -62,32 +62,46 @@ export function CartaoDoContrato({
         },
         {
           rotulo: ciclo ? "Valor do ciclo" : "Valor global",
-          valor: c.valor_atual === null ? "por preço unitário" : emReais(c.valor_atual),
+          valor:
+            c.valor_atual !== null
+              ? emReais(c.valor_atual)
+              : c.saldo_conferido != null
+                ? "não informado"
+                : "por preço unitário",
         },
-        ...(conta
+        ...(conta && c.ciclo?.conferido
+          ? [
+              { rotulo: `Saldo conferido (${mesCurto(c.ciclo.conferido.ate)})`, valor: emReais(c.ciclo.conferido.valor) },
+              {
+                rotulo: "Faturado depois",
+                valor: emReais(
+                  c.ciclo.meses.filter((m) => m.mes > c.ciclo!.conferido!.ate).reduce((t, m) => t + m.faturado, 0),
+                ),
+              },
+              { rotulo: "Medido a faturar", valor: emReais(conta.aFaturar) },
+            ]
+          : conta
           ? [
               { rotulo: "Faturado", valor: emReais(conta.faturado) },
               { rotulo: "Medido a faturar", valor: emReais(conta.aFaturar) },
             ]
           : [{ rotulo: `Medido${c.medido_ate ? ` até ${mesCurto(c.medido_ate)}` : ""}`, valor: emReais(c.medido) }]),
       ]}
-      destaque={
-        c.valor_atual === null
-          ? undefined
-          : (() => {
-              const saldo = conta ? conta.saldo : c.valor_atual - c.medido;
-              return { rotulo: saldo < 0 ? "Faturado além do valor" : "Saldo do contrato", valor: emReais(Math.abs(saldo)) };
-            })()
-      }
+      destaque={(() => {
+        const saldo = conta ? conta.saldo : c.valor_atual === null ? null : c.valor_atual - c.medido;
+        if (saldo === null) return undefined;
+        return { rotulo: saldo < 0 ? "Faturado além do valor" : "Saldo do contrato", valor: emReais(Math.abs(saldo)) };
+      })()}
       fracao={consumo === null ? undefined : consumo}
       corDaBarra={vermelho ? "bg-manutencao" : "bg-disponivel"}
       barra={
         conta && c.valor_atual ? (
+          // Faturado é o valor menos o saldo: conta o que saiu antes do sistema.
           <ProgressoDuplo
-            primeira={conta.faturado / c.valor_atual}
+            primeira={(c.valor_atual - conta.saldo) / c.valor_atual}
             segunda={conta.aFaturar / c.valor_atual}
             corSegunda={vermelho ? "bg-manutencao" : "bg-acento"}
-            titulo={`${emPorcento(conta.faturado / c.valor_atual)} faturado · ${emPorcento(c.medido / c.valor_atual)} medido`}
+            titulo={`${emPorcento((c.valor_atual - conta.saldo) / c.valor_atual)} faturado · ${emPorcento(consumo)} consumido`}
           />
         ) : undefined
       }
