@@ -13,7 +13,7 @@
 
 -- TRECHO 1 — a conferência de todos os contratos (nada muda aqui)
 set search_path = medicoes, public;
-select c.numero,
+select c.numero, c.cliente,
        array_to_string(c.regioes, ', ')                                      as regional,
        c.vigencia_inicio                                                     as inicio,
        c.vigencia_atual                                                      as ate,
