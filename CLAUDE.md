@@ -218,8 +218,16 @@ desfaz isso logo depois de criar.
   II) é este campo — vazio, todas. Regional escrita no nome do cliente deixa o
   contrato sem medido; `acertar-regional-dos-contratos.sql` acerta os que
   foram cadastrados assim.
-- **saldo do contrato**: o valor do ciclo menos o **faturado** — anda sozinho
-  quando a nota sai. O medido que ainda não virou nota aparece ao lado, como
+- **saldo conferido** (`contratos.saldo_conferido` e `saldo_ate`, 0020): o
+  que o time sabe que RESTA, depois do faturamento de um mês do controle. É o
+  número que a casa tem na mão — o controle só começa em março/2025, e o
+  faturado de antes o sistema não vê. **Valor global** é o total do papel, e
+  pode ficar vazio. Com os dois, a diferença é o **faturado antes do sistema**
+  e o percentual consumido fica certo; só com o conferido, há saldo e ritmo sem
+  percentual; sem nenhum, é preço unitário. Os contratos foram cadastrados com
+  o que resta no valor global, e `passar-o-que-resta-para-o-saldo.sql` troca.
+- **saldo do contrato**: o valor do ciclo menos o **faturado** (ou o conferido
+  menos o faturado depois dele) — anda sozinho quando a nota sai. O medido que ainda não virou nota aparece ao lado, como
   **medido a faturar**. Os alertas de consumo (80% avisa, 90% pede ação) e o
   **ritmo** (média do medido dos últimos 6 meses do ciclo) olham o medido, que
   é o que de fato gasta o contrato.

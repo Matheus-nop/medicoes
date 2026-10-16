@@ -44,6 +44,16 @@ export interface ContratoAtual {
   medido_ate: string | null;
   /** As regionais do controle que o contrato cobre (0019). Vazio: todas. */
   regioes?: string[] | null;
+  /**
+   * O saldo que o time conferiu (0020) e o mês do controle até o qual ele já
+   * conta o faturado ("AAAA-MM-01"). Com ele o saldo anda a partir daí, e o
+   * valor global pode ficar vazio quando não se sabe.
+   */
+  saldo_conferido?: number | null;
+  saldo_ate?: string | null;
+  /** Com os ciclos: o saldo de hoje (valor − faturado) e o que ainda dá para medir. */
+  saldo?: number | null;
+  disponivel?: number | null;
   /** Com os ciclos montados (`contratoNoCiclo`): `valor_atual` e `medido` passam a ser os do ciclo de hoje. */
   faturado?: number;
   ciclos?: Ciclo[];
@@ -149,8 +159,13 @@ export function proximoReajuste(
 }
 
 /** Quanto do valor global já foi medido. Null sem valor (preço unitário). */
-export function consumoDoContrato(c: Pick<ContratoAtual, "valor_atual" | "medido">): number | null {
+export function consumoDoContrato(
+  c: Pick<ContratoAtual, "valor_atual" | "medido"> & { disponivel?: number | null },
+): number | null {
   if (c.valor_atual === null || c.valor_atual <= 0) return null;
+  // Com os ciclos, o consumido é o valor menos o que ainda dá para medir —
+  // conta o faturado antes do sistema, que o medido do controle não vê.
+  if (c.disponivel !== undefined && c.disponivel !== null) return (c.valor_atual - c.disponivel) / c.valor_atual;
   return c.medido / c.valor_atual;
 }
 
@@ -160,10 +175,12 @@ export function consumoDoContrato(c: Pick<ContratoAtual, "valor_atual" | "medido
  * virou nota aparece ao lado, a caminho. Null sem o faturado ou sem valor.
  */
 export function saldoDoContrato(
-  c: Pick<ContratoAtual, "valor_atual" | "medido" | "faturado">,
+  c: Pick<ContratoAtual, "valor_atual" | "medido" | "faturado" | "saldo">,
 ): { faturado: number; aFaturar: number; saldo: number } | null {
-  if (c.faturado === undefined || c.valor_atual === null) return null;
-  return { faturado: c.faturado, aFaturar: Math.max(0, c.medido - c.faturado), saldo: c.valor_atual - c.faturado };
+  if (c.faturado === undefined) return null;
+  const saldo = c.saldo ?? (c.valor_atual === null ? null : c.valor_atual - c.faturado);
+  if (saldo === null) return null;
+  return { faturado: c.faturado, aFaturar: Math.max(0, c.medido - c.faturado), saldo };
 }
 
 /** A partir de quanto do valor medido o contrato pede atenção. */
@@ -204,20 +221,23 @@ export function alertasDoContrato(c: ContratoAtual, hoje: string): Alerta[] {
   }
   const consumo = consumoDoContrato(c);
   // Dez vezes o valor não é contrato estourado: é valor digitado sem os milhares.
-  if (consumo !== null && consumo >= 10) {
+  if (consumo !== null && consumo >= 10 && !c.saldo_conferido) {
     return [...alertas, { texto: `Valor global de ${emReaisCurto(c.valor_atual ?? 0)} no cadastro: confira, parece faltar dígito`, tom: "aviso" }];
   }
   const doCiclo = c.ciclo && c.ciclos && c.ciclos.length > 1 ? " do ciclo" : "";
   if (consumo !== null && consumo >= CONSUMO_DE_ATENCAO) {
     alertas.push({
-      texto: consumo >= 1 ? `O medido já passou o valor${doCiclo || " do contrato"}` : `${Math.floor(consumo * 100)}% do valor${doCiclo} já medido`,
+      texto: consumo >= 1 ? `O consumido já passou o valor${doCiclo || " do contrato"}` : `${Math.floor(consumo * 100)}% do valor${doCiclo} já consumido`,
       tom: "aviso",
     });
   } else if (consumo !== null && consumo >= CONSUMO_DE_AVISO) {
-    alertas.push({ texto: `${Math.floor(consumo * 100)}% do valor${doCiclo} já medido`, tom: "info" });
+    alertas.push({ texto: `${Math.floor(consumo * 100)}% do valor${doCiclo} já consumido`, tom: "info" });
+  }
+  if (consumo === null && c.disponivel !== undefined && c.disponivel !== null && c.disponivel <= 0) {
+    alertas.push({ texto: "O saldo do contrato acabou: o medido já cobre o que restava", tom: "aviso" });
   }
   const p = c.projecao;
-  if (p?.acabaEm && p.mesesAntes > 0 && (consumo ?? 0) < 1) {
+  if (p?.acabaEm && p.mesesAntes > 0 && (consumo ?? 0) < 1 && (c.disponivel ?? 1) > 0) {
     alertas.push({
       texto: `No ritmo atual o valor acaba em ${mesCurtoDe(p.acabaEm)} — ${p.mesesAntes} ${p.mesesAntes === 1 ? "mês" : "meses"} antes do fim${doCiclo}`,
       tom: "aviso",
@@ -238,6 +258,8 @@ export function contratoLido(cru: Record<string, unknown>): ContratoAtual {
     ...(cru as unknown as ContratoAtual),
     valor: n(cru.valor),
     valor_atual: n(cru.valor_atual),
+    saldo_conferido: n(cru.saldo_conferido),
+    saldo_ate: (cru.saldo_ate as string | null | undefined) ?? null,
     medido: Number(cru.medido ?? 0),
     aditivos: Number(cru.aditivos ?? 0),
     aviso_dias: Number(cru.aviso_dias ?? 90),
@@ -268,6 +290,19 @@ export interface Ciclo {
   /** O que sobrou do ciclo anterior, quando a renovação o incorpora. */
   incorporado: number;
   valor: number | null;
+  /** O saldo conferido que caiu neste ciclo, e o mês até o qual ele conta o faturado. */
+  conferido: { valor: number; ate: string } | null;
+  /**
+   * O teto da conta: o valor do ciclo, ou — sem ele — o saldo conferido mais o
+   * faturado que o sistema viu até ali. `antes` é o faturado que o sistema não
+   * viu (antes do controle), que entra para a conta fechar com o valor.
+   */
+  teto: number | null;
+  antes: number;
+  /** teto − antes − faturado: o saldo do contrato. */
+  saldo: number | null;
+  /** O saldo menos o medido que ainda não virou nota: o que ainda dá para medir. */
+  disponivel: number | null;
   medido: number;
   faturado: number;
   meses: MesDoContrato[];
@@ -305,7 +340,13 @@ export function mesCurtoDe(d: string): string {
  * fim fica no último, para aparecer.
  */
 export function ciclosDoContrato(
-  c: { vigencia_inicio: string; vigencia_fim: string; valor: number | null },
+  c: {
+    vigencia_inicio: string;
+    vigencia_fim: string;
+    valor: number | null;
+    saldo_conferido?: number | null;
+    saldo_ate?: string | null;
+  },
   aditivos: Aditivo[],
   meses: MesDoContrato[],
 ): Ciclo[] {
@@ -317,14 +358,15 @@ export function ciclosDoContrato(
   const ciclos: Ciclo[] = [
     {
       n: 1, inicio: c.vigencia_inicio, fim: c.vigencia_fim, valorBase: c.valor, deltas: 0, incorporado: 0,
-      valor: c.valor, medido: 0, faturado: 0, meses: [], abertura: null, aditivos: [], encerradoEm: null,
+      valor: c.valor, conferido: null, teto: null, antes: 0, saldo: null, disponivel: null,
+      medido: 0, faturado: 0, meses: [], abertura: null, aditivos: [], encerradoEm: null,
     },
   ];
   for (const { a, inicio } of renovacoes) {
     ciclos.push({
       n: ciclos.length + 1, inicio, fim: a.nova_vigencia_fim ?? inicio,
       valorBase: a.valor_ciclo ?? null, deltas: 0, incorporado: 0, valor: null,
-      medido: 0, faturado: 0, meses: [], abertura: a, aditivos: [], encerradoEm: null,
+      conferido: null, teto: null, antes: 0, saldo: null, disponivel: null, medido: 0, faturado: 0, meses: [], abertura: a, aditivos: [], encerradoEm: null,
     });
   }
   const doDia = (d: string) => [...ciclos].reverse().find((k) => k.inicio <= d) ?? ciclos[0];
@@ -350,13 +392,39 @@ export function ciclosDoContrato(
     k.medido += m.medido;
     k.faturado += m.faturado;
   }
+  if (c.saldo_conferido !== null && c.saldo_conferido !== undefined && c.saldo_ate) {
+    const ate = mesDe(c.saldo_ate);
+    const k = [...ciclos].reverse().find((x) => mesDe(x.inicio) <= ate) ?? ciclos[0];
+    k.conferido = { valor: c.saldo_conferido, ate };
+  }
   for (let i = 0; i < ciclos.length; i++) {
     const k = ciclos[i];
     const anterior = ciclos[i - 1];
-    if (k.abertura?.incorpora_saldo && anterior?.valor !== null && anterior?.valor !== undefined) {
-      k.incorporado = Math.max(0, anterior.valor - anterior.medido);
+    if (k.abertura?.incorpora_saldo && anterior?.disponivel !== null && anterior?.disponivel !== undefined) {
+      k.incorporado = Math.max(0, anterior.disponivel);
     }
     k.valor = k.valorBase === null ? null : k.valorBase + k.deltas + k.incorporado;
+    if (k.conferido) {
+      // O conferido já conta o faturado e os aditivos até o mês dele; o que
+      // vem depois anda sobre ele.
+      const ate = k.conferido.ate;
+      const faturadoAte = k.meses.filter((m) => m.mes <= ate).reduce((t, m) => t + m.faturado, 0);
+      const deltasDepois = k.aditivos
+        .filter((a) => mesDe(a.data) > ate)
+        .reduce((t, a) => t + Number(a.valor_delta ?? 0), 0);
+      if (k.valor !== null) {
+        k.teto = k.valor;
+        k.antes = k.valor - deltasDepois - k.conferido.valor - faturadoAte;
+      } else {
+        k.teto = k.conferido.valor + faturadoAte + deltasDepois;
+        k.antes = 0;
+      }
+    } else {
+      k.teto = k.valor;
+      k.antes = 0;
+    }
+    k.saldo = k.teto === null ? null : k.teto - k.antes - k.faturado;
+    k.disponivel = k.teto === null ? null : k.teto - k.antes - Math.max(k.medido, k.faturado);
   }
   return ciclos;
 }
@@ -402,8 +470,8 @@ export function projecaoDoCiclo(k: Ciclo): Projecao {
   }
   if (n < 2) return { ...vazio, mesesNaMedia: n };
   const ritmo = soma / n;
-  if (k.valor === null || ritmo <= 0) return { ritmo, mesesNaMedia: n, acabaEm: null, mesesAntes: 0 };
-  const falta = k.valor - k.medido;
+  if (k.disponivel === null || ritmo <= 0) return { ritmo, mesesNaMedia: n, acabaEm: null, mesesAntes: 0 };
+  const falta = k.disponivel;
   const acabaEm = falta <= 0 ? ultimo : somarMeses(ultimo, Math.ceil(falta / ritmo));
   const fim = mesDe(k.fim);
   const antes = (+fim.slice(0, 4) * 12 + +fim.slice(5, 7)) - (+acabaEm.slice(0, 4) * 12 + +acabaEm.slice(5, 7));
@@ -456,6 +524,8 @@ export function contratoNoCiclo(
     valor_atual: ciclo.valor,
     medido: ciclo.medido,
     faturado: ciclo.faturado,
+    saldo: ciclo.saldo,
+    disponivel: ciclo.disponivel,
     ultimo_reajuste: ultimoReajuste(aditivos, c.ultimo_reajuste),
     ciclos,
     ciclo,

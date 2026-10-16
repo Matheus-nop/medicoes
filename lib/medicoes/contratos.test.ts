@@ -87,7 +87,7 @@ test("os alertas, e quem conta no menu", () => {
   e(alertasDoContrato(contrato(), "2026-10-01").length, 0);
   deepStrictEqual(
     alertasDoContrato(contrato({ medido: 950 }), "2027-02-15").map((a) => a.texto),
-    ["Vence em 44 dia(s), em 31/03/2027", "Reajuste (IPCA) em 45 dia(s), 01/04/2027", "95% do valor já medido"],
+    ["Vence em 44 dia(s), em 31/03/2027", "Reajuste (IPCA) em 45 dia(s), 01/04/2027", "95% do valor já consumido"],
   );
   e(alertasDoContrato(contrato(), "2027-04-02")[0].texto, "Vencido há 2 dia(s), em 31/03/2027");
   e(alertasDoContrato(contrato({ encerrado_em: "2026-09-01", medido: 5000 }), "2027-04-02").length, 0);
@@ -275,4 +275,61 @@ test("valor dez vezes estourado é dígito faltando, e o alerta diz isso", () =>
   const a = alertasDoContrato(contrato({ valor_atual: 13, medido: 123372 }), "2026-06-01");
   e(a.some((x) => x.texto.includes("parece faltar dígito")), true);
   e(a.some((x) => x.texto.includes("passou o valor")), false);
+});
+
+/* ── O saldo conferido (0020) ─────────────────────────────── */
+
+test("só o saldo conferido: o saldo anda com o faturado depois do mês dele, sem percentual", () => {
+  const c = contratoNoCiclo(
+    contrato({
+      vigencia_inicio: "2024-01-01", vigencia_fim: "2027-08-31", valor: null, valor_atual: null,
+      saldo_conferido: 50000, saldo_ate: "2026-09-01", ultimo_reajuste: null, indice: null,
+    }),
+    [],
+    [mes("2026-08", 20000, 20000), mes("2026-09", 10000, 10000), mes("2026-10", 8000, 5000)],
+    "2026-10-20",
+  );
+  e(c.saldo, 45000);
+  e(c.disponivel, 42000);
+  e(consumoDoContrato(c), null);
+  deepStrictEqual(saldoDoContrato(c), { faturado: 35000, aFaturar: 3000, saldo: 45000 });
+});
+
+test("valor global e saldo conferido: o que foi faturado antes do sistema entra na conta", () => {
+  const [k] = ciclosDoContrato(
+    { vigencia_inicio: "2024-01-01", vigencia_fim: "2027-12-31", valor: 1000000, saldo_conferido: 300000, saldo_ate: "2026-09-01" },
+    [],
+    [mes("2026-08", 100000, 100000), mes("2026-09", 50000, 50000), mes("2026-10", 40000, 0)],
+  );
+  // 1.000.000 − 300.000 − 150.000 vistos até setembro = 550.000 faturados antes do controle.
+  e(k.antes, 550000);
+  e(k.saldo, 300000);
+  e(k.disponivel, 260000);
+});
+
+test("o resto que acabou pede ação, e o 'falta dígito' não aparece com saldo conferido", () => {
+  const c = contratoNoCiclo(
+    contrato({
+      vigencia_inicio: "2024-01-01", vigencia_fim: "2027-08-31", valor: null, valor_atual: null,
+      saldo_conferido: 13.02, saldo_ate: "2026-09-01", ultimo_reajuste: null, indice: null,
+    }),
+    [],
+    [mes("2026-09", 120000, 120000), mes("2026-10", 10000, 0)],
+    "2026-10-20",
+  );
+  const a = alertasDoContrato(c, "2026-10-20");
+  e(a.some((x) => x.texto.startsWith("O saldo do contrato acabou")), true);
+  e(a.some((x) => x.texto.includes("faltar dígito")), false);
+});
+
+test("acréscimo depois do saldo conferido soma no saldo; o de antes já está nele", () => {
+  const [k] = ciclosDoContrato(
+    { vigencia_inicio: "2024-01-01", vigencia_fim: "2027-12-31", valor: null, saldo_conferido: 1000, saldo_ate: "2026-09-01" },
+    [
+      aditivo({ id: 1, tipo: "valor", data: "2026-05-10", valor_delta: 500 }),
+      aditivo({ id: 2, tipo: "valor", data: "2026-10-10", valor_delta: 200 }),
+    ],
+    [],
+  );
+  e(k.saldo, 1200);
 });

@@ -67,7 +67,10 @@ export function GraficoDoConsumo({ ciclo, projecao }: { ciclo: Ciclo; projecao: 
     (t, mes) => {
       const m = doMes.get(mes);
       const antes = t[t.length - 1];
-      return [...t, { mes, medido: (antes?.medido ?? 0) + (m?.medido ?? 0), faturado: (antes?.faturado ?? 0) + (m?.faturado ?? 0), noMes: m }];
+      // O faturado antes do sistema entra no começo das duas linhas: elas medem
+      // o consumo contra o teto, e esse dinheiro já saiu dele.
+      const base = antes ?? { medido: ciclo.antes, faturado: ciclo.antes };
+      return [...t, { mes, medido: base.medido + (m?.medido ?? 0), faturado: base.faturado + (m?.faturado ?? 0), noMes: m }];
     },
     [],
   );
@@ -80,7 +83,7 @@ export function GraficoDoConsumo({ ciclo, projecao }: { ciclo: Ciclo; projecao: 
       ? serie.slice(corte).map((s, i) => ({ mes: s.mes, i: corte + i, v: serie[corte].medido + ritmo * i }))
       : [];
   const max =
-    Math.max(ciclo.valor ?? 0, ...serie.map((s) => s.medido), ...projetada.map((p) => p.v), 1) * 1.08;
+    Math.max(ciclo.teto ?? 0, ...serie.map((s) => s.medido), ...projetada.map((p) => p.v), 1) * 1.08;
   const x = (i: number) => PL + (meses.length <= 1 ? IW / 2 : (IW * i) / (meses.length - 1));
   const y = (v: number) => PT + IH - (Math.min(max, Math.max(0, v)) / max) * IH;
   const linha = (pts: { i: number; v: number }[]) =>
@@ -98,11 +101,11 @@ export function GraficoDoConsumo({ ciclo, projecao }: { ciclo: Ciclo; projecao: 
             </text>
           ) : null,
         )}
-        {ciclo.valor !== null && (
+        {ciclo.teto !== null && (
           <>
-            <line x1={PL} x2={W - PR} y1={y(ciclo.valor)} y2={y(ciclo.valor)} stroke="var(--saldo)" strokeWidth={1.6} />
-            <text x={W - PR} y={y(ciclo.valor) - 5} textAnchor="end" fontSize={10} fontWeight={600} fill="var(--saldo)">
-              valor do ciclo · {curto(ciclo.valor)}
+            <line x1={PL} x2={W - PR} y1={y(ciclo.teto)} y2={y(ciclo.teto)} stroke="var(--saldo)" strokeWidth={1.6} />
+            <text x={W - PR} y={y(ciclo.teto) - 5} textAnchor="end" fontSize={10} fontWeight={600} fill="var(--saldo)">
+              {ciclo.valor !== null ? "valor do ciclo" : "teto pelo saldo conferido"} · {curto(ciclo.teto)}
             </text>
           </>
         )}
@@ -148,7 +151,7 @@ export function GraficoDoConsumo({ ciclo, projecao }: { ciclo: Ciclo; projecao: 
                   ? `${mesCurtoDe(s.mes)}\nMedido no mês: ${emReais(s.noMes?.medido ?? 0)}\nFaturado no mês: ${emReais(
                       s.noMes?.faturado ?? 0,
                     )}\nMedido acumulado: ${emReais(s.medido)}\nFaturado acumulado: ${emReais(s.faturado)}${
-                      ciclo.valor !== null ? `\nSaldo do contrato: ${emReais(ciclo.valor - s.faturado)}` : ""
+                      ciclo.teto !== null ? `\nSaldo do contrato: ${emReais(ciclo.teto - s.faturado)}` : ""
                     }`
                   : `${mesCurtoDe(s.mes)}${ritmo ? `\nNo ritmo: ${emReais(serie[corte].medido + ritmo * (i - corte))} medido` : ""}`}
               </title>
@@ -159,7 +162,9 @@ export function GraficoDoConsumo({ ciclo, projecao }: { ciclo: Ciclo; projecao: 
       <div className="flex flex-wrap gap-4 px-2 pb-2 text-xs text-texto-2">
         <Legenda cor="bg-acento">Medido acumulado</Legenda>
         <Legenda cor="bg-disponivel">Faturado acumulado</Legenda>
-        {ciclo.valor !== null && <Legenda cor="bg-saldo">Valor do ciclo</Legenda>}
+        {ciclo.teto !== null && (
+          <Legenda cor="bg-saldo">{ciclo.valor !== null ? "Valor do ciclo" : "Saldo conferido + faturado no sistema"}</Legenda>
+        )}
         {projetada.length > 1 && (
           <Legenda cor="border-acento" tracejada>
             No ritmo dos últimos {projecao?.mesesNaMedia} meses

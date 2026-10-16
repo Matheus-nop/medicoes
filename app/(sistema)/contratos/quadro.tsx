@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Botao, CartaoIndicador, Chips, Painel, ProgressoDuplo, SoLeitura, Vazio } from "@/components/ui";
+import { Botao, CartaoIndicador, Chips, Painel, SoLeitura, Vazio } from "@/components/ui";
 import {
   alertasDoContrato,
+  saldoDoContrato,
   situacaoDoContrato,
   type ContratoAtual,
   type SituacaoDoContrato,
@@ -41,9 +42,12 @@ export function QuadroDeContratos({
   const comValor = ativos.filter((c) => c.valor_atual !== null);
   const valor = comValor.reduce((t, c) => t + (c.valor_atual ?? 0), 0);
   const medido = comValor.reduce((t, c) => t + c.medido, 0);
-  // Com a 0018 o saldo anda pelo faturado; sem ela, pelo medido, como antes.
-  const comFaturado = comValor.every((c) => c.faturado !== undefined);
-  const faturado = comValor.reduce((t, c) => t + (c.faturado ?? 0), 0);
+  // Com a 0018 o saldo anda pelo faturado — e com a 0020 sai também do saldo
+  // conferido, sem valor global; sem elas, pelo medido, como antes.
+  const contas = ativos.map(saldoDoContrato).filter((x) => x !== null);
+  const comFaturado = ativos.every((c) => c.faturado !== undefined);
+  const saldo = contas.reduce((t, x) => t + x.saldo, 0);
+  const aFaturar = contas.reduce((t, x) => t + x.aFaturar, 0);
   const vencem = ativos.filter((c) => situacaoDoContrato(c, hoje) === "vence").length;
 
   const lista = { atencao, vigentes: ativos, fora, todos: contratos }[filtro];
@@ -74,15 +78,10 @@ export function QuadroDeContratos({
           <CartaoIndicador
             compacto
             rotulo="Saldo dos vigentes"
-            valor={<span className="text-saldo">{emReais(valor - faturado, false)}</span>}
-            detalhe={`${emPorcento(valor > 0 ? faturado / valor : null)} faturado · ${emReais(Math.max(0, medido - faturado), false)} medido a faturar`}
+            valor={<span className="text-saldo">{emReais(saldo, false)}</span>}
+            detalhe={`${contas.length} com saldo · ${emReais(aFaturar, false)} medido a faturar`}
             cor="bg-saldo"
-          >
-            <ProgressoDuplo
-              primeira={valor > 0 ? faturado / valor : 0}
-              segunda={valor > 0 ? Math.max(0, medido - faturado) / valor : 0}
-            />
-          </CartaoIndicador>
+          />
         ) : (
           <CartaoIndicador
             compacto
