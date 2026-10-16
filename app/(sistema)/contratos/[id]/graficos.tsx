@@ -105,7 +105,7 @@ export function GraficoDoConsumo({ ciclo, projecao }: { ciclo: Ciclo; projecao: 
           <>
             <line x1={PL} x2={W - PR} y1={y(ciclo.teto)} y2={y(ciclo.teto)} stroke="var(--saldo)" strokeWidth={1.6} />
             <text x={W - PR} y={y(ciclo.teto) - 5} textAnchor="end" fontSize={10} fontWeight={600} fill="var(--saldo)">
-              {ciclo.valor !== null ? "valor do ciclo" : "teto pelo saldo conferido"} · {curto(ciclo.teto)}
+              {ciclo.valor !== null ? "valor global" : "saldo informado + faturado"} · {curto(ciclo.teto)}
             </text>
           </>
         )}
@@ -163,7 +163,7 @@ export function GraficoDoConsumo({ ciclo, projecao }: { ciclo: Ciclo; projecao: 
         <Legenda cor="bg-acento">Medido acumulado</Legenda>
         <Legenda cor="bg-disponivel">Faturado acumulado</Legenda>
         {ciclo.teto !== null && (
-          <Legenda cor="bg-saldo">{ciclo.valor !== null ? "Valor do ciclo" : "Saldo conferido + faturado no sistema"}</Legenda>
+          <Legenda cor="bg-saldo">{ciclo.valor !== null ? "Valor global" : "Saldo informado + faturado no sistema"}</Legenda>
         )}
         {projetada.length > 1 && (
           <Legenda cor="border-acento" tracejada>

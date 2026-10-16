@@ -61,28 +61,17 @@ export function CartaoDoContrato({
               : `${ciclo}até ${dataDoContrato(c.vigencia_atual)}${faltam >= 0 && s !== "a_iniciar" ? ` · ${faltam} dia(s)` : ""}`,
         },
         {
-          rotulo: ciclo ? "Valor do ciclo" : "Valor global",
+          rotulo: ciclo ? "Valor do ciclo" : "Valor global inicial",
           valor:
             c.valor_atual !== null
               ? emReais(c.valor_atual)
               : c.saldo_conferido != null
-                ? "não informado"
+                ? "falta informar"
                 : "por preço unitário",
         },
-        ...(conta && c.ciclo?.conferido
+        ...(conta
           ? [
-              { rotulo: `Saldo conferido (${mesCurto(c.ciclo.conferido.ate)})`, valor: emReais(c.ciclo.conferido.valor) },
-              {
-                rotulo: "Faturado depois",
-                valor: emReais(
-                  c.ciclo.meses.filter((m) => m.mes > c.ciclo!.conferido!.ate).reduce((t, m) => t + m.faturado, 0),
-                ),
-              },
-              { rotulo: "Medido a faturar", valor: emReais(conta.aFaturar) },
-            ]
-          : conta
-          ? [
-              { rotulo: "Faturado", valor: emReais(conta.faturado) },
+              { rotulo: "Faturado", valor: emReais(conta.faturado + (c.valor_atual !== null ? (c.ciclo?.antes ?? 0) : 0)) },
               { rotulo: "Medido a faturar", valor: emReais(conta.aFaturar) },
             ]
           : [{ rotulo: `Medido${c.medido_ate ? ` até ${mesCurto(c.medido_ate)}` : ""}`, valor: emReais(c.medido) }]),

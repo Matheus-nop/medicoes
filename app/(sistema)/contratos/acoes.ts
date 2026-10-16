@@ -96,9 +96,17 @@ export async function salvarContrato(id: number | null, c: CamposDoContrato): Pr
   if (c.saldoConferido.trim() && saldoConferido === null) {
     return { ok: false, erro: `Saldo que não se lê: "${c.saldoConferido}".` };
   }
-  const saldoAte = /^\d{4}-\d{2}$/.test(c.saldoAte.trim()) ? `${c.saldoAte.trim()}-01` : null;
+  // A tela pede o mês em que o time informou o saldo; guarda-se o anterior —
+  // o último faturamento do controle que esse saldo já descontava.
+  const informado = /^(\d{4})-(\d{2})$/.exec(c.saldoAte.trim());
+  const saldoAte = informado
+    ? (() => {
+        const t = +informado[1] * 12 + +informado[2] - 2;
+        return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, "0")}-01`;
+      })()
+    : null;
   if (saldoConferido !== null && !saldoAte) {
-    return { ok: false, erro: "Diga depois do faturamento de que mês é esse saldo." };
+    return { ok: false, erro: "Diga em que mês o time informou esse saldo." };
   }
   if (valor !== null && saldoConferido !== null && saldoConferido > valor) {
     return { ok: false, erro: "O saldo conferido é maior que o valor global: confira os dois." };

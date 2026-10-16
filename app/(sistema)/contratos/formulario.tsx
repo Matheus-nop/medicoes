@@ -16,6 +16,11 @@ import {
 } from "@/lib/medicoes/contratos";
 import { registrarAditivo, salvarContrato, type CamposDoAditivo, type CamposDoContrato } from "./acoes";
 
+function mesSeguinte(d: string): string {
+  const t = +d.slice(0, 4) * 12 + +d.slice(5, 7);
+  return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, "0")}-01`;
+}
+
 export function camposDoContrato(c?: ContratoAtual): CamposDoContrato {
   const dinheiro = (v: number | null) =>
     v === null ? "" : v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -27,7 +32,9 @@ export function camposDoContrato(c?: ContratoAtual): CamposDoContrato {
     vigenciaFim: c?.vigencia_fim ?? "",
     valor: dinheiro(c?.valor ?? null),
     saldoConferido: dinheiro(c?.saldo_conferido ?? null),
-    saldoAte: c?.saldo_ate ? c.saldo_ate.slice(0, 7) : "",
+    // Na tela é o mês em que o time informou; guarda-se o anterior, o último
+    // faturamento que esse saldo já descontava.
+    saldoAte: c?.saldo_ate ? mesSeguinte(c.saldo_ate).slice(0, 7) : "",
     categorias: c?.categorias ?? [],
     regioes: c?.regioes ?? [],
     indice: c?.indice ?? "",
@@ -123,25 +130,25 @@ export function FormularioDoContrato({
         <Campo rotulo="Fim da vigência" obrigatorio>
           <input type="date" value={c.vigenciaFim} onChange={muda("vigenciaFim")} required className={`${CAMPO} w-full`} />
         </Campo>
-        <Campo rotulo="Valor global do papel (R$)">
+        <Campo rotulo="Valor global inicial (R$)">
           <input
             value={c.valor}
             onChange={muda("valor")}
             inputMode="decimal"
-            placeholder="vazio se não souber"
+            placeholder="o do contrato assinado"
             className={`${CAMPO} w-full text-right tabular-nums`}
           />
         </Campo>
-        <Campo rotulo="Saldo que resta (R$)">
+        <Campo rotulo="Saldo informado pelo time (R$)">
           <input
             value={c.saldoConferido}
             onChange={muda("saldoConferido")}
             inputMode="decimal"
-            placeholder="o que o time conferiu"
+            placeholder="só se não souber o valor global"
             className={`${CAMPO} w-full text-right tabular-nums`}
           />
         </Campo>
-        <Campo rotulo="Depois do faturamento de" obrigatorio={!!c.saldoConferido.trim()}>
+        <Campo rotulo="Informado em" obrigatorio={!!c.saldoConferido.trim()}>
           <input
             type="month"
             value={c.saldoAte}
@@ -232,10 +239,10 @@ export function FormularioDoContrato({
         </Campo>
       </div>
       <p className="text-xs text-texto-3">
-        O valor global é o total assinado no papel. O saldo que resta é o que o time confere hoje, depois do
-        faturamento de um mês do controle: dali em diante ele desce sozinho a cada nota. Com os dois, o sistema
-        sabe também o que foi faturado antes dele; sem nenhum, o contrato é por preço unitário, sem teto.
-        A data-base vazia é o início da vigência. Prorrogação, reajuste e mudança de valor não se corrigem aqui:
+        O valor global inicial é o do contrato assinado: cada faturamento abate dele, e o saldo é o que sobra.
+        O controle no sistema começa em março/2025 — para o que foi faturado antes, informe também o saldo que o
+        time tem hoje e o mês, e o sistema acerta a diferença sozinho. Sem valor e sem saldo, o contrato é por
+        preço unitário. A data-base vazia é o início da vigência. Prorrogação, reajuste e mudança de valor não se corrigem aqui:
         registre o aditivo, que fica no histórico.
       </p>
       <div className="flex gap-2">

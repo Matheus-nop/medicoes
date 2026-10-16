@@ -41,6 +41,11 @@ import { apagarAditivo, apagarContrato } from "../acoes";
 import { FormularioDoAditivo, FormularioDoContrato, camposDoContrato } from "../formulario";
 import { BarrasDoMes, GraficoDoConsumo } from "./graficos";
 
+const somarUmMes = (mes: string, n: number) => {
+  const t = +mes.slice(0, 4) * 12 + +mes.slice(5, 7) - 1 + n;
+  return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, "0")}-01`;
+};
+
 /**
  * Um contrato. Em cima a conta do ciclo de hoje — valor, faturado, medido a
  * faturar e saldo —, e embaixo o andamento em gráfico, os ciclos e o mês a
@@ -84,10 +89,13 @@ export function Contrato({
   const k = c.ciclo;
   const conta = saldoDoContrato(c);
   // Com saldo conferido, o faturado que move o saldo é o de depois dele.
-  const faturadoDaConta =
-    k?.conferido && conta
-      ? k.meses.filter((m) => m.mes > k.conferido!.ate).reduce((t, m) => t + m.faturado, 0)
-      : (conta?.faturado ?? 0);
+  // A conta que o time lê: valor global inicial − faturado = saldo. O
+  // faturado antes do sistema (o controle começa em mar/2025) entra num número
+  // só, para a conta fechar com o valor do papel.
+  const antesDoSistema = k?.antes ?? 0;
+  const faturadoTotal = (conta?.faturado ?? 0) + antesDoSistema;
+  const primeiroMes = k?.meses[0]?.mes ?? null;
+  const semValorGlobal = c.valor_atual === null && !!k?.conferido;
   const varios = ciclos.length > 1;
   const somaDosAditivos = k ? k.deltas : aditivos.reduce((t, a) => t + (a.valor_delta ?? 0), 0);
   const inicioDoCiclo = k?.inicio ?? c.vigencia_inicio;
@@ -151,58 +159,38 @@ export function Contrato({
 
       {conta && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {c.valor_atual !== null ? (
-            <CartaoIndicador
-              compacto
-              rotulo={varios ? `Valor do ciclo ${k?.n}` : "Valor global do contrato"}
-              valor={emReais(c.valor_atual, false)}
-              detalhe={k ? `${dataDoContrato(k.inicio)} a ${dataDoContrato(fimDoCiclo)}` : undefined}
-              cor="bg-texto-3"
-            />
-          ) : (
-            <CartaoIndicador
-              compacto
-              rotulo="Saldo conferido"
-              valor={emReais(k?.conferido?.valor ?? 0, false)}
-              detalhe={
-                k?.conferido
-                  ? `depois do faturamento de ${mesCurtoDe(k.conferido.ate)} · valor global não informado`
-                  : undefined
-              }
-              cor="bg-texto-3"
-            />
-          )}
           <CartaoIndicador
             compacto
-            rotulo={k?.conferido ? `Faturado depois de ${mesCurtoDe(k.conferido.ate)}` : "Faturado"}
-            valor={emReais(faturadoDaConta, false)}
+            rotulo={varios ? `Valor global do ciclo ${k?.n}` : "Valor global inicial"}
+            valor={c.valor_atual !== null ? emReais(c.valor_atual, false) : "falta informar"}
             detalhe={
-              k?.conferido
-                ? `${emReais(conta.faturado, false)} no sistema desde ${mesCurtoDe(k.meses[0]?.mes ?? k.inicio)}`
+              semValorGlobal
+                ? "digite o do contrato assinado em Cadastro → Corrigir"
+                : k
+                  ? `${dataDoContrato(k.inicio)} a ${dataDoContrato(fimDoCiclo)}${k.deltas ? " · com aditivos" : ""}`
+                  : undefined
+            }
+            cor="bg-texto-3"
+            destaque={semValorGlobal}
+          />
+          <CartaoIndicador
+            compacto
+            rotulo="Faturado"
+            valor={emReais(semValorGlobal ? conta.faturado : faturadoTotal, false)}
+            detalhe={
+              semValorGlobal
+                ? `no sistema${primeiroMes ? `, desde ${mesCurtoDe(primeiroMes)}` : ""}`
                 : c.valor_atual && c.valor_atual > 0
-                  ? `${emPorcento(conta.faturado / c.valor_atual)} do valor`
-                  : "no controle"
+                  ? `${emPorcento(faturadoTotal / c.valor_atual)} do valor global`
+                  : undefined
             }
             cor="bg-disponivel"
           />
           <CartaoIndicador
             compacto
-            rotulo="Medido a faturar"
-            valor={emReais(conta.aFaturar, false)}
-            detalhe="medido, ainda sem nota"
-            cor="bg-acento"
-          />
-          <CartaoIndicador
-            compacto
             rotulo={conta.saldo < 0 ? "Faturado além do valor" : "Saldo do contrato"}
             valor={<span className="text-saldo">{emReais(Math.abs(conta.saldo), false)}</span>}
-            detalhe={
-              c.disponivel !== null && c.disponivel !== undefined && conta.aFaturar > 0
-                ? `${emReais(Math.max(0, c.disponivel), false)} ainda para medir`
-                : k?.conferido
-                  ? "o conferido menos o faturado depois"
-                  : "valor global menos o faturado"
-            }
+            detalhe={semValorGlobal ? "o informado pelo time, menos o faturado desde então" : "valor global − faturado"}
             cor="bg-saldo"
             destaque={vermelho || (c.disponivel ?? 1) <= 0}
           >
@@ -214,6 +202,17 @@ export function Contrato({
               />
             )}
           </CartaoIndicador>
+          <CartaoIndicador
+            compacto
+            rotulo="Medido a faturar"
+            valor={emReais(conta.aFaturar, false)}
+            detalhe={
+              c.disponivel !== null && c.disponivel !== undefined && conta.aFaturar > 0
+                ? `vai sair do saldo: sobram ${emReais(Math.max(0, c.disponivel), false)}`
+                : "medido, ainda sem nota"
+            }
+            cor="bg-acento"
+          />
         </div>
       )}
 
@@ -285,7 +284,7 @@ export function Contrato({
                           <div>
                             <dt className="text-texto-3">Valor</dt>
                             <dd className="font-medium">
-                              {x.valor !== null ? emReais(x.valor) : x.conferido ? "não informado" : "preço unitário"}
+                              {x.valor !== null ? emReais(x.valor) : x.conferido ? "falta informar" : "preço unitário"}
                             </dd>
                           </div>
                           <div>
@@ -319,7 +318,7 @@ export function Contrato({
                                 : null,
                               x.incorporado > 0 ? `${emReais(x.incorporado)} do saldo anterior` : null,
                               x.conferido
-                                ? `saldo conferido de ${emReais(x.conferido.valor)} depois de ${mesCurtoDe(x.conferido.ate)}`
+                                ? `saldo informado pelo time: ${emReais(x.conferido.valor)} em ${mesCurtoDe(somarUmMes(x.conferido.ate, 1))}`
                                 : null,
                               x.conferido && x.valor !== null && x.antes !== 0
                                 ? `${emReais(x.antes)} faturados antes do sistema`
@@ -344,10 +343,10 @@ export function Contrato({
             </Painel>
           )}
 
-          {visto && visto.meses.length > 0 && (
+          {visto && visto.teto !== null && (
             <Painel
-              titulo={varios ? `Mês a mês do ciclo ${visto.n}` : "Mês a mês"}
-              descricao="O medido e o faturado vêm do controle do cliente. O saldo anda quando a nota sai."
+              titulo={varios ? `Extrato do ciclo ${visto.n}` : "Extrato do contrato"}
+              descricao="Do valor global inicial, cada faturamento abate o saldo. O faturado vem do controle do cliente, mês a mês."
             >
               <div className="overflow-x-auto">
                 <table className="w-full text-xs tabular-nums">
@@ -355,38 +354,52 @@ export function Contrato({
                     <tr>
                       <th className="px-4 py-2 font-medium">Mês</th>
                       <th className="px-4 py-2 text-right font-medium">Medido</th>
-                      <th className="px-4 py-2 text-right font-medium">Faturado</th>
-                      <th className="px-4 py-2 text-right font-medium">Medido acumulado</th>
-                      {visto.teto !== null && <th className="px-4 py-2 text-right font-medium">Saldo do contrato</th>}
+                      <th className="px-4 py-2 text-right font-medium">Faturado (abate)</th>
+                      <th className="px-4 py-2 text-right font-medium">Saldo</th>
                     </tr>
                   </thead>
                   <tbody>
                     {visto.meses
-                      .reduce<{ mes: string; medido: number; faturado: number; acMedido: number; acFaturado: number }[]>(
-                        (t, m) => [
-                          ...t,
-                          {
-                            ...m,
-                            acMedido: (t.at(-1)?.acMedido ?? 0) + m.medido,
-                            acFaturado: (t.at(-1)?.acFaturado ?? 0) + m.faturado,
-                          },
-                        ],
+                      .reduce<{ mes: string; medido: number; faturado: number; acFaturado: number }[]>(
+                        (t, m) => [...t, { ...m, acFaturado: (t.at(-1)?.acFaturado ?? 0) + m.faturado }],
                         [],
                       )
                       .reverse()
                       .map((m) => (
-                        <tr key={m.mes} className="border-b border-borda/60 last:border-0">
+                        <tr key={m.mes} className="border-b border-borda/60">
                           <td className="px-4 py-2">{mesCurtoDe(m.mes)}</td>
-                          <td className="px-4 py-2 text-right">{emReais(m.medido)}</td>
-                          <td className="px-4 py-2 text-right">{emReais(m.faturado)}</td>
-                          <td className="px-4 py-2 text-right text-texto-2">{emReais(m.acMedido)}</td>
-                          {visto.teto !== null && (
-                            <td className="px-4 py-2 text-right font-semibold text-saldo">
-                              {emReais(visto.teto - visto.antes - m.acFaturado)}
-                            </td>
-                          )}
+                          <td className="px-4 py-2 text-right text-texto-2">{emReais(m.medido)}</td>
+                          <td className="px-4 py-2 text-right">{m.faturado ? `− ${emReais(m.faturado)}` : "—"}</td>
+                          <td className="px-4 py-2 text-right font-semibold text-saldo">
+                            {emReais(visto.teto! - visto.antes - m.acFaturado)}
+                          </td>
                         </tr>
                       ))}
+                    {visto.valor !== null && visto.antes !== 0 && (
+                      <tr className="border-b border-borda/60 bg-superficie-2">
+                        <td className="px-4 py-2" colSpan={2}>
+                          Faturado antes do sistema{visto.meses[0] ? ` (até ${mesCurtoDe(somarUmMes(visto.meses[0].mes, -1))})` : ""}
+                        </td>
+                        <td className="px-4 py-2 text-right">− {emReais(visto.antes)}</td>
+                        <td className="px-4 py-2 text-right font-semibold text-saldo">{emReais(visto.teto - visto.antes)}</td>
+                      </tr>
+                    )}
+                    {visto.valor !== null ? (
+                      <tr className="bg-superficie-2 font-semibold">
+                        <td className="px-4 py-2" colSpan={3}>
+                          {visto.abertura ? "Valor global da renovação" : "Valor global inicial"}
+                          {visto.deltas ? " (com aditivos)" : ""} · {dataDoContrato(visto.inicio)}
+                        </td>
+                        <td className="px-4 py-2 text-right">{emReais(visto.valor)}</td>
+                      </tr>
+                    ) : (
+                      <tr className="bg-superficie-2">
+                        <td className="px-4 py-2 text-texto-2" colSpan={4}>
+                          Falta o valor global inicial: com ele, o extrato começa no valor assinado e mostra o que foi
+                          faturado antes do sistema.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -492,11 +505,11 @@ export function Contrato({
                 {linha("Cliente", c.cliente)}
                 {linha("Regionais", c.regioes?.length ? c.regioes.join(", ") : "todas")}
                 {linha("Vigência assinada", `${dataDoContrato(c.vigencia_inicio)} a ${dataDoContrato(c.vigencia_fim)}`)}
-                {linha("Valor global", c.valor !== null ? emReais(c.valor) : c.saldo_conferido != null ? "não informado" : "preço unitário")}
+                {linha("Valor global inicial", c.valor !== null ? emReais(c.valor) : c.saldo_conferido != null ? "falta informar" : "preço unitário")}
                 {c.saldo_conferido != null &&
                   linha(
-                    "Saldo conferido",
-                    `${emReais(c.saldo_conferido)} depois de ${c.saldo_ate ? mesCurtoDe(c.saldo_ate) : "—"}`,
+                    "Saldo informado",
+                    `${emReais(c.saldo_conferido)} em ${c.saldo_ate ? mesCurtoDe(somarUmMes(c.saldo_ate, 1)) : "—"}`,
                   )}
                 {linha(
                   "O medido que conta",
@@ -558,52 +571,49 @@ export function Contrato({
             </dl>
           </Painel>
 
-          <Painel titulo={varios ? `Valor do ciclo ${k?.n}` : "Valor e saldo"}>
+          <Painel titulo={varios ? `A conta do ciclo ${k?.n}` : "A conta do contrato"}>
             <dl className="space-y-1.5 p-4 text-sm tabular-nums">
-              {c.valor_atual === null ? (
-                linha("Valor global", k?.conferido ? "não informado" : "preço unitário")
+              {c.valor_atual === null && !k?.conferido ? (
+                linha("Valor global", "preço unitário")
               ) : (
                 <>
-                  {linha(k?.abertura ? "Valor da renovação" : "Assinado", emReais(k ? (k.valorBase ?? 0) : (c.valor ?? 0)))}
+                  {linha(
+                    k?.abertura ? "Valor global da renovação" : "Valor global inicial",
+                    k?.valorBase != null ? emReais(k.valorBase) : c.valor != null ? emReais(c.valor) : "falta informar",
+                  )}
                   {somaDosAditivos !== 0 &&
                     linha("Aditivos", `${somaDosAditivos >= 0 ? "+" : "−"} ${emReais(Math.abs(somaDosAditivos))}`)}
                   {k && k.incorporado > 0 && linha("Saldo do ciclo anterior", `+ ${emReais(k.incorporado)}`)}
-                  {linha(varios ? "Valor do ciclo" : "Valor global", emReais(c.valor_atual), true)}
-                  {k?.conferido && k.antes !== 0 && linha("Faturado antes do sistema", emReais(k.antes))}
+                  {!semValorGlobal && antesDoSistema !== 0 && linha("Faturado antes do sistema", `− ${emReais(antesDoSistema)}`)}
+                  {conta && linha(semValorGlobal ? "Faturado no sistema" : "Faturado no sistema", `− ${emReais(conta.faturado)}`)}
                 </>
               )}
-              {k?.conferido && (
-                <>
-                  {linha(`Saldo conferido (${mesCurtoDe(k.conferido.ate)})`, emReais(k.conferido.valor))}
-                  {linha("Faturado depois", `− ${emReais(faturadoDaConta)}`)}
-                </>
-              )}
-              {!k?.conferido && conta && linha("Faturado", emReais(conta.faturado))}
               {conta && (
                 <div className="flex justify-between border-t border-borda pt-1.5">
                   <dt className="font-medium text-saldo">{conta.saldo < 0 ? "Faturado além do valor" : "Saldo do contrato"}</dt>
                   <dd className="font-semibold text-saldo">{emReais(Math.abs(conta.saldo))}</dd>
                 </div>
               )}
-              {conta && conta.aFaturar > 0 && linha("Medido a faturar", `− ${emReais(conta.aFaturar)}`)}
-              {c.disponivel !== null && c.disponivel !== undefined && conta && conta.aFaturar > 0 &&
-                linha("Ainda dá para medir", emReais(c.disponivel), true)}
               {!conta && c.valor_atual !== null && linha("Saldo do contrato", emReais(c.valor_atual - c.medido), true)}
+              {conta && conta.aFaturar > 0 && (
+                <p className="text-xs text-texto-3">
+                  {emReais(conta.aFaturar)} já medidos ainda vão sair do saldo quando faturados
+                  {c.disponivel != null ? `: sobram ${emReais(Math.max(0, c.disponivel))}.` : "."}
+                </p>
+              )}
               {consumo !== null && (
                 <>
                   <Progresso fracao={consumo} cor={vermelho ? "bg-manutencao" : "bg-disponivel"} />
-                  <p className="text-xs text-texto-3">{emPorcento(consumo)} do valor já consumido</p>
+                  <p className="text-xs text-texto-3">{emPorcento(consumo)} do valor global já usado (faturado + medido)</p>
                 </>
               )}
-              <p className="text-xs text-texto-3">
-                O medido e o faturado são os do controle do cliente
-                {c.categorias?.length ? `, só ${c.categorias.map((x) => ROTULO_CATEGORIA[x as Categoria] ?? x).join(" e ").toLowerCase()}` : ""}
-                {k?.conferido
-                  ? `. O saldo parte do conferido depois do faturamento de ${mesCurtoDe(k.conferido.ate)} e desce sozinho a cada nota.`
-                  : conta
-                    ? ". O saldo é o valor menos o faturado: anda sozinho quando a nota sai."
-                    : ", nos meses da vigência."}
-              </p>
+              {semValorGlobal && k?.conferido && (
+                <p className="text-xs text-texto-3">
+                  Sem o valor global, a conta parte do saldo que o time informou ({emReais(k.conferido.valor)}, em{" "}
+                  {mesCurtoDe(somarUmMes(k.conferido.ate, 1))}). Digite o valor do contrato assinado em Cadastro →
+                  Corrigir para ver a conta inteira.
+                </p>
+              )}
             </dl>
           </Painel>
 
