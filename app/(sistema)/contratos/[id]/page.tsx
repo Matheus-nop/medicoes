@@ -45,6 +45,8 @@ export default async function PaginaDoContrato({ params }: { params: Promise<{ i
         quem_nome: nome.get(a.quem) ?? "—",
       }))}
       clientes={carga.clientes}
+      regionais={carga.regionais}
+      erroCiclos={carga.erroCiclos}
       hoje={hojeNaCasa()}
       podeMexer={podeLancar(sessao.papel, "contrato")}
       ehDiretoria={sessao.papel === "diretoria"}

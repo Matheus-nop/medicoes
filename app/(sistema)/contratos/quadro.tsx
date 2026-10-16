@@ -21,11 +21,13 @@ const ATIVOS: SituacaoDoContrato[] = ["vigente", "vence", "a_iniciar"];
 export function QuadroDeContratos({
   contratos,
   clientes,
+  regionais,
   hoje,
   podeMexer,
 }: {
   contratos: ContratoAtual[];
   clientes: string[];
+  regionais: Record<string, string[]>;
   hoje: string;
   podeMexer: boolean;
 }) {
@@ -115,7 +117,7 @@ export function QuadroDeContratos({
 
       {novo && (
         <Painel titulo="Novo contrato" descricao="O cadastro de partida. O que muda depois entra como aditivo.">
-          <FormularioDoContrato inicial={camposDoContrato()} clientes={clientes} aoFechar={() => setNovo(false)} />
+          <FormularioDoContrato inicial={camposDoContrato()} clientes={clientes} regionais={regionais} aoFechar={() => setNovo(false)} />
         </Painel>
       )}
 

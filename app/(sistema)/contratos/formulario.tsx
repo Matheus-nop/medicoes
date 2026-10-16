@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Aviso, Botao, CAMPO, Campo } from "@/components/ui";
 import { CATEGORIAS, ROTULO_CATEGORIA } from "@/lib/medicoes/controle";
+import { chaveDoCliente } from "@/lib/medicoes/medicoes";
 import {
   INDICES,
   ROTULO_ADITIVO,
@@ -26,6 +27,7 @@ export function camposDoContrato(c?: ContratoAtual): CamposDoContrato {
     vigenciaFim: c?.vigencia_fim ?? "",
     valor: dinheiro(c?.valor ?? null),
     categorias: c?.categorias ?? [],
+    regioes: c?.regioes ?? [],
     indice: c?.indice ?? "",
     // A view devolve a data-base já com o início no lugar do vazio: se são
     // iguais, o campo fica vazio — que é o que quer dizer "o início".
@@ -45,11 +47,14 @@ export function FormularioDoContrato({
   id,
   inicial,
   clientes,
+  regionais,
   aoFechar,
 }: {
   id?: number;
   inicial: CamposDoContrato;
   clientes: string[];
+  /** As regionais do controle de cada cliente, pela chave do nome. */
+  regionais: Record<string, string[]>;
   aoFechar: () => void;
 }) {
   const router = useRouter();
@@ -58,6 +63,10 @@ export function FormularioDoContrato({
   const [salvando, iniciar] = useTransition();
   const muda = (k: keyof CamposDoContrato) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setC((x) => ({ ...x, [k]: e.target.value }));
+  const doCliente = regionais[chaveDoCliente(c.cliente)] ?? [];
+  // A regional marcada que não é do cliente escolhido (trocou o cliente) não vai.
+  const marcadas = c.regioes.filter((r) => doCliente.includes(r));
+  const foraDoControle = c.cliente.trim() !== "" && doCliente.length === 0;
 
   return (
     <form
@@ -66,7 +75,7 @@ export function FormularioDoContrato({
         e.preventDefault();
         iniciar(async () => {
           setErro(null);
-          const r = await salvarContrato(id ?? null, c);
+          const r = await salvarContrato(id ?? null, { ...c, regioes: marcadas });
           if (!r.ok) return setErro(r.erro ?? "Não deu certo.");
           aoFechar();
           if (!id && r.id) router.push(`/contratos/${r.id}`);
@@ -155,6 +164,42 @@ export function FormularioDoContrato({
               </label>
             ))}
           </div>
+        </fieldset>
+        <fieldset className="sm:col-span-2 lg:col-span-4">
+          <legend className="text-xs font-medium text-texto-2">Regionais do controle que o contrato cobre</legend>
+          {doCliente.length ? (
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-sm">
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={marcadas.length === 0}
+                  onChange={() => setC((x) => ({ ...x, regioes: [] }))}
+                />
+                Todas
+              </label>
+              {doCliente.map((r) => (
+                <label key={r} className="flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={marcadas.includes(r)}
+                    onChange={(e) =>
+                      setC((x) => ({
+                        ...x,
+                        regioes: e.target.checked ? [...marcadas, r] : marcadas.filter((y) => y !== r),
+                      }))
+                    }
+                  />
+                  {r}
+                </label>
+              ))}
+            </div>
+          ) : (
+            <p className={`mt-1 text-xs ${foraDoControle ? "text-manutencao" : "text-texto-3"}`}>
+              {foraDoControle
+                ? "Este nome não é cliente do controle: o contrato fica sem medido e sem faturado. Escolha o cliente da lista e marque a regional aqui."
+                : "Escolha o cliente para ver as regionais dele."}
+            </p>
+          )}
         </fieldset>
         <Campo rotulo="Gestor do contrato no cliente">
           <input value={c.contato} onChange={muda("contato")} className={`${CAMPO} w-full`} />

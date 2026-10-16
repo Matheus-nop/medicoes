@@ -21,6 +21,8 @@ export interface CamposDoContrato {
   vigenciaFim: string;
   valor: string;
   categorias: string[];
+  /** As regionais do controle; vazio é o cliente inteiro. */
+  regioes: string[];
   indice: string;
   dataBase: string;
   avisoDias: string;
@@ -48,6 +50,9 @@ function recado(erro: { code?: string; message: string }, oQue: string): string 
   if (erro.code === "23514") return "Confira as datas: o fim da vigência não pode vir antes do início.";
   if (erro.code === "42501") return `Seu usuário não pode ${oQue}: quem lança contrato é ${quemLanca("contrato")}.`;
   if (erro.code === "42P01") return "Falta aplicar a migração 0013_contratos.sql no Supabase.";
+  if (/regioes/.test(erro.message)) {
+    return "Falta aplicar a migração 0019_regionais_do_contrato.sql no Supabase.";
+  }
   if (erro.code === "42703" || erro.code === "PGRST204" || /tipo_check/.test(erro.message)) {
     return "Falta aplicar a migração 0018_ciclos_do_contrato.sql no Supabase para registrar renovação.";
   }
@@ -93,6 +98,7 @@ export async function salvarContrato(id: number | null, c: CamposDoContrato): Pr
     valor,
     // As três marcadas é o mesmo que nenhuma: o contrato cobre tudo.
     categorias: categorias.length === 0 || categorias.length === 3 ? null : categorias,
+    regioes: c.regioes.length ? [...new Set(c.regioes.map((r) => r.trim()).filter(Boolean))] : null,
     indice,
     data_base: data(c.dataBase),
     aviso_dias: aviso,

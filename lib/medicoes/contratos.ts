@@ -42,6 +42,8 @@ export interface ContratoAtual {
   aditivos: number;
   medido: number;
   medido_ate: string | null;
+  /** As regionais do controle que o contrato cobre (0019). Vazio: todas. */
+  regioes?: string[] | null;
   /** Com os ciclos montados (`contratoNoCiclo`): `valor_atual` e `medido` passam a ser os do ciclo de hoje. */
   faturado?: number;
   ciclos?: Ciclo[];

@@ -35,6 +35,7 @@ import {
   type ContratoAtual,
 } from "@/lib/medicoes/contratos";
 import { emPorcento, emReais } from "@/lib/medicoes/dinheiro";
+import { chaveDoCliente } from "@/lib/medicoes/medicoes";
 import { quemLanca } from "@/lib/medicoes/papeis";
 import { apagarAditivo, apagarContrato } from "../acoes";
 import { mesCurto } from "../cartao";
@@ -51,6 +52,8 @@ export function Contrato({
   contrato: c,
   aditivos,
   clientes,
+  regionais,
+  erroCiclos,
   hoje,
   podeMexer,
   ehDiretoria,
@@ -58,6 +61,8 @@ export function Contrato({
   contrato: ContratoAtual;
   aditivos: (Aditivo & { quem_nome: string })[];
   clientes: string[];
+  regionais: Record<string, string[]>;
+  erroCiclos: string | null;
   hoje: string;
   podeMexer: boolean;
   ehDiretoria: boolean;
@@ -73,6 +78,7 @@ export function Contrato({
   const consumo = consumoDoContrato(c);
   const reajuste = proximoReajuste(c, hoje);
   const faltam = diasEntre(hoje, c.vigencia_atual);
+  const semControle = !regionais[chaveDoCliente(c.cliente)];
   const ciclos = c.ciclos ?? [];
   const [verCiclo, setVerCiclo] = useState(String(c.ciclo?.n ?? 1));
   const visto = ciclos.find((k) => String(k.n) === verCiclo) ?? c.ciclo;
@@ -106,7 +112,7 @@ export function Contrato({
   return (
     <div className="space-y-5">
       <Cabecalho
-        titulo={`${c.numero} · ${c.cliente}`}
+        titulo={`${c.numero} · ${c.cliente}${c.regioes?.length ? ` · ${c.regioes.join(", ")}` : ""}`}
         resumo={c.objeto ?? "Sem objeto descrito."}
         acoes={
           <>
@@ -116,14 +122,23 @@ export function Contrato({
             <Link href={`/clientes/ficha?nome=${encodeURIComponent(c.cliente)}`} className={ESTILO_BOTAO.contorno}>
               Ficha do cliente
             </Link>
-            <Link href={`/controle?cliente=${encodeURIComponent(c.cliente)}`} className={ESTILO_BOTAO.contorno}>
-              Painel do controle
-            </Link>
+            {!semControle && (
+              <Link href={`/controle?cliente=${encodeURIComponent(c.cliente)}`} className={ESTILO_BOTAO.contorno}>
+                Painel do controle
+              </Link>
+            )}
           </>
         }
       />
 
       {!podeMexer && <SoLeitura>Você vê o contrato, mas quem lança é {quemLanca("contrato")}.</SoLeitura>}
+      {erroCiclos && <Aviso tom="erro">Os ciclos e o faturado não carregaram: {erroCiclos}</Aviso>}
+      {semControle && (
+        <Aviso tom="erro">
+          “{c.cliente}” não é cliente do controle: por isso o contrato está sem medido e sem faturado, e o painel abre
+          vazio. Em Cadastro → Corrigir, escolha o cliente da lista e marque a regional.
+        </Aviso>
+      )}
       {erro && (
         <Aviso tom="erro" aoFechar={() => setErro(null)}>
           {erro}
@@ -428,12 +443,14 @@ export function Contrato({
                 id={c.id}
                 inicial={camposDoContrato(c)}
                 clientes={clientes}
+                regionais={regionais}
                 aoFechar={() => setCorrigindo(false)}
               />
             ) : (
               <dl className="grid gap-x-8 gap-y-1 p-4 text-xs sm:grid-cols-2">
                 {linha("Número", c.numero)}
                 {linha("Cliente", c.cliente)}
+                {linha("Regionais", c.regioes?.length ? c.regioes.join(", ") : "todas")}
                 {linha("Vigência assinada", `${dataDoContrato(c.vigencia_inicio)} a ${dataDoContrato(c.vigencia_fim)}`)}
                 {linha("Valor assinado", c.valor === null ? "preço unitário" : emReais(c.valor))}
                 {linha(
