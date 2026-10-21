@@ -244,6 +244,12 @@ desfaz isso logo depois de criar.
   grava. O papel (`/relatorios/om/{om}/folha`) é a planilha do cliente em A4
   em pé, e o arquivo de todos fica em `/relatorios`. Grava quem lança o
   boletim. A forma do que se grava está em `lib/medicoes/relatorio.ts`.
+  A OM que **não está em boletim** abre do mesmo jeito: a **leitura** (0022,
+  `om_nos_outros_apps`) procura a OM no Estoque — o acompanhamento da oficina
+  (com o Vl. orçamento), a carteira de OMs em aberto (a chegada), a OS (o
+  defeito e os números de entrada e retorno) e De clientes — e o painel
+  "Ler a OM" do formulário lê de novo no Estoque ou a linha colada do Sisloc.
+  A leitura só preenche o que está em branco (`preencherComLeitura`).
 
 ## Aparência
 - App instalável (PWA): `app/manifest.ts`, `public/sw.js` e o convite de
@@ -317,7 +323,8 @@ desfaz isso logo depois de criar.
       mês medido; nenhum saldo muda. Falta aplicar.
 - [~] O relatório de manutenção do Águas do Rio (`0021`): o formulário da
       OM com as três fotos, o papel no padrão do cliente e o arquivo. `0021`
-      **aplicada**, conferência em `✓ ok`. O que falta não é código:
-      preencher o primeiro mês no sistema em vez do Excel.
+      **aplicada**, conferência em `✓ ok`. Depois, a leitura da OM fora do
+      boletim (`0022`, a aplicar: só a função, duas linhas `✓ ok` no fim). O
+      que falta não é código: preencher o primeiro mês no sistema em vez do Excel.
 - As provas de RLS de todas as migrações estão em
-  `supabase/scripts/provar-as-travas.sql` (trechos 1 a 22).
+  `supabase/scripts/provar-as-travas.sql` (trechos 1 a 23).

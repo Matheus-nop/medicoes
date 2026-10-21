@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { sessaoAtual } from "@/lib/supabase/papel";
 import { podeLancar, quemLanca } from "@/lib/medicoes/papeis";
-import { omDigitada, paraGravar, type DadosDoRelatorio } from "@/lib/medicoes/relatorio";
+import { omDigitada, paraGravar, type DadosDoRelatorio, type LeituraDaOm } from "@/lib/medicoes/relatorio";
+import { lerOmNoEstoque } from "./dados";
 
 export interface Resultado {
   ok: boolean;
@@ -56,4 +57,10 @@ export async function gravarRelatorio(om: string, dados: DadosDoRelatorio): Prom
   revalidatePath("/relatorios");
   revalidatePath(`/relatorios/om/${om}`);
   return { ok: true };
+}
+
+/** "Ler a OM" do formulário: o que o Estoque sabe dela agora. */
+export async function lerAOm(om: string): Promise<LeituraDaOm | null> {
+  const numero = omDigitada(om);
+  return numero ? lerOmNoEstoque(numero) : null;
 }

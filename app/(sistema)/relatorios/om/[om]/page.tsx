@@ -34,7 +34,9 @@ export default async function RelatorioDaOm({ params }: { params: Promise<{ om: 
               </Link>
             </>
           ) : (
-            "Esta OM não está em boletim nenhum: o cabeçalho vem só do cadastro do Estoque."
+            carga.leitura
+              ? "Esta OM não está em boletim nenhum: o cabeçalho veio do Estoque. Confira."
+              : "Esta OM não está em boletim nenhum, e o Estoque não a conhece: leia a colagem do Sisloc ou preencha à mão."
           )
         }
         acoes={
@@ -68,6 +70,8 @@ export default async function RelatorioDaOm({ params }: { params: Promise<{ om: 
         urlsIniciais={carga.urls}
         valorNoBoletim={carga.item?.valor ?? null}
         podeGravar={podeGravar}
+        noBoletim={Boolean(carga.item)}
+        leituraInicial={carga.leitura}
       />
     </div>
   );

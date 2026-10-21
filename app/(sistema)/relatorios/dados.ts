@@ -3,12 +3,16 @@ import type { ItemDoBoletim } from "@/lib/medicoes/medicoes";
 import {
   dadosLidos,
   grafiasDaOm,
+  juntarLeituras,
   MOMENTOS,
   omDigitada,
+  preencherComLeitura,
   relatorioNovo,
   type DadosDoRelatorio,
   type DoEstoque,
+  type LeituraDaOm,
   type MomentoDaFoto,
+  type OmNoEstoque,
 } from "@/lib/medicoes/relatorio";
 
 export interface BoletimDaOm {
@@ -31,6 +35,19 @@ export interface CargaDoRelatorio {
   urls: Record<MomentoDaFoto, string | null>;
   /** A 0021 ainda não rodou: dá para ver o relatório novo, não para gravar. */
   faltaMigracao: boolean;
+  /** O que o Estoque sabe da OM (0022) — o que preencheu o relatório novo fora do boletim. */
+  leitura: LeituraDaOm | null;
+}
+
+/**
+ * A OM nos lugares do Estoque (acompanhamento, carteira, OS, orçamento), junta.
+ * Sem a 0022, nada — e o relatório abre só com o boletim.
+ */
+export async function lerOmNoEstoque(om: string): Promise<LeituraDaOm | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("om_nos_outros_apps", { p_om: om });
+  if (error) return null;
+  return juntarLeituras((data ?? []) as OmNoEstoque[]);
 }
 
 /**
@@ -64,6 +81,7 @@ export async function carregarRelatorio(omCru: string): Promise<CargaDoRelatorio
   const faltaMigracao = Boolean(gravado.error);
 
   let dados: DadosDoRelatorio;
+  let leitura: LeituraDaOm | null = null;
   if (gravado.data?.dados) {
     dados = dadosLidos(gravado.data.dados);
   } else {
@@ -75,6 +93,10 @@ export async function carregarRelatorio(omCru: string): Promise<CargaDoRelatorio
       estoque = ((data ?? []) as DoEstoque[])[0] ?? null;
     }
     dados = relatorioNovo(item, boletim, estoque);
+    // O que o boletim não diz — ou a OM inteira, quando ela não está em
+    // boletim nenhum — vem do Estoque. Só preenche o que ficou em branco.
+    leitura = await lerOmNoEstoque(om);
+    if (leitura) dados = preencherComLeitura(dados, leitura).dados;
   }
 
   const urls: Record<MomentoDaFoto, string | null> = { retirada: null, manutencao: null, entrega: null };
@@ -102,5 +124,6 @@ export async function carregarRelatorio(omCru: string): Promise<CargaDoRelatorio
     boletim,
     urls,
     faltaMigracao,
+    leitura,
   };
 }

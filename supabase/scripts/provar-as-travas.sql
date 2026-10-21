@@ -503,3 +503,27 @@ select count(*) as o_financeiro_le from medicoes.relatorios_de_manutencao_atuais
 insert into medicoes.relatorios_de_manutencao (om) values ('999023');
 rollback;
 */
+
+-- ── 23. A leitura da OM no Estoque só responde a quem tem perfil aqui (0022) ──
+-- Esperado: a conta com perfil ativo lê a OM (as linhas que houver no
+-- Estoque, nenhuma se a OM não passou por lá); a conta sem perfil aqui recebe
+-- zero linhas mesmo para a OM que existe; e anon não executa: ERROR 42501.
+-- Troque 038129 por uma OM que exista no acompanhamento ou numa OS.
+/*
+begin;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'orcamento' order by p.id limit 1))::text, true);
+set local role authenticated;
+select fonte, patrimonio, equipamento from medicoes.om_nos_outros_apps('038129');
+reset role;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select u.id::text from auth.users u
+    where not exists (select 1 from medicoes.perfis p where p.id = u.id and p.ativo) limit 1))::text, true);
+set local role authenticated;
+select count(*) as sem_perfil_recebe from medicoes.om_nos_outros_apps('038129');
+reset role;
+set local role anon;
+select * from medicoes.om_nos_outros_apps('038129');
+rollback;
+*/
