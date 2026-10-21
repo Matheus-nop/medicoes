@@ -87,7 +87,7 @@ export default async function Relatorios({ searchParams }: { searchParams: Promi
     <div className="space-y-5">
       <Cabecalho
         titulo="Relatórios de manutenção"
-        resumo="O anexo que o Águas do Rio pede para cada OM cobrada. Bipe ou digite a OM: o relatório abre com o que o boletim e o Estoque já sabem."
+        resumo="O anexo que o Águas do Rio pede para cada OM cobrada. Bipe ou digite a OM: o relatório abre com o que a medição já sabe dela. A OM que não está em medição nenhuma se lê colando a linha do Sisloc."
       />
 
       <LeitorDeOm />

@@ -54,7 +54,7 @@ export function Editor({
   podeGravar: boolean;
   /** A OM está num boletim. Fora dele, a leitura é o que preenche o cabeçalho. */
   noBoletim: boolean;
-  /** O que o Estoque sabia da OM quando o relatório novo abriu (0022). */
+  /** A OM como a medição a tinha quando o relatório abriu; nula fora de boletim. */
   leituraInicial: LeituraDaOm | null;
 }) {
   const router = useRouter();
@@ -67,10 +67,8 @@ export function Editor({
   const [ok, setOk] = useState<string | null>(null);
   const [enviando, iniciar] = useTransition();
   const [lendo, iniciarLeitura] = useTransition();
-  const [leitura, setLeitura] = useState<{ fontes: string; preenchidos: string[] | null } | null>(
-    leituraInicial
-      ? { fontes: leituraInicial.fontes.map((f) => ROTULO_FONTE_DA_LEITURA[f]).join(", "), preenchidos: null }
-      : null,
+  const [leitura, setLeitura] = useState<{ fonte: string; preenchidos: string[] | null } | null>(
+    leituraInicial ? { fonte: ROTULO_FONTE_DA_LEITURA[leituraInicial.fonte], preenchidos: null } : null,
   );
   const [lerAberto, setLerAberto] = useState(!noBoletim);
   const [colagem, setColagem] = useState("");
@@ -82,14 +80,14 @@ export function Editor({
     setD(r.dados);
     setValores(r.dados.materiais.map((m) => comoSeDigita(m.valor)));
     setOk(null);
-    setLeitura({ fontes: l.fontes.map((f) => ROTULO_FONTE_DA_LEITURA[f]).join(", "), preenchidos: r.preenchidos });
+    setLeitura({ fonte: ROTULO_FONTE_DA_LEITURA[l.fonte], preenchidos: r.preenchidos });
   }
 
-  function lerNoEstoque() {
+  function lerDaMedicao() {
     setErroLeitura(null);
     iniciarLeitura(async () => {
       const l = await lerAOm(om);
-      if (!l) return setErroLeitura("O Estoque não tem esta OM em lugar nenhum. Cole a linha do Sisloc aqui embaixo.");
+      if (!l) return setErroLeitura("Esta OM não está em medição nenhuma. Cole a linha do Sisloc aqui embaixo.");
       aplicar(l);
     });
   }
@@ -194,19 +192,19 @@ export function Editor({
         titulo="Ler a OM"
         descricao={
           noBoletim
-            ? "Completa o que estiver em branco com o que o Estoque ou o Sisloc sabem da OM."
-            : "Esta OM não está em boletim nenhum: leia no Estoque ou cole a linha do Sisloc."
+            ? "Completa o que estiver em branco com a OM da medição, ou com a linha colada do Sisloc."
+            : "Esta OM não está em medição nenhuma: cole a linha dela do Sisloc."
         }
         recolhido={!lerAberto}
         aoRecolher={() => setLerAberto((a) => !a)}
-        acoes={leitura && <span className="text-xs text-texto-3">lido de: {leitura.fontes}</span>}
+        acoes={leitura && <span className="text-xs text-texto-3">lido da {leitura.fonte}</span>}
       >
         <div className="space-y-3 p-4">
           <div className="flex flex-wrap items-center gap-2">
-            <Botao type="button" disabled={lendo} onClick={lerNoEstoque}>
-              {lendo ? "Lendo…" : "Ler a OM no Estoque"}
+            <Botao type="button" disabled={lendo} onClick={lerDaMedicao}>
+              {lendo ? "Lendo…" : "Ler da medição"}
             </Botao>
-            <span className="text-xs text-texto-3">acompanhamento da oficina, carteira de OMs, OS e De clientes</span>
+            <span className="text-xs text-texto-3">a OM no boletim onde ela está — inclusive se entrou depois</span>
           </div>
           <Campo rotulo="Ou cole do Sisloc (a lista com a linha dos títulos)">
             <textarea

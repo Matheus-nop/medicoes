@@ -3,16 +3,14 @@ import type { ItemDoBoletim } from "@/lib/medicoes/medicoes";
 import {
   dadosLidos,
   grafiasDaOm,
-  juntarLeituras,
+  leituraDaMedicao,
   MOMENTOS,
   omDigitada,
-  preencherComLeitura,
   relatorioNovo,
   type DadosDoRelatorio,
   type DoEstoque,
   type LeituraDaOm,
   type MomentoDaFoto,
-  type OmNoEstoque,
 } from "@/lib/medicoes/relatorio";
 
 export interface BoletimDaOm {
@@ -35,19 +33,29 @@ export interface CargaDoRelatorio {
   urls: Record<MomentoDaFoto, string | null>;
   /** A 0021 ainda não rodou: dá para ver o relatório novo, não para gravar. */
   faltaMigracao: boolean;
-  /** O que o Estoque sabe da OM (0022) — o que preencheu o relatório novo fora do boletim. */
+  /** A OM como a medição a conhece — nula quando ela não está em boletim nenhum. */
   leitura: LeituraDaOm | null;
 }
 
+export type ItemDaMedicao = ItemDoBoletim & { boletim_id: number };
+
 /**
- * A OM nos lugares do Estoque (acompanhamento, carteira, OS, orçamento), junta.
- * Sem a 0022, nada — e o relatório abre só com o boletim.
+ * A OM na medição: o item do boletim (pela OM com ou sem os zeros do Sisloc) e
+ * o boletim dele. É de onde o relatório se preenche — a OM que se cobra.
  */
-export async function lerOmNoEstoque(om: string): Promise<LeituraDaOm | null> {
+export async function acharNaMedicao(
+  om: string,
+): Promise<{ item: ItemDaMedicao | null; boletim: BoletimDaOm | null }> {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("om_nos_outros_apps", { p_om: om });
-  if (error) return null;
-  return juntarLeituras((data ?? []) as OmNoEstoque[]);
+  const { data: itens } = await supabase.from("boletim_oms_atual").select("*").in("om", grafiasDaOm(om)).limit(1);
+  const item = ((itens ?? [])[0] ?? null) as ItemDaMedicao | null;
+  if (!item) return { item: null, boletim: null };
+  const { data } = await supabase
+    .from("boletins_atual")
+    .select("id, numero, cliente, base, contato")
+    .eq("id", item.boletim_id)
+    .maybeSingle();
+  return { item, boletim: (data as BoletimDaOm | null) ?? null };
 }
 
 /**
@@ -61,27 +69,15 @@ export async function carregarRelatorio(omCru: string): Promise<CargaDoRelatorio
   const grafias = grafiasDaOm(digitada);
   const supabase = await createClient();
 
-  const [gravado, itens] = await Promise.all([
+  const [gravado, { item, boletim }] = await Promise.all([
     supabase.from("relatorios_de_manutencao_atuais").select("*").in("om", grafias).limit(1).maybeSingle(),
-    supabase.from("boletim_oms_atual").select("*").in("om", grafias).limit(1),
+    acharNaMedicao(digitada),
   ]);
-
-  const item = ((itens.data ?? [])[0] ?? null) as (ItemDoBoletim & { boletim_id: number }) | null;
-  let boletim: BoletimDaOm | null = null;
-  if (item) {
-    const { data } = await supabase
-      .from("boletins_atual")
-      .select("id, numero, cliente, base, contato")
-      .eq("id", item.boletim_id)
-      .maybeSingle();
-    boletim = (data as BoletimDaOm | null) ?? null;
-  }
 
   const om = (gravado.data?.om as string | undefined) ?? item?.om ?? digitada;
   const faltaMigracao = Boolean(gravado.error);
 
   let dados: DadosDoRelatorio;
-  let leitura: LeituraDaOm | null = null;
   if (gravado.data?.dados) {
     dados = dadosLidos(gravado.data.dados);
   } else {
@@ -93,10 +89,6 @@ export async function carregarRelatorio(omCru: string): Promise<CargaDoRelatorio
       estoque = ((data ?? []) as DoEstoque[])[0] ?? null;
     }
     dados = relatorioNovo(item, boletim, estoque);
-    // O que o boletim não diz — ou a OM inteira, quando ela não está em
-    // boletim nenhum — vem do Estoque. Só preenche o que ficou em branco.
-    leitura = await lerOmNoEstoque(om);
-    if (leitura) dados = preencherComLeitura(dados, leitura).dados;
   }
 
   const urls: Record<MomentoDaFoto, string | null> = { retirada: null, manutencao: null, entrega: null };
@@ -124,6 +116,6 @@ export async function carregarRelatorio(omCru: string): Promise<CargaDoRelatorio
     boletim,
     urls,
     faltaMigracao,
-    leitura,
+    leitura: item ? leituraDaMedicao(item, boletim) : null,
   };
 }

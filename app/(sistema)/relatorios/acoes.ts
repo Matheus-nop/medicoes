@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { sessaoAtual } from "@/lib/supabase/papel";
 import { podeLancar, quemLanca } from "@/lib/medicoes/papeis";
-import { omDigitada, paraGravar, type DadosDoRelatorio, type LeituraDaOm } from "@/lib/medicoes/relatorio";
-import { lerOmNoEstoque } from "./dados";
+import { leituraDaMedicao, omDigitada, paraGravar, type DadosDoRelatorio, type LeituraDaOm } from "@/lib/medicoes/relatorio";
+import { acharNaMedicao } from "./dados";
 
 export interface Resultado {
   ok: boolean;
@@ -59,8 +59,13 @@ export async function gravarRelatorio(om: string, dados: DadosDoRelatorio): Prom
   return { ok: true };
 }
 
-/** "Ler a OM" do formulário: o que o Estoque sabe dela agora. */
+/**
+ * "Ler da medição" do formulário: a OM como o boletim a tem agora — para a OM
+ * que entrou num boletim depois de o relatório ser aberto, ou que mudou lá.
+ */
 export async function lerAOm(om: string): Promise<LeituraDaOm | null> {
   const numero = omDigitada(om);
-  return numero ? lerOmNoEstoque(numero) : null;
+  if (!numero) return null;
+  const { item, boletim } = await acharNaMedicao(numero);
+  return item ? leituraDaMedicao(item, boletim) : null;
 }

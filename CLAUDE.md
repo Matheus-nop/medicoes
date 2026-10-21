@@ -244,12 +244,12 @@ desfaz isso logo depois de criar.
   grava. O papel (`/relatorios/om/{om}/folha`) é a planilha do cliente em A4
   em pé, e o arquivo de todos fica em `/relatorios`. Grava quem lança o
   boletim. A forma do que se grava está em `lib/medicoes/relatorio.ts`.
-  A OM que **não está em boletim** abre do mesmo jeito: a **leitura** (0022,
-  `om_nos_outros_apps`) procura a OM no Estoque — o acompanhamento da oficina
-  (com o Vl. orçamento), a carteira de OMs em aberto (a chegada), a OS (o
-  defeito e os números de entrada e retorno) e De clientes — e o painel
-  "Ler a OM" do formulário lê de novo no Estoque ou a linha colada do Sisloc.
-  A leitura só preenche o que está em branco (`preencherComLeitura`).
+  A OM se lê **da medição** — é a lógica: o relatório é da OM que se cobra.
+  A OM que não está em medição nenhuma se lê **colando a linha do Sisloc** no
+  painel "Ler a OM" do formulário (a mesma leitura da colagem do boletim);
+  "Ler da medição" relê a OM que entrou num boletim depois. A leitura só
+  preenche o que está em branco (`preencherComLeitura`). O Estoque não é
+  fonte de OM: dele vem só o modelo, pelo patrimônio do cadastro.
 
 ## Aparência
 - App instalável (PWA): `app/manifest.ts`, `public/sw.js` e o convite de
@@ -323,8 +323,11 @@ desfaz isso logo depois de criar.
       mês medido; nenhum saldo muda. Falta aplicar.
 - [~] O relatório de manutenção do Águas do Rio (`0021`): o formulário da
       OM com as três fotos, o papel no padrão do cliente e o arquivo. `0021`
-      **aplicada**, conferência em `✓ ok`. Depois, a leitura da OM fora do
-      boletim (`0022`, a aplicar: só a função, duas linhas `✓ ok` no fim). O
-      que falta não é código: preencher o primeiro mês no sistema em vez do Excel.
+      **aplicada**, conferência em `✓ ok`. Depois, sem migração, o painel
+      "Ler a OM": da medição, ou a linha colada do Sisloc para a OM que não
+      está em medição. (Uma `0022` que lia a OM no Estoque foi desfeita antes
+      de ir ao banco; se tiver rodado, `tirar-a-leitura-do-estoque.sql`
+      desfaz.) O que falta não é código: preencher o primeiro mês no sistema
+      em vez do Excel.
 - As provas de RLS de todas as migrações estão em
-  `supabase/scripts/provar-as-travas.sql` (trechos 1 a 23).
+  `supabase/scripts/provar-as-travas.sql` (trechos 1 a 22).
