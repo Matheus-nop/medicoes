@@ -316,7 +316,8 @@ desfaz isso logo depois de criar.
 - [~] O mês da medição (`0016`): os períodos recuam um mês para ter o nome do
       mês medido; nenhum saldo muda. Falta aplicar.
 - [~] O relatório de manutenção do Águas do Rio (`0021`): o formulário da
-      OM com as três fotos, o papel no padrão do cliente e o arquivo. Falta
-      aplicar a `0021` e preencher o primeiro mês no sistema em vez do Excel.
+      OM com as três fotos, o papel no padrão do cliente e o arquivo. `0021`
+      **aplicada**, conferência em `✓ ok`. O que falta não é código:
+      preencher o primeiro mês no sistema em vez do Excel.
 - As provas de RLS de todas as migrações estão em
   `supabase/scripts/provar-as-travas.sql` (trechos 1 a 22).
