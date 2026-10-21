@@ -184,3 +184,158 @@ export function omDigitada(texto: string): string | null {
 export function grafiasDaOm(om: string): string[] {
   return [...new Set([om, om.padStart(6, "0"), om.replace(/^0+/, "")])].filter((x) => x.length >= 3);
 }
+
+/* ── A leitura da OM que não está em boletim (0022) ─────────── */
+
+/** De onde veio o que a leitura trouxe. */
+export type FonteDaLeitura = "acompanhamento" | "carteira" | "os" | "orcamento" | "sisloc";
+export const ROTULO_FONTE_DA_LEITURA: Record<FonteDaLeitura, string> = {
+  acompanhamento: "acompanhamento da oficina",
+  carteira: "carteira de OMs em aberto",
+  os: "OS do Estoque",
+  orcamento: "orçamento de De clientes",
+  sisloc: "colagem do Sisloc",
+};
+
+/** Uma linha de `om_nos_outros_apps` (0022): a OM num dos lugares do Estoque. */
+export interface OmNoEstoque {
+  fonte: string;
+  visto_em: string | null;
+  patrimonio: string | null;
+  equipamento: string | null;
+  modelo: string | null;
+  cliente: string | null;
+  tipo_om: string | null;
+  aberta_em: string | null;
+  chegou_em: string | null;
+  defeito: string | null;
+  om_entrada: string | null;
+  om_retorno: string | null;
+  valor: number | string | null;
+}
+
+/** O que se sabe da OM fora do boletim, junto. Vazio é `null`. */
+export interface LeituraDaOm {
+  equipamento: string | null;
+  patrimonio: string | null;
+  modelo: string | null;
+  tipo_om: string | null;
+  /** A chegada; sem ela, a abertura da OM. Dia, "2026-10-02". */
+  chegada_em: string | null;
+  om_retirada: string | null;
+  recibo_entrega: string | null;
+  defeito: string | null;
+  /** O Vl. orçamento — o que se cobra. Nunca o custo. */
+  valor: number | null;
+  cliente: string | null;
+  fontes: FonteDaLeitura[];
+}
+
+const FONTES: FonteDaLeitura[] = ["acompanhamento", "carteira", "os", "orcamento", "sisloc"];
+const cheio = (x: string | null | undefined) => (x && x.trim() ? x.trim() : null);
+
+/**
+ * Junta o que cada lugar do Estoque sabe da OM. Cada campo vem do lugar que o
+ * conhece melhor: o defeito e os números de entrada e retorno, da OS; o valor,
+ * do acompanhamento (é o Vl. orçamento da colagem) e, sem ele, do orçamento;
+ * a chegada, da carteira. O resto, do primeiro que tiver.
+ */
+export function juntarLeituras(linhas: OmNoEstoque[]): LeituraDaOm | null {
+  const de = (f: FonteDaLeitura) => linhas.find((l) => l.fonte === f);
+  const lidas = linhas.filter((l) => FONTES.includes(l.fonte as FonteDaLeitura));
+  if (!lidas.length) return null;
+  const primeiro = (ordem: FonteDaLeitura[], campo: (l: OmNoEstoque) => string | null | undefined) => {
+    for (const f of ordem) {
+      const v = cheio(de(f) ? campo(de(f) as OmNoEstoque) : null);
+      if (v) return v;
+    }
+    return null;
+  };
+  const geral: FonteDaLeitura[] = ["os", "acompanhamento", "carteira", "orcamento"];
+  const valor = ["acompanhamento", "orcamento"]
+    .map((f) => Number(de(f as FonteDaLeitura)?.valor ?? NaN))
+    .find((v) => Number.isFinite(v) && v > 0);
+  const chegada =
+    primeiro(["carteira", "orcamento"], (l) => l.chegou_em) ?? primeiro(["acompanhamento", "carteira", "os", "orcamento"], (l) => l.aberta_em);
+  return {
+    equipamento: primeiro(geral, (l) => l.equipamento),
+    patrimonio: primeiro(geral, (l) => l.patrimonio)?.toUpperCase() ?? null,
+    modelo: primeiro(geral, (l) => l.modelo),
+    tipo_om: primeiro(["acompanhamento", "carteira"], (l) => l.tipo_om),
+    chegada_em: chegada ? chegada.slice(0, 10) : null,
+    om_retirada: primeiro(["os"], (l) => l.om_entrada),
+    recibo_entrega: primeiro(["os"], (l) => l.om_retorno),
+    defeito: primeiro(["os", "orcamento"], (l) => l.defeito),
+    valor: valor ?? null,
+    cliente: primeiro(["acompanhamento", "carteira", "os", "orcamento"], (l) => l.cliente),
+    fontes: FONTES.filter((f) => de(f)),
+  };
+}
+
+/** A linha colada do Sisloc (a mesma leitura do boletim), como leitura da OM. */
+export function leituraDoSisloc(o: {
+  equipamento: string;
+  patrimonio: string;
+  tipoOm: string;
+  abertaEm: string | null;
+  chegadaEm: string | null;
+  omRetirada: string;
+  valor: number;
+  cliente: string;
+}): LeituraDaOm {
+  const chegada = o.chegadaEm ?? o.abertaEm;
+  return {
+    equipamento: cheio(o.equipamento),
+    patrimonio: cheio(o.patrimonio)?.toUpperCase() ?? null,
+    modelo: null,
+    tipo_om: cheio(o.tipoOm),
+    chegada_em: chegada ? chegada.slice(0, 10) : null,
+    om_retirada: cheio(o.omRetirada),
+    recibo_entrega: null,
+    defeito: null,
+    valor: o.valor > 0 ? o.valor : null,
+    cliente: cheio(o.cliente),
+    fontes: ["sisloc"],
+  };
+}
+
+/**
+ * Preenche com a leitura só o que está em branco — nunca troca o que a
+ * orçamentista já escreveu. Devolve os campos que mudaram, para a tela dizer.
+ */
+export function preencherComLeitura(
+  d: DadosDoRelatorio,
+  l: LeituraDaOm,
+): { dados: DadosDoRelatorio; preenchidos: string[] } {
+  const novo = { ...d };
+  const preenchidos: string[] = [];
+  const texto = (campo: "equipamento" | "modelo" | "patrimonio" | "defeito", valor: string | null, rotulo: string) => {
+    if (valor && !novo[campo].trim()) {
+      novo[campo] = valor;
+      preenchidos.push(rotulo);
+    }
+  };
+  texto("equipamento", l.equipamento, "equipamento");
+  texto("modelo", l.modelo, "modelo");
+  texto("patrimonio", l.patrimonio, "patrimônio");
+  texto("defeito", l.defeito, "defeito aparente");
+  if (l.chegada_em && !novo.data_retirada) {
+    novo.data_retirada = l.chegada_em;
+    preenchidos.push("data da retirada");
+  }
+  if (l.tipo_om && tipoDeManutencao(l.tipo_om) !== novo.tipo_manutencao && novo.tipo_manutencao === "Corretiva") {
+    novo.tipo_manutencao = tipoDeManutencao(l.tipo_om);
+    preenchidos.push("tipo de manutenção");
+  }
+  // A observação padrão sem comprovante é só o imposto: com os números da OM, ganha os comprovantes.
+  const semComprovante = !novo.observacao.trim() || novo.observacao.trim() === observacaoPadrao(null, null);
+  if (semComprovante && (l.om_retirada || l.recibo_entrega)) {
+    novo.observacao = observacaoPadrao(l.om_retirada, l.recibo_entrega);
+    preenchidos.push("observação");
+  }
+  if (l.valor && !novo.materiais.some((m) => m.valor !== null || m.descricao.trim())) {
+    novo.materiais = [{ descricao: "", valor: l.valor }];
+    preenchidos.push("valor da OM");
+  }
+  return { dados: novo, preenchidos };
+}

@@ -13,19 +13,23 @@ import { useRouter } from "next/navigation";
 import { Aviso, Botao, CAMPO, Campo, ESTILO_BOTAO, Painel } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { emReais } from "@/lib/medicoes/dinheiro";
-import { lerValorDigitado } from "@/lib/medicoes/medicoes";
+import { lerOmsDaMedicao, lerValorDigitado, mesmaOm } from "@/lib/medicoes/medicoes";
 import { nomeDeArquivo, reduzirFoto } from "@/lib/medicoes/foto";
 import {
   faltaNoRelatorio,
+  leituraDoSisloc,
   MOMENTOS,
+  preencherComLeitura,
+  ROTULO_FONTE_DA_LEITURA,
   ROTULO_MOMENTO,
   TIPOS_DE_MANUTENCAO,
   totalDosMateriais,
   type DadosDoRelatorio,
+  type LeituraDaOm,
   type MomentoDaFoto,
   type TipoDeManutencao,
 } from "@/lib/medicoes/relatorio";
-import { gravarRelatorio } from "../../acoes";
+import { gravarRelatorio, lerAOm } from "../../acoes";
 
 const AREA = `${CAMPO} h-auto min-h-[5rem] w-full py-2`;
 
@@ -39,6 +43,8 @@ export function Editor({
   urlsIniciais,
   valorNoBoletim,
   podeGravar,
+  noBoletim,
+  leituraInicial,
 }: {
   om: string;
   inicial: DadosDoRelatorio;
@@ -46,6 +52,10 @@ export function Editor({
   /** O valor da OM no boletim, para conferir com o total dos materiais. */
   valorNoBoletim: number | null;
   podeGravar: boolean;
+  /** A OM está num boletim. Fora dele, a leitura é o que preenche o cabeçalho. */
+  noBoletim: boolean;
+  /** O que o Estoque sabia da OM quando o relatório novo abriu (0022). */
+  leituraInicial: LeituraDaOm | null;
 }) {
   const router = useRouter();
   const [d, setD] = useState<DadosDoRelatorio>(inicial);
@@ -56,6 +66,47 @@ export function Editor({
   const [erro, setErro] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [enviando, iniciar] = useTransition();
+  const [lendo, iniciarLeitura] = useTransition();
+  const [leitura, setLeitura] = useState<{ fontes: string; preenchidos: string[] | null } | null>(
+    leituraInicial
+      ? { fontes: leituraInicial.fontes.map((f) => ROTULO_FONTE_DA_LEITURA[f]).join(", "), preenchidos: null }
+      : null,
+  );
+  const [lerAberto, setLerAberto] = useState(!noBoletim);
+  const [colagem, setColagem] = useState("");
+  const [erroLeitura, setErroLeitura] = useState<string | null>(null);
+
+  /** Preenche o que está em branco com a leitura, e diz o quê. */
+  function aplicar(l: LeituraDaOm) {
+    const r = preencherComLeitura(d, l);
+    setD(r.dados);
+    setValores(r.dados.materiais.map((m) => comoSeDigita(m.valor)));
+    setOk(null);
+    setLeitura({ fontes: l.fontes.map((f) => ROTULO_FONTE_DA_LEITURA[f]).join(", "), preenchidos: r.preenchidos });
+  }
+
+  function lerNoEstoque() {
+    setErroLeitura(null);
+    iniciarLeitura(async () => {
+      const l = await lerAOm(om);
+      if (!l) return setErroLeitura("O Estoque não tem esta OM em lugar nenhum. Cole a linha do Sisloc aqui embaixo.");
+      aplicar(l);
+    });
+  }
+
+  function lerColagem() {
+    setErroLeitura(null);
+    const lida = lerOmsDaMedicao(colagem);
+    if (!lida.temCabecalho) return setErroLeitura("Copie do Sisloc com a linha dos títulos — sem ela, não dá para saber qual coluna é qual.");
+    const linha = lida.linhas.find((x) => mesmaOm(x.om, om));
+    if (!linha) {
+      return setErroLeitura(
+        lida.linhas.length ? `A OM ${om} não está na colagem (vieram ${lida.linhas.length} outras).` : "A colagem não trouxe OM nenhuma.",
+      );
+    }
+    aplicar(leituraDoSisloc(linha));
+    setColagem("");
+  }
 
   const muda = <K extends keyof DadosDoRelatorio>(k: K, v: DadosDoRelatorio[K]) => {
     setOk(null);
@@ -139,6 +190,48 @@ export function Editor({
         gravar(true);
       }}
     >
+      <Painel
+        titulo="Ler a OM"
+        descricao={
+          noBoletim
+            ? "Completa o que estiver em branco com o que o Estoque ou o Sisloc sabem da OM."
+            : "Esta OM não está em boletim nenhum: leia no Estoque ou cole a linha do Sisloc."
+        }
+        recolhido={!lerAberto}
+        aoRecolher={() => setLerAberto((a) => !a)}
+        acoes={leitura && <span className="text-xs text-texto-3">lido de: {leitura.fontes}</span>}
+      >
+        <div className="space-y-3 p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Botao type="button" disabled={lendo} onClick={lerNoEstoque}>
+              {lendo ? "Lendo…" : "Ler a OM no Estoque"}
+            </Botao>
+            <span className="text-xs text-texto-3">acompanhamento da oficina, carteira de OMs, OS e De clientes</span>
+          </div>
+          <Campo rotulo="Ou cole do Sisloc (a lista com a linha dos títulos)">
+            <textarea
+              className={AREA}
+              value={colagem}
+              onChange={(e) => setColagem(e.target.value)}
+              placeholder="Selecione a grade de OMs no Sisloc com os títulos, Ctrl+C, e cole aqui"
+            />
+          </Campo>
+          <div className="flex flex-wrap items-center gap-3">
+            <Botao type="button" disabled={!colagem.trim()} onClick={lerColagem}>
+              Ler a colagem
+            </Botao>
+            {leitura?.preenchidos && (
+              <span className="text-xs text-texto-2">
+                {leitura.preenchidos.length
+                  ? `Preenchido: ${leitura.preenchidos.join(", ")}. Confira e grave.`
+                  : "Nada em branco para preencher — o que estava escrito ficou."}
+              </span>
+            )}
+          </div>
+          {erroLeitura && <p className="text-xs text-manutencao">{erroLeitura}</p>}
+        </div>
+      </Painel>
+
       <Painel titulo="O cabeçalho" descricao="O que veio da OM e do boletim já está aqui — confira e complete.">
         <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
           <Campo rotulo="Data da retirada">

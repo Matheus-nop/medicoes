@@ -6,6 +6,9 @@ import {
   dadosLidos,
   faltaNoRelatorio,
   grafiasDaOm,
+  juntarLeituras,
+  leituraDoSisloc,
+  preencherComLeitura,
   observacaoPadrao,
   omDigitada,
   paraGravar,
@@ -99,4 +102,35 @@ test("a OM digitada e as grafias para achar no boletim", () => {
   e(omDigitada("12"), null);
   igual(grafiasDaOm("38129"), ["38129", "038129"]);
   igual(grafiasDaOm("038129"), ["038129", "38129"]);
+});
+
+test("a OM fora do boletim: cada campo vem de quem o conhece", () => {
+  const l = juntarLeituras([
+    { fonte: "acompanhamento", visto_em: null, patrimonio: "25012-158", equipamento: "CORTADORA DE PISO HUSQVARNA", modelo: "FS400",
+      cliente: "AGUAS DO RIO", tipo_om: "Corretiva de retorno", aberta_em: "2026-10-03T12:00:00Z", chegou_em: null,
+      defeito: null, om_entrada: null, om_retorno: null, valor: "203.00" },
+    { fonte: "os", visto_em: null, patrimonio: "25012-158", equipamento: null, modelo: null, cliente: null, tipo_om: null,
+      aberta_em: "2026-10-01T12:00:00Z", chegou_em: null, defeito: "TAMPA QUEBRADA", om_entrada: "1283-03", om_retorno: "015932", valor: null },
+  ]);
+  e(l?.valor, 203);
+  e(l?.defeito, "TAMPA QUEBRADA");
+  e(l?.om_retirada, "1283-03");
+  e(l?.chegada_em, "2026-10-03");
+  igual(l?.fontes, ["acompanhamento", "os"]);
+  e(juntarLeituras([]), null);
+});
+
+test("a leitura preenche só o que está em branco", () => {
+  const branco = relatorioNovo(null, null, null);
+  const l = leituraDoSisloc({ equipamento: "CORTADORA", patrimonio: "25012-158", tipoOm: "PREVENTIVA", abertaEm: "2026-10-02T09:00:00Z",
+    chegadaEm: null, omRetirada: "023323", valor: 2624, cliente: "AGUAS DO RIO" });
+  const { dados, preenchidos } = preencherComLeitura({ ...branco, equipamento: "JÁ ESCRITO" }, l);
+  e(dados.equipamento, "JÁ ESCRITO");
+  e(dados.patrimonio, "25012-158");
+  e(dados.tipo_manutencao, "Preventiva");
+  e(dados.data_retirada, "2026-10-02");
+  e(dados.observacao, "REFERENTE AO COMPROVANTE DE RETIRADA: 023323\n\nIMPOSTO: INCLUSO");
+  igual(dados.materiais, [{ descricao: "", valor: 2624 }]);
+  e(preenchidos.includes("equipamento"), false);
+  e(preencherComLeitura(dados, l).preenchidos.length, 0);
 });
