@@ -3,13 +3,10 @@ import type { ItemDoBoletim } from "@/lib/medicoes/medicoes";
 import {
   dadosLidos,
   grafiasDaOm,
-  leituraDaMedicao,
   MOMENTOS,
   omDigitada,
   relatorioNovo,
   type DadosDoRelatorio,
-  type DoEstoque,
-  type LeituraDaOm,
   type MomentoDaFoto,
 } from "@/lib/medicoes/relatorio";
 
@@ -33,15 +30,15 @@ export interface CargaDoRelatorio {
   urls: Record<MomentoDaFoto, string | null>;
   /** A 0021 ainda não rodou: dá para ver o relatório novo, não para gravar. */
   faltaMigracao: boolean;
-  /** A OM como a medição a conhece — nula quando ela não está em boletim nenhum. */
-  leitura: LeituraDaOm | null;
 }
 
 export type ItemDaMedicao = ItemDoBoletim & { boletim_id: number };
 
 /**
  * A OM na medição: o item do boletim (pela OM com ou sem os zeros do Sisloc) e
- * o boletim dele. É de onde o relatório se preenche — a OM que se cobra.
+ * o boletim dele. Não preenche nada — o relatório se preenche pela colagem do
+ * Sisloc —; serve para a tela dizer em que boletim a OM está e conferir o
+ * total contra o valor cobrado.
  */
 export async function acharNaMedicao(
   om: string,
@@ -59,9 +56,8 @@ export async function acharNaMedicao(
 }
 
 /**
- * O relatório de uma OM: o gravado, ou o novo com o que o boletim, a OM e o
- * cadastro do Estoque já sabem. É a mesma leitura do formulário e do papel —
- * o que se preenche é o que sai.
+ * O relatório de uma OM: o gravado, ou o novo, em branco. É a mesma leitura do
+ * formulário e do papel — o que se preenche é o que sai.
  */
 export async function carregarRelatorio(omCru: string): Promise<CargaDoRelatorio | null> {
   const digitada = omDigitada(decodeURIComponent(omCru));
@@ -81,14 +77,9 @@ export async function carregarRelatorio(omCru: string): Promise<CargaDoRelatorio
   if (gravado.data?.dados) {
     dados = dadosLidos(gravado.data.dados);
   } else {
-    // O modelo da máquina vem do cadastro do Estoque (0021). Sem a função, o
-    // relatório nasce sem ele — a orçamentista digita.
-    let estoque: DoEstoque | null = null;
-    if (item?.patrimonio) {
-      const { data } = await supabase.rpc("equipamentos_do_estoque", { p_patrimonios: [item.patrimonio] });
-      estoque = ((data ?? []) as DoEstoque[])[0] ?? null;
-    }
-    dados = relatorioNovo(item, boletim, estoque);
+    // O relatório novo nasce em branco (com o imposto na observação): quem o
+    // preenche é a colagem do Sisloc, no leitor ou no formulário.
+    dados = relatorioNovo(null, null, null);
   }
 
   const urls: Record<MomentoDaFoto, string | null> = { retirada: null, manutencao: null, entrega: null };
@@ -116,6 +107,5 @@ export async function carregarRelatorio(omCru: string): Promise<CargaDoRelatorio
     boletim,
     urls,
     faltaMigracao,
-    leitura: item ? leituraDaMedicao(item, boletim) : null,
   };
 }

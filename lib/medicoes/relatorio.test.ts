@@ -6,7 +6,8 @@ import {
   dadosLidos,
   faltaNoRelatorio,
   grafiasDaOm,
-  leituraDaMedicao,
+  lerColagemDoSisloc,
+  chaveDaColagem,
   leituraDoSisloc,
   preencherComLeitura,
   observacaoPadrao,
@@ -104,17 +105,17 @@ test("a OM digitada e as grafias para achar no boletim", () => {
   igual(grafiasDaOm("038129"), ["038129", "38129"]);
 });
 
-test("a leitura da medição traz a OM e o boletim dela", () => {
-  const l = leituraDaMedicao(OM, { base: "VCG - COMUNIDADES", contato: "SRA. THAYNÃ" });
-  e(l.fonte, "medicao");
-  e(l.valor, 2624);
-  e(l.recibo_entrega, "015932");
-  e(l.chegada_em, "2026-10-02");
-  const { dados, preenchidos } = preencherComLeitura(relatorioNovo(null, null, null), l);
-  e(dados.superintendencia, "VCG - COMUNIDADES");
-  e(dados.responsavel, "SRA. THAYNÃ");
-  e(dados.observacao, observacaoPadrao("023323", "015932"));
-  e(preenchidos.includes("responsável"), true);
+test("o leitor lê a grade do Sisloc, e recusa sem os títulos", () => {
+  const cab = "Número\tCliente\tNome local de entrega\tCidade\tEquipamento\tPatrimônio\tTipo de O.M.\tDt. abertura\tVl. orçamento";
+  const lin = "38999\tAGUAS DO RIO 4 SPE\tBASE NORTE - ILHA\tRIO DE JANEIRO\tCORTADORA DE PISO HUSQVARNA\t25012-158\tCorretiva de retorno\t02/10/2026 09:00\t2.624,00";
+  const r = lerColagemDoSisloc(`${cab}\n${lin}`);
+  e(r.erro, null);
+  e(r.oms.length, 1);
+  e(r.oms[0].om, "38999");
+  e(r.oms[0].leitura.valor, 2624);
+  e(r.oms[0].leitura.superintendencia, "BASE NORTE - ILHA");
+  e(lerColagemDoSisloc(lin).oms.length, 0);
+  e(chaveDaColagem("038999"), chaveDaColagem("38999"));
 });
 
 test("a leitura preenche só o que está em branco", () => {

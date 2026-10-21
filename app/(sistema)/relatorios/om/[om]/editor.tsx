@@ -8,16 +8,17 @@
 // guarda o caminho. Cada Gravar é uma versão nova; a última manda.
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Aviso, Botao, CAMPO, Campo, ESTILO_BOTAO, Painel } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { emReais } from "@/lib/medicoes/dinheiro";
-import { lerOmsDaMedicao, lerValorDigitado, mesmaOm } from "@/lib/medicoes/medicoes";
+import { lerValorDigitado, mesmaOm } from "@/lib/medicoes/medicoes";
 import { nomeDeArquivo, reduzirFoto } from "@/lib/medicoes/foto";
 import {
+  chaveDaColagem,
   faltaNoRelatorio,
-  leituraDoSisloc,
+  lerColagemDoSisloc,
   MOMENTOS,
   preencherComLeitura,
   ROTULO_FONTE_DA_LEITURA,
@@ -29,7 +30,7 @@ import {
   type MomentoDaFoto,
   type TipoDeManutencao,
 } from "@/lib/medicoes/relatorio";
-import { gravarRelatorio, lerAOm } from "../../acoes";
+import { gravarRelatorio } from "../../acoes";
 
 const AREA = `${CAMPO} h-auto min-h-[5rem] w-full py-2`;
 
@@ -43,8 +44,6 @@ export function Editor({
   urlsIniciais,
   valorNoBoletim,
   podeGravar,
-  noBoletim,
-  leituraInicial,
 }: {
   om: string;
   inicial: DadosDoRelatorio;
@@ -52,10 +51,6 @@ export function Editor({
   /** O valor da OM no boletim, para conferir com o total dos materiais. */
   valorNoBoletim: number | null;
   podeGravar: boolean;
-  /** A OM está num boletim. Fora dele, a leitura é o que preenche o cabeçalho. */
-  noBoletim: boolean;
-  /** A OM como a medição a tinha quando o relatório abriu; nula fora de boletim. */
-  leituraInicial: LeituraDaOm | null;
 }) {
   const router = useRouter();
   const [d, setD] = useState<DadosDoRelatorio>(inicial);
@@ -66,43 +61,49 @@ export function Editor({
   const [erro, setErro] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [enviando, iniciar] = useTransition();
-  const [lendo, iniciarLeitura] = useTransition();
-  const [leitura, setLeitura] = useState<{ fonte: string; preenchidos: string[] | null } | null>(
-    leituraInicial ? { fonte: ROTULO_FONTE_DA_LEITURA[leituraInicial.fonte], preenchidos: null } : null,
-  );
-  const [lerAberto, setLerAberto] = useState(!noBoletim);
+  const [leitura, setLeitura] = useState<{ fonte: string; preenchidos: string[] } | null>(null);
+  // Aberto enquanto o relatório não tem equipamento: é o caso de colar.
+  const [lerAberto, setLerAberto] = useState(!inicial.equipamento.trim());
   const [colagem, setColagem] = useState("");
   const [erroLeitura, setErroLeitura] = useState<string | null>(null);
 
   /** Preenche o que está em branco com a leitura, e diz o quê. */
-  function aplicar(l: LeituraDaOm) {
-    const r = preencherComLeitura(d, l);
+  function aplicar(l: LeituraDaOm, sobre: DadosDoRelatorio = d) {
+    const r = preencherComLeitura(sobre, l);
     setD(r.dados);
     setValores(r.dados.materiais.map((m) => comoSeDigita(m.valor)));
     setOk(null);
     setLeitura({ fonte: ROTULO_FONTE_DA_LEITURA[l.fonte], preenchidos: r.preenchidos });
+    setLerAberto(false);
   }
 
-  function lerDaMedicao() {
-    setErroLeitura(null);
-    iniciarLeitura(async () => {
-      const l = await lerAOm(om);
-      if (!l) return setErroLeitura("Esta OM não está em medição nenhuma. Cole a linha do Sisloc aqui embaixo.");
-      aplicar(l);
-    });
-  }
-
-  function lerColagem() {
-    setErroLeitura(null);
-    const lida = lerOmsDaMedicao(colagem);
-    if (!lida.temCabecalho) return setErroLeitura("Copie do Sisloc com a linha dos títulos — sem ela, não dá para saber qual coluna é qual.");
-    const linha = lida.linhas.find((x) => mesmaOm(x.om, om));
-    if (!linha) {
-      return setErroLeitura(
-        lida.linhas.length ? `A OM ${om} não está na colagem (vieram ${lida.linhas.length} outras).` : "A colagem não trouxe OM nenhuma.",
-      );
+  // A colagem feita no leitor de /relatorios chega pelo sessionStorage da aba.
+  const lida = useRef(false);
+  useEffect(() => {
+    if (lida.current) return;
+    lida.current = true;
+    try {
+      const chave = chaveDaColagem(om);
+      const crua = sessionStorage.getItem(chave);
+      if (!crua) return;
+      sessionStorage.removeItem(chave);
+      const l = JSON.parse(crua) as LeituraDaOm;
+      // Depois da montagem, e não dentro dela: o formulário aparece e se preenche.
+      queueMicrotask(() => aplicar(l, inicial));
+    } catch {
+      // Colagem ilegível ou sem sessionStorage: o painel "Colar do Sisloc" continua aqui.
     }
-    aplicar(leituraDoSisloc(linha));
+    // Só na abertura: a colagem é do leitor, e depois quem manda é o formulário.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function lerColagem(texto = colagem) {
+    setErroLeitura(null);
+    const r = lerColagemDoSisloc(texto);
+    if (r.erro) return setErroLeitura(r.erro);
+    const achada = r.oms.find((x) => mesmaOm(x.om, om));
+    if (!achada) return setErroLeitura(`A OM ${om} não está na colagem (vieram ${r.oms.map((x) => x.om).join(", ")}).`);
+    aplicar(achada.leitura);
     setColagem("");
   }
 
@@ -161,6 +162,37 @@ export function Editor({
     }
   }
 
+  /** A primeira foto de uma colagem (Ctrl+V), como arquivo. */
+  function fotoColada(dados: DataTransfer | null): File | null {
+    for (const item of Array.from(dados?.items ?? [])) {
+      if (item.kind === "file" && item.type.startsWith("image/")) return item.getAsFile();
+    }
+    return null;
+  }
+
+  /** Ctrl+V no quadro: a foto copiada (do WhatsApp, do e-mail, do Sisloc) entra sem salvar arquivo. */
+  function colarFoto(m: MomentoDaFoto, e: React.ClipboardEvent) {
+    const foto = fotoColada(e.clipboardData);
+    if (!foto) return;
+    e.preventDefault();
+    e.stopPropagation();
+    anexar(m, foto);
+  }
+
+  /** O botão "Colar": lê a área de transferência — o navegador pede licença na primeira vez. */
+  async function colarDoBotao(m: MomentoDaFoto) {
+    setErro(null);
+    try {
+      for (const item of await navigator.clipboard.read()) {
+        const tipo = item.types.find((t) => t.startsWith("image/"));
+        if (tipo) return anexar(m, new File([await item.getType(tipo)], "colada", { type: tipo }));
+      }
+      setErro("Não há foto copiada. Copie a foto (botão direito → Copiar imagem) e cole de novo.");
+    } catch {
+      setErro("O navegador não deixou ler a foto copiada. Clique no quadro da foto e aperte Ctrl+V.");
+    }
+  }
+
   function gravar(abrirPapel: boolean) {
     setErro(null);
     setOk(null);
@@ -189,48 +221,40 @@ export function Editor({
       }}
     >
       <Painel
-        titulo="Ler a OM"
-        descricao={
-          noBoletim
-            ? "Completa o que estiver em branco com a OM da medição, ou com a linha colada do Sisloc."
-            : "Esta OM não está em medição nenhuma: cole a linha dela do Sisloc."
-        }
+        titulo="Colar do Sisloc"
+        descricao="Copie a OM na grade do Sisloc, com a linha dos títulos, e cole aqui. Só o que está em branco é preenchido."
         recolhido={!lerAberto}
-        aoRecolher={() => setLerAberto((a) => !a)}
+        aoRecolher={() => setLerAberto((x) => !x)}
         acoes={leitura && <span className="text-xs text-texto-3">lido da {leitura.fonte}</span>}
       >
         <div className="space-y-3 p-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <Botao type="button" disabled={lendo} onClick={lerDaMedicao}>
-              {lendo ? "Lendo…" : "Ler da medição"}
-            </Botao>
-            <span className="text-xs text-texto-3">a OM no boletim onde ela está — inclusive se entrou depois</span>
-          </div>
-          <Campo rotulo="Ou cole do Sisloc (a lista com a linha dos títulos)">
-            <textarea
-              className={AREA}
-              value={colagem}
-              onChange={(e) => setColagem(e.target.value)}
-              placeholder="Selecione a grade de OMs no Sisloc com os títulos, Ctrl+C, e cole aqui"
-            />
-          </Campo>
-          <div className="flex flex-wrap items-center gap-3">
-            <Botao type="button" disabled={!colagem.trim()} onClick={lerColagem}>
-              Ler a colagem
-            </Botao>
-            {leitura?.preenchidos && (
-              <span className="text-xs text-texto-2">
-                {leitura.preenchidos.length
-                  ? `Preenchido: ${leitura.preenchidos.join(", ")}. Confira e grave.`
-                  : "Nada em branco para preencher — o que estava escrito ficou."}
-              </span>
-            )}
-          </div>
+          <textarea
+            className={`${AREA} font-mono text-xs`}
+            value={colagem}
+            onChange={(e) => setColagem(e.target.value)}
+            onPaste={(e) => {
+              const colado = e.clipboardData.getData("text");
+              if (colado.includes("\t")) {
+                e.preventDefault();
+                setColagem(colado);
+                lerColagem(colado);
+              }
+            }}
+            placeholder="Ctrl+V com a OM copiada do Sisloc"
+            aria-label="Colar a OM do Sisloc"
+          />
           {erroLeitura && <p className="text-xs text-manutencao">{erroLeitura}</p>}
         </div>
       </Painel>
+      {leitura && (
+        <p className="text-xs text-texto-2">
+          {leitura.preenchidos.length
+            ? `Preenchido pela colagem do Sisloc: ${leitura.preenchidos.join(", ")}. Confira e complete.`
+            : "A colagem não tinha nada para o que estava em branco — o que estava escrito ficou."}
+        </p>
+      )}
 
-      <Painel titulo="O cabeçalho" descricao="O que veio da OM e do boletim já está aqui — confira e complete.">
+      <Painel titulo="O cabeçalho" descricao="O que veio da colagem já está aqui — confira e complete.">
         <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
           <Campo rotulo="Data da retirada">
             <input
@@ -286,14 +310,30 @@ export function Editor({
         </div>
       </Painel>
 
-      <Painel titulo="Registro das entregas realizadas" descricao="O diagnóstico e as três fotos do papel.">
+      <Painel titulo="Registro das entregas realizadas" descricao="O diagnóstico e as três fotos do papel — coladas, sem precisar salvar.">
         <div className="space-y-4 p-4">
           <Campo rotulo="Diagnóstico técnico" obrigatorio>
             <textarea className={AREA} value={d.diagnostico} onChange={(e) => muda("diagnostico", e.target.value)} />
           </Campo>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <p className="text-xs text-texto-3">
+            Copie a foto onde ela estiver (WhatsApp, e-mail, galeria) e cole no quadro: clique nele e aperte Ctrl+V, ou
+            use o botão Colar. Colar fora dos quadros enche o primeiro vazio.
+          </p>
+          <div
+            className="grid gap-3 sm:grid-cols-3"
+            onPaste={(e) => {
+              const vazio = MOMENTOS.find((m) => !previas[m]);
+              if (podeGravar && vazio) colarFoto(vazio, e);
+            }}
+          >
             {MOMENTOS.map((m) => (
-              <div key={m} className="rounded-lg border border-borda p-2">
+              <div
+                key={m}
+                tabIndex={podeGravar ? 0 : -1}
+                onPaste={(e) => podeGravar && colarFoto(m, e)}
+                aria-label={`${ROTULO_MOMENTO[m]}: clique e cole a foto com Ctrl+V`}
+                className="rounded-lg border border-borda p-2 outline-none focus:border-acento focus:ring-2 focus:ring-acento/30"
+              >
                 <p className="mb-1.5 text-xs font-semibold">{ROTULO_MOMENTO[m]}</p>
                 {previas[m] ? (
                   // eslint-disable-next-line @next/next/no-img-element -- prévia local ou URL assinada do bucket
@@ -303,13 +343,22 @@ export function Editor({
                     className={`aspect-[4/3] w-full rounded object-cover ${subindo[m] ? "opacity-50" : ""}`}
                   />
                 ) : (
-                  <div className="grid aspect-[4/3] w-full place-items-center rounded bg-superficie-2 text-xs text-texto-3">
-                    sem foto
+                  <div className="grid aspect-[4/3] w-full place-items-center rounded border border-dashed border-borda bg-superficie-2 px-2 text-center text-xs text-texto-3">
+                    clique aqui e cole a foto (Ctrl+V)
                   </div>
                 )}
                 <div className="mt-2 flex flex-wrap gap-2">
+                  <Botao
+                    type="button"
+                    variante="primario"
+                    className="h-8 text-xs"
+                    disabled={!podeGravar || subindo[m]}
+                    onClick={() => colarDoBotao(m)}
+                  >
+                    {subindo[m] ? "Subindo…" : "Colar"}
+                  </Botao>
                   <label className={`${ESTILO_BOTAO.contorno} h-8 cursor-pointer text-xs`}>
-                    {subindo[m] ? "Subindo…" : previas[m] ? "Trocar" : "Tirar ou escolher"}
+                    {previas[m] ? "Trocar" : "Arquivo"}
                     <input
                       type="file"
                       accept="image/*"

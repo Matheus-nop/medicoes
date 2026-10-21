@@ -5,7 +5,7 @@
 // boletim já preenche e a conta do total — sem banco nem navegador, para se
 // provar com `npm test`. O total não se grava: é a soma dos materiais.
 
-import type { ItemDoBoletim } from "./medicoes.ts";
+import { lerOmsDaMedicao, type ItemDoBoletim } from "./medicoes.ts";
 
 export type TipoDeManutencao = "Corretiva" | "Preventiva";
 export const TIPOS_DE_MANUTENCAO: TipoDeManutencao[] = ["Corretiva", "Preventiva"];
@@ -185,16 +185,15 @@ export function grafiasDaOm(om: string): string[] {
   return [...new Set([om, om.padStart(6, "0"), om.replace(/^0+/, "")])].filter((x) => x.length >= 3);
 }
 
-/* ── A leitura da OM: da medição, ou colada do Sisloc ───────── */
+/* ── A leitura da OM: a colagem do Sisloc ───────────────────── */
 
 /**
- * De onde veio o que a leitura trouxe. A regra é a OM da medição — o boletim
- * onde ela está —, e a colagem do Sisloc fica para a OM que não aparece em
- * medição nenhuma.
+ * De onde veio o que a leitura trouxe: a colagem do Sisloc. A orçamentista faz
+ * o relatório na hora, com o Sisloc aberto — é de lá que a OM vem, e não da
+ * medição, que pode ainda nem ter a OM.
  */
-export type FonteDaLeitura = "medicao" | "sisloc";
+export type FonteDaLeitura = "sisloc";
 export const ROTULO_FONTE_DA_LEITURA: Record<FonteDaLeitura, string> = {
-  medicao: "medição",
   sisloc: "colagem do Sisloc",
 };
 
@@ -211,36 +210,13 @@ export interface LeituraDaOm {
   defeito: string | null;
   /** O Vl. orçamento — o que se cobra. Nunca o custo. */
   valor: number | null;
-  /** A base do boletim. */
+  /** O "Nome local de entrega": a base. */
   superintendencia: string | null;
-  /** O contato do boletim. */
   responsavel: string | null;
   fonte: FonteDaLeitura;
 }
 
 const cheio = (x: string | null | undefined) => (x && x.trim() ? x.trim() : null);
-
-/** A OM do boletim (e o boletim dela) como leitura. */
-export function leituraDaMedicao(
-  item: Pick<ItemDoBoletim, "equipamento" | "patrimonio" | "tipo_om" | "chegada_em" | "aberta_em" | "om_retirada" | "recibo_entrega" | "valor">,
-  boletim: { base: string | null; contato: string | null } | null,
-): LeituraDaOm {
-  const chegada = item.chegada_em ?? item.aberta_em;
-  return {
-    equipamento: cheio(item.equipamento),
-    patrimonio: cheio(item.patrimonio)?.toUpperCase() ?? null,
-    modelo: null,
-    tipo_om: cheio(item.tipo_om),
-    chegada_em: chegada ? chegada.slice(0, 10) : null,
-    om_retirada: cheio(item.om_retirada),
-    recibo_entrega: cheio(item.recibo_entrega),
-    defeito: null,
-    valor: item.valor > 0 ? item.valor : null,
-    superintendencia: cheio(boletim?.base),
-    responsavel: cheio(boletim?.contato),
-    fonte: "medicao",
-  };
-}
 
 /** A linha colada do Sisloc (a mesma leitura do boletim), como leitura da OM. */
 export function leituraDoSisloc(o: {
@@ -317,3 +293,34 @@ export function preencherComLeitura(
   }
   return { dados: novo, preenchidos };
 }
+
+/** Uma OM da colagem, pronta para abrir o relatório. */
+export interface OmColada {
+  om: string;
+  equipamento: string;
+  patrimonio: string;
+  leitura: LeituraDaOm;
+}
+
+/**
+ * A colagem do leitor: a grade do Sisloc com a linha dos títulos, uma OM ou
+ * várias. Sem título não se lê — a coluna errada seria o valor errado no
+ * papel do cliente.
+ */
+export function lerColagemDoSisloc(texto: string): { oms: OmColada[]; erro: string | null } {
+  const lida = lerOmsDaMedicao(texto);
+  if (!lida.temCabecalho) {
+    return { oms: [], erro: "Copie do Sisloc com a linha dos títulos — sem ela, não dá para saber qual coluna é qual." };
+  }
+  if (!lida.linhas.length) return { oms: [], erro: "A colagem não trouxe OM nenhuma." };
+  return {
+    oms: lida.linhas.map((l) => ({ om: l.om, equipamento: l.equipamento, patrimonio: l.patrimonio, leitura: leituraDoSisloc(l) })),
+    erro: null,
+  };
+}
+
+/**
+ * A leitura vai do leitor para o formulário pelo `sessionStorage` desta aba:
+ * nada se grava até a orçamentista gravar.
+ */
+export const chaveDaColagem = (om: string) => `relatorio-colagem:${om.replace(/^0+/, "")}`;
