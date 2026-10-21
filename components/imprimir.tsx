@@ -17,13 +17,16 @@ import { ESTILO_BOTAO } from "@/components/ui";
 export function Imprimir({
   rotulo = "Imprimir",
   orientacao = "portrait",
+  margem,
 }: {
   rotulo?: string;
   orientacao?: "portrait" | "landscape";
+  /** A margem da folha. O papel que pinta até a borda (o relatório moderno) usa "0". */
+  margem?: string;
 }) {
   return (
     <>
-      <RegraDeImpressao orientacao={orientacao} />
+      <RegraDeImpressao orientacao={orientacao} margem={margem} />
       <button type="button" onClick={() => window.print()} className={ESTILO_BOTAO.primario}>
         {rotulo}
       </button>
@@ -41,13 +44,15 @@ export function Imprimir({
  */
 export function RegraDeImpressao({
   orientacao = "portrait",
+  margem = "12mm",
 }: {
   orientacao?: "portrait" | "landscape";
+  margem?: string;
 }) {
   return (
     <style>{`
       @media print {
-        @page { size: A4 ${orientacao}; margin: 12mm; }
+        @page { size: A4 ${orientacao}; margin: ${margem}; }
         body * { visibility: hidden; }
         #folha, #folha * { visibility: visible; }
         #folha { position: absolute; inset: 0; }

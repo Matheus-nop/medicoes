@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
+import { dataCurta } from "../../../../formato";
 import { carregarRelatorio } from "../../../dados";
 import { Folha } from "./folha";
 
@@ -17,16 +18,26 @@ export async function generateMetadata({ params }: { params: Promise<{ om: strin
   return { title: `Relatório de manutenção - OM ${carga.om}${patrimonio ? ` - ${patrimonio}` : ""}` };
 }
 
-/** O relatório em papel: A4 em pé, impresso ou em PDF pelo próprio navegador. */
+/** O relatório em papel: A4 em pé, impresso ou em PDF pelo próprio navegador — o da casa, ou o da planilha. */
 export default async function FolhaDoRelatorio({
   params,
   searchParams,
 }: {
   params: Promise<{ om: string }>;
-  searchParams: Promise<{ imprimir?: string }>;
+  searchParams: Promise<{ imprimir?: string; papel?: string }>;
 }) {
-  const [{ om }, { imprimir }] = await Promise.all([params, searchParams]);
+  const [{ om }, { imprimir, papel }] = await Promise.all([params, searchParams]);
   const carga = await carregar(om);
   if (!carga) notFound();
-  return <Folha om={carga.om} dados={carga.dados} urls={carga.urls} imprimirAoAbrir={imprimir === "1"} />;
+  return (
+    <Folha
+      om={carga.om}
+      dados={carga.dados}
+      urls={carga.urls}
+      // O da casa é o padrão; o da planilha do cliente fica a um clique, para quem pedir.
+      papel={papel === "planilha" ? "planilha" : "moderno"}
+      emitidoEm={carga.gravado ? dataCurta(carga.gravado.em) : null}
+      imprimirAoAbrir={imprimir === "1"}
+    />
+  );
 }

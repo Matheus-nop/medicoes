@@ -233,23 +233,23 @@ desfaz isso logo depois de criar.
   é o que de fato gasta o contrato.
 - **relatório de manutenção** (`/relatorios`, 0021): o anexo que o Águas do
   Rio pede para cada OM cobrada — o "RELATÓRIO DE MANUTENÇÃO DE EQUIPAMENTO",
-  que a orçamentista preenchia no Excel. Abre pela OM (o leitor de
-  `/relatorios`, que aceita o leitor de código de barras, ou o link no cartão
-  da OM do boletim) já com o equipamento, o patrimônio, a data da retirada e os
-  comprovantes da OM, a base (superintendência) e o contato (responsável) do
-  boletim, e o modelo do cadastro do Estoque (`equipamentos_do_estoque`). Ela
-  completa o defeito, o diagnóstico, as três fotos (retirada, em manutenção,
-  entrega — bucket privado `medicoes-relatorios`) e os materiais. Cada Gravar é
-  uma versão nova, a última manda; o total é a soma dos materiais e não se
-  grava. O papel (`/relatorios/om/{om}/folha`) é a planilha do cliente em A4
-  em pé, e o arquivo de todos fica em `/relatorios`. Grava quem lança o
-  boletim. A forma do que se grava está em `lib/medicoes/relatorio.ts`.
-  A OM se lê **da medição** — é a lógica: o relatório é da OM que se cobra.
-  A OM que não está em medição nenhuma se lê **colando a linha do Sisloc** no
-  painel "Ler a OM" do formulário (a mesma leitura da colagem do boletim);
-  "Ler da medição" relê a OM que entrou num boletim depois. A leitura só
-  preenche o que está em branco (`preencherComLeitura`). O Estoque não é
-  fonte de OM: dele vem só o modelo, pelo patrimônio do cadastro.
+  que a orçamentista preenchia no Excel. Ela faz na hora, com o Sisloc aberto:
+  copia a OM na grade (com a linha dos títulos) e **cola no leitor** de
+  `/relatorios`, que abre o relatório já com equipamento, patrimônio, data,
+  tipo, comprovante de retirada, valor e superintendência (o "Nome local de
+  entrega"); várias OMs coladas viram uma lista. A colagem vai ao formulário
+  pelo `sessionStorage` da aba — nada se grava até gravar —, e o formulário
+  tem o mesmo "Colar do Sisloc". **A OM não se lê da medição nem do Estoque**:
+  é a colagem que preenche, e só o que está em branco (`preencherComLeitura`).
+  A medição só diz em que boletim a OM está e confere o total contra o valor
+  cobrado. As três fotos (retirada, em manutenção, entrega) se **colam**
+  (Ctrl+V no quadro, ou o botão Colar), sem salvar arquivo; vão reduzidas
+  para o bucket privado `medicoes-relatorios`. Cada Gravar é uma versão nova,
+  a última manda; o total é a soma dos materiais e não se grava. O papel
+  (`/relatorios/om/{om}/folha`) é o **da casa**, moderno, sem assinatura
+  (`folha/moderno.tsx`); a cópia da planilha do cliente continua em
+  `?papel=planilha` (`folha/planilha.tsx`). Grava quem lança o boletim. A
+  forma do que se grava está em `lib/medicoes/relatorio.ts`.
 
 ## Aparência
 - App instalável (PWA): `app/manifest.ts`, `public/sw.js` e o convite de
@@ -321,12 +321,11 @@ desfaz isso logo depois de criar.
       do prazo. Falta aplicar a `0018` e lançar as renovações passadas.
 - [~] O mês da medição (`0016`): os períodos recuam um mês para ter o nome do
       mês medido; nenhum saldo muda. Falta aplicar.
-- [~] O relatório de manutenção do Águas do Rio (`0021`): o formulário da
-      OM com as três fotos, o papel no padrão do cliente e o arquivo. `0021`
-      **aplicada**, conferência em `✓ ok`. Depois, sem migração, o painel
-      "Ler a OM": da medição, ou a linha colada do Sisloc para a OM que não
-      está em medição. (Uma `0022` que lia a OM no Estoque foi desfeita antes
-      de ir ao banco; se tiver rodado, `tirar-a-leitura-do-estoque.sql`
+- [~] O relatório de manutenção do Águas do Rio (`0021`): o leitor que lê a
+      OM colada do Sisloc, o formulário com as fotos coladas, o papel da casa
+      (e o da planilha do cliente) e o arquivo. `0021` **aplicada**,
+      conferência em `✓ ok`. (Uma `0022` que lia a OM no Estoque foi desfeita
+      antes de ir ao banco; se tiver rodado, `tirar-a-leitura-do-estoque.sql`
       desfaz.) O que falta não é código: preencher o primeiro mês no sistema
       em vez do Excel.
 - As provas de RLS de todas as migrações estão em

@@ -34,7 +34,7 @@ export default async function RelatorioDaOm({ params }: { params: Promise<{ om: 
               </Link>
             </>
           ) : (
-            "Esta OM não está em medição nenhuma: cole a linha dela do Sisloc em “Ler a OM”, ou preencha à mão."
+            "Esta OM ainda não está em medição nenhuma."
           )
         }
         acoes={
@@ -59,7 +59,7 @@ export default async function RelatorioDaOm({ params }: { params: Promise<{ om: 
           {carga.gravado.versoes > 1 ? ` · ${carga.gravado.versoes} versões (a última manda)` : ""}
         </p>
       ) : (
-        <p className="text-xs text-texto-3">Ainda não gravado: o que está aqui veio da medição (a OM e o boletim dela) e o modelo, do cadastro.</p>
+        <p className="text-xs text-texto-3">Ainda não gravado.</p>
       )}
 
       <Editor
@@ -68,8 +68,6 @@ export default async function RelatorioDaOm({ params }: { params: Promise<{ om: 
         urlsIniciais={carga.urls}
         valorNoBoletim={carga.item?.valor ?? null}
         podeGravar={podeGravar}
-        noBoletim={Boolean(carga.item)}
-        leituraInicial={carga.leitura}
       />
     </div>
   );
