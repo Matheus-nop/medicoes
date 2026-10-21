@@ -34,9 +34,7 @@ export default async function RelatorioDaOm({ params }: { params: Promise<{ om: 
               </Link>
             </>
           ) : (
-            carga.leitura
-              ? "Esta OM não está em boletim nenhum: o cabeçalho veio do Estoque. Confira."
-              : "Esta OM não está em boletim nenhum, e o Estoque não a conhece: leia a colagem do Sisloc ou preencha à mão."
+            "Esta OM não está em medição nenhuma: cole a linha dela do Sisloc em “Ler a OM”, ou preencha à mão."
           )
         }
         acoes={
@@ -61,7 +59,7 @@ export default async function RelatorioDaOm({ params }: { params: Promise<{ om: 
           {carga.gravado.versoes > 1 ? ` · ${carga.gravado.versoes} versões (a última manda)` : ""}
         </p>
       ) : (
-        <p className="text-xs text-texto-3">Ainda não gravado: o que está aqui veio da OM, do boletim e do Estoque.</p>
+        <p className="text-xs text-texto-3">Ainda não gravado: o que está aqui veio da medição (a OM e o boletim dela) e o modelo, do cadastro.</p>
       )}
 
       <Editor

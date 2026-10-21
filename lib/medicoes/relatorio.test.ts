@@ -6,7 +6,7 @@ import {
   dadosLidos,
   faltaNoRelatorio,
   grafiasDaOm,
-  juntarLeituras,
+  leituraDaMedicao,
   leituraDoSisloc,
   preencherComLeitura,
   observacaoPadrao,
@@ -104,26 +104,25 @@ test("a OM digitada e as grafias para achar no boletim", () => {
   igual(grafiasDaOm("038129"), ["038129", "38129"]);
 });
 
-test("a OM fora do boletim: cada campo vem de quem o conhece", () => {
-  const l = juntarLeituras([
-    { fonte: "acompanhamento", visto_em: null, patrimonio: "25012-158", equipamento: "CORTADORA DE PISO HUSQVARNA", modelo: "FS400",
-      cliente: "AGUAS DO RIO", tipo_om: "Corretiva de retorno", aberta_em: "2026-10-03T12:00:00Z", chegou_em: null,
-      defeito: null, om_entrada: null, om_retorno: null, valor: "203.00" },
-    { fonte: "os", visto_em: null, patrimonio: "25012-158", equipamento: null, modelo: null, cliente: null, tipo_om: null,
-      aberta_em: "2026-10-01T12:00:00Z", chegou_em: null, defeito: "TAMPA QUEBRADA", om_entrada: "1283-03", om_retorno: "015932", valor: null },
-  ]);
-  e(l?.valor, 203);
-  e(l?.defeito, "TAMPA QUEBRADA");
-  e(l?.om_retirada, "1283-03");
-  e(l?.chegada_em, "2026-10-03");
-  igual(l?.fontes, ["acompanhamento", "os"]);
-  e(juntarLeituras([]), null);
+test("a leitura da medição traz a OM e o boletim dela", () => {
+  const l = leituraDaMedicao(OM, { base: "VCG - COMUNIDADES", contato: "SRA. THAYNÃ" });
+  e(l.fonte, "medicao");
+  e(l.valor, 2624);
+  e(l.recibo_entrega, "015932");
+  e(l.chegada_em, "2026-10-02");
+  const { dados, preenchidos } = preencherComLeitura(relatorioNovo(null, null, null), l);
+  e(dados.superintendencia, "VCG - COMUNIDADES");
+  e(dados.responsavel, "SRA. THAYNÃ");
+  e(dados.observacao, observacaoPadrao("023323", "015932"));
+  e(preenchidos.includes("responsável"), true);
 });
 
 test("a leitura preenche só o que está em branco", () => {
   const branco = relatorioNovo(null, null, null);
   const l = leituraDoSisloc({ equipamento: "CORTADORA", patrimonio: "25012-158", tipoOm: "PREVENTIVA", abertaEm: "2026-10-02T09:00:00Z",
-    chegadaEm: null, omRetirada: "023323", valor: 2624, cliente: "AGUAS DO RIO" });
+    chegadaEm: null, omRetirada: "023323", valor: 2624, local: "BASE NORTE - ILHA" });
+  e(l.superintendencia, "BASE NORTE - ILHA");
+  e(l.fonte, "sisloc");
   const { dados, preenchidos } = preencherComLeitura({ ...branco, equipamento: "JÁ ESCRITO" }, l);
   e(dados.equipamento, "JÁ ESCRITO");
   e(dados.patrimonio, "25012-158");
