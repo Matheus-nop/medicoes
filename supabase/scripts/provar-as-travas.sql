@@ -467,3 +467,39 @@ insert into medicoes.contratos (numero, cliente, vigencia_inicio, vigencia_fim)
 values ('PROVA-21B', 'PROVA', '2026-01-01', '2026-12-31');
 rollback;
 */
+
+
+-- ── 22. O relatório de manutenção: quem lança grava, em nome dele, e versão não se reescreve (0021) ──
+-- Esperado: o relatório e a versão do orçamento passam (INSERT 0 1 nos dois);
+-- a versão em nome de outra pessoa, ERROR 42501; o update na versão, ERROR
+-- 42501 (permission denied); o delete, ERROR 42501; e o financeiro, que lê,
+-- não grava: ERROR 42501. Precisa de alguém de orçamento e de financeiro.
+/*
+begin;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'orcamento' order by p.id limit 1))::text, true);
+set local role authenticated;
+insert into medicoes.relatorios_de_manutencao (om) values ('999022');
+insert into medicoes.relatorio_de_manutencao_versoes (relatorio_id, dados)
+select id, '{"diagnostico": "prova"}'::jsonb from medicoes.relatorios_de_manutencao where om = '999022';
+savepoint a;
+insert into medicoes.relatorio_de_manutencao_versoes (relatorio_id, dados, gravado_por)
+select r.id, '{}'::jsonb, (select p.id from medicoes.perfis p where p.papel = 'diretoria' order by p.id limit 1)
+from medicoes.relatorios_de_manutencao r where r.om = '999022';
+rollback to a;
+savepoint b;
+update medicoes.relatorio_de_manutencao_versoes set dados = '{"mexido": true}'::jsonb;
+rollback to b;
+savepoint c;
+delete from medicoes.relatorio_de_manutencao_versoes;
+rollback to c;
+reset role;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'financeiro' order by p.id limit 1))::text, true);
+set local role authenticated;
+select count(*) as o_financeiro_le from medicoes.relatorios_de_manutencao_atuais;
+insert into medicoes.relatorios_de_manutencao (om) values ('999023');
+rollback;
+*/

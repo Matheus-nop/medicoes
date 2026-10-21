@@ -231,6 +231,19 @@ desfaz isso logo depois de criar.
   **medido a faturar**. Os alertas de consumo (80% avisa, 90% pede ação) e o
   **ritmo** (média do medido dos últimos 6 meses do ciclo) olham o medido, que
   é o que de fato gasta o contrato.
+- **relatório de manutenção** (`/relatorios`, 0021): o anexo que o Águas do
+  Rio pede para cada OM cobrada — o "RELATÓRIO DE MANUTENÇÃO DE EQUIPAMENTO",
+  que a orçamentista preenchia no Excel. Abre pela OM (o leitor de
+  `/relatorios`, que aceita o leitor de código de barras, ou o link no cartão
+  da OM do boletim) já com o equipamento, o patrimônio, a data da retirada e os
+  comprovantes da OM, a base (superintendência) e o contato (responsável) do
+  boletim, e o modelo do cadastro do Estoque (`equipamentos_do_estoque`). Ela
+  completa o defeito, o diagnóstico, as três fotos (retirada, em manutenção,
+  entrega — bucket privado `medicoes-relatorios`) e os materiais. Cada Gravar é
+  uma versão nova, a última manda; o total é a soma dos materiais e não se
+  grava. O papel (`/relatorios/om/{om}/folha`) é a planilha do cliente em A4
+  em pé, e o arquivo de todos fica em `/relatorios`. Grava quem lança o
+  boletim. A forma do que se grava está em `lib/medicoes/relatorio.ts`.
 
 ## Aparência
 - App instalável (PWA): `app/manifest.ts`, `public/sw.js` e o convite de
@@ -302,5 +315,8 @@ desfaz isso logo depois de criar.
       do prazo. Falta aplicar a `0018` e lançar as renovações passadas.
 - [~] O mês da medição (`0016`): os períodos recuam um mês para ter o nome do
       mês medido; nenhum saldo muda. Falta aplicar.
+- [~] O relatório de manutenção do Águas do Rio (`0021`): o formulário da
+      OM com as três fotos, o papel no padrão do cliente e o arquivo. Falta
+      aplicar a `0021` e preencher o primeiro mês no sistema em vez do Excel.
 - As provas de RLS de todas as migrações estão em
-  `supabase/scripts/provar-as-travas.sql` (trechos 1 a 21).
+  `supabase/scripts/provar-as-travas.sql` (trechos 1 a 22).

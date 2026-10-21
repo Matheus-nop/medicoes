@@ -708,6 +708,13 @@ function CartaoDaOm({
             {item.faturada ? "Desfazer" : "Marcar faturada"}
           </button>
         )}
+        {/* O anexo que o Águas do Rio pede para cada OM cobrada (0021). A Rio+
+            não pede, e é o mesmo critério dos recibos. */}
+        {comRecibo && (
+          <Link href={`/relatorios/om/${item.om}`} className="font-semibold text-acento underline">
+            Relatório de manutenção
+          </Link>
+        )}
         {aberto && (
           <span className="ml-auto flex gap-3">
             <button type="button" onClick={() => setEditando(true)} className="font-semibold text-texto-2 underline">

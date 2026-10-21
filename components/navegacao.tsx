@@ -11,6 +11,7 @@ import {
   IconeMedicoes,
   IconePainel,
   IconeReceber,
+  IconeRelatorio,
   IconeUsuarios,
 } from "./icones";
 
@@ -35,6 +36,7 @@ const SECOES = [
     itens: [
       { href: "/", rotulo: "Lançar medições de manutenção", Icone: IconeMedicoes },
       { href: "/boletins/abertos", rotulo: "BMs em aberto", Icone: IconeAbertos },
+      { href: "/relatorios", rotulo: "Relatórios de manutenção", Icone: IconeRelatorio },
       { href: "/bases", rotulo: "Cadastro de bases", Icone: IconeBase },
     ],
   },
