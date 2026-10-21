@@ -94,6 +94,16 @@ export const IconeContrato = svg(
   </>,
 );
 
+// A folha com a foto no meio: o relatório de manutenção que vai com a OM.
+export const IconeRelatorio = svg(
+  <>
+    <path d="M6 3.5h12A1.5 1.5 0 0 1 19.5 5v14a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 19V5A1.5 1.5 0 0 1 6 3.5z" />
+    <path d="M8 7h8v5.5H8z" />
+    <path d="M8 11.5l2.5-2 2 1.5 1.5-1 2 1.5" />
+    <path d="M8 15.5h8M8 18h5" />
+  </>,
+);
+
 export const IconeUsuarios = svg(
   <>
     <circle cx="9" cy="8" r="3.2" />
