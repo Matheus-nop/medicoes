@@ -27,7 +27,7 @@ import { AbasDoPainel } from "./abas";
 import { IdadeDoAberto, NumerosDoRecebimento } from "./idade";
 import type { CargaDoControle } from "./dados";
 import { BarrasDeSaldo, GraficoEvolucao } from "./graficos";
-import { AoVivo, EscolherPeriodo, RecadoDaBase } from "./vivo";
+import { AoVivo, EscolherPeriodo, EscolherRecorte, RecadoDaBase } from "./vivo";
 
 const COR: Record<Categoria, string> = {
   manutencao: "bg-cat-manutencao",
@@ -56,8 +56,14 @@ function PorCento({ fracao }: { fracao: number | null }) {
 
 /** O painel, com os dados já lidos — a página lê, esta desenha. */
 export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { ok: true }> }) {
-  const { cliente, clientes, periodos, serie, periodo, regioes, celulas, historia, inicioRecebimento } =
+  const { cliente, clientes, periodos, serie, periodo, regioes, celulas, historia, inicioRecebimento, base, tipo, bases } =
     carga;
+  // O recorte vai junto em todo link que fica no painel ou vai ao relatório.
+  const recorte = `${base !== TODAS ? `&base=${encodeURIComponent(base)}` : ""}${tipo ? `&tipo=${tipo}` : ""}`;
+  const categorias = tipo ? [tipo] : CATEGORIAS;
+  const nomeDoRecorte = [base !== TODAS ? `Base ${base}` : null, tipo ? ROTULO_CATEGORIA[tipo] : null]
+    .filter(Boolean)
+    .join(" · ");
   const r = resumirPeriodo(celulas, regioes);
   const lancar = `/controle/lancar?cliente=${encodeURIComponent(cliente)}${
     periodo ? `&periodo=${periodo.id}` : ""
@@ -75,10 +81,10 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
   }`;
   const rec = resumirRecebimento(celulas);
   const acompanha = Boolean(inicioRecebimento && periodo && periodo.mes >= inicioRecebimento);
-  const relatorio = (base: string) =>
+  const relatorio = (daBase: string) =>
     `/controle/relatorio?cliente=${encodeURIComponent(cliente)}${
       periodo ? `&periodo=${periodo.id}` : ""
-    }&base=${encodeURIComponent(base)}`;
+    }&base=${encodeURIComponent(daBase)}${tipo ? `&tipo=${tipo}` : ""}`;
 
   if (!periodo) {
     return (
@@ -133,8 +139,15 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
         titulo="Painel executivo"
         resumo={
           <>
-            {cliente} · posição de <strong>{periodo.rotulo}</strong>. Saldo anterior + medido no
-            mês − faturado no mês = saldo, que passa para o mês seguinte.
+            {cliente}
+            {nomeDoRecorte && (
+              <>
+                {" "}
+                · <strong>{nomeDoRecorte}</strong>
+              </>
+            )}{" "}
+            · posição de <strong>{periodo.rotulo}</strong>. Saldo anterior + medido no mês − faturado no mês =
+            saldo, que passa para o mês seguinte.
           </>
         }
         acoes={
@@ -147,7 +160,8 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
               periodoId={periodo.id}
               comValor={serie.map((s) => s.periodo_id)}
             />
-            <Link href={relatorio(TODAS)} className={ESTILO_BOTAO.contorno}>
+            <EscolherRecorte bases={bases.map((b) => b.nome)} base={base} tipo={tipo} />
+            <Link href={relatorio(base)} className={ESTILO_BOTAO.contorno}>
               Relatório / PDF
             </Link>
             <Link href={lancar} className={ESTILO_BOTAO.primario}>
@@ -204,7 +218,7 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
-        {CATEGORIAS.map((c) => cartaoDaCategoria(c, r.categorias[c]))}
+        {categorias.map((c) => cartaoDaCategoria(c, r.categorias[c]))}
       </div>
 
       {/* ── Recebimento e idade do que está em aberto ─────── */}
@@ -260,7 +274,7 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
             <thead className="text-texto-3">
               <tr className="border-b border-borda">
                 <th className="px-4 py-2 font-medium">Região</th>
-                {CATEGORIAS.map((c) => (
+                {categorias.map((c) => (
                   <th key={c} className="py-2 pr-3 text-right font-medium">
                     <span className={`mr-1 inline-block size-2 rounded-full ${COR[c]}`} />
                     {ROTULO_CATEGORIA[c]}
@@ -281,7 +295,7 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
                       {l.regiao}
                     </Link>
                   </td>
-                  {CATEGORIAS.map((c) => (
+                  {categorias.map((c) => (
                     <td key={c} className="py-2 pr-3 text-right text-texto-2">
                       {temValor(l.categorias[c])
                         ? emReais(l.categorias[c].saldo)
@@ -299,7 +313,7 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
               ))}
               <tr className="bg-superficie-2 font-semibold">
                 <td className="px-4 py-2">TOTAL</td>
-                {CATEGORIAS.map((c) => (
+                {categorias.map((c) => (
                   <td key={c} className="py-2 pr-3 text-right">
                     {emReais(r.categorias[c].saldo)}
                   </td>
@@ -357,7 +371,7 @@ export function VisaoDoControle({ carga }: { carga: Extract<CargaDoControle, { o
                     >
                       <td className="px-4 py-1.5">
                         <Link
-                          href={`/controle?cliente=${encodeURIComponent(cliente)}&periodo=${s.periodo_id}`}
+                          href={`/controle?cliente=${encodeURIComponent(cliente)}&periodo=${s.periodo_id}${recorte}`}
                           className="font-medium hover:underline"
                         >
                           {s.rotulo}

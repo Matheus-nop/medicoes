@@ -100,6 +100,10 @@ desfaz isso logo depois de criar.
   (`lib/medicoes/arquivo.ts`).
 - **painel executivo** (`/controle`): a aba "Por cliente" e a aba "Todos os
   clientes", onde cada um entra com a SUA posição mais recente.
+  O painel e o relatório recortam por **base** (a região do controle) e por
+  **tipo** (manutenção, locação, indenização): `?base=SUL&tipo=locacao`. O
+  recorte filtra as células em `carregarControle`, e a evolução de um recorte
+  sai delas (`serieDasCelulas`), não do total do cliente.
 - **padrão das telas**: cartões em quadro e painéis que recolhem
   (`CartaoDoQuadro`, `Painel`), não tabela linha a linha. Tabela fica para o
   papel e para o histórico.

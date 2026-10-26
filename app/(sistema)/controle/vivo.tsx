@@ -4,9 +4,12 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Botao, CAMPO, Campo, ESTILO_BOTAO } from "@/components/ui";
 import {
+  CATEGORIAS,
+  ROTULO_CATEGORIA,
   TODAS,
   emailDaRegiao,
   recadoDaRegiao,
+  type Categoria,
   type LinhaDaRegiao,
   type Periodo,
 } from "@/lib/medicoes/controle";
@@ -180,28 +183,50 @@ export function RecadoDaBase({
   );
 }
 
-/** A base do relatório — "todas" é o cliente inteiro. Muda o endereço. */
-export function EscolherBase({ bases, base }: { bases: string[]; base: string }) {
+/**
+ * O recorte do painel e do relatório: uma base (a região do controle) e um
+ * tipo (manutenção, locação, indenização). Muda o endereço, e o servidor lê
+ * de novo — os números todos passam a ser os do recorte.
+ */
+export function EscolherRecorte({
+  bases,
+  base,
+  tipo,
+}: {
+  bases: string[];
+  base: string;
+  tipo: Categoria | null;
+}) {
   const router = useRouter();
   const caminho = usePathname();
   const busca = useSearchParams();
+  const ir = (k: string, v: string) => {
+    const p = new URLSearchParams(busca.toString());
+    if (v === TODAS) p.delete(k);
+    else p.set(k, v);
+    router.push(`${caminho}?${p.toString()}`);
+  };
   return (
-    <Campo rotulo="Base">
-      <select
-        value={base}
-        onChange={(e) => {
-          const p = new URLSearchParams(busca.toString());
-          p.set("base", e.target.value);
-          router.push(`${caminho}?${p.toString()}`);
-        }}
-        className={CAMPO}
-      >
-        <option value={TODAS}>Todas as bases</option>
-        {bases.map((b) => (
-          <option key={b}>{b}</option>
-        ))}
-      </select>
-    </Campo>
+    <>
+      <Campo rotulo="Base">
+        <select value={base} onChange={(e) => ir("base", e.target.value)} className={CAMPO}>
+          <option value={TODAS}>Todas as bases</option>
+          {bases.map((b) => (
+            <option key={b}>{b}</option>
+          ))}
+        </select>
+      </Campo>
+      <Campo rotulo="Tipo">
+        <select value={tipo ?? TODAS} onChange={(e) => ir("tipo", e.target.value)} className={CAMPO}>
+          <option value={TODAS}>Todos os tipos</option>
+          {CATEGORIAS.map((c) => (
+            <option key={c} value={c}>
+              {ROTULO_CATEGORIA[c]}
+            </option>
+          ))}
+        </select>
+      </Campo>
+    </>
   );
 }
 
