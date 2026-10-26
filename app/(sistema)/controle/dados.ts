@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import {
+  CATEGORIAS,
   CLIENTE_PADRAO,
+  TODAS,
   type Categoria,
   type Celula,
   type Periodo,
@@ -38,6 +40,11 @@ export type CargaDoControle =
       historia: Celula[];
       /** O mês em que o recebimento começou a ser acompanhado, ou null. */
       inicioRecebimento: string | null;
+      /** O recorte: uma base (região do controle) ou TODAS, e um tipo ou todos. */
+      base: string;
+      tipo: Categoria | null;
+      /** Todas as bases do cliente, para escolher — `regioes` é só a do recorte. */
+      bases: Regiao[];
     }
   | { ok: false; erro: string; faltaMigracao: boolean };
 
@@ -52,7 +59,11 @@ const n = (v: unknown) => Number(v ?? 0);
 export async function carregarControle(
   clientePedido?: string,
   periodoPedido?: number,
-  { vazioVale = false }: { vazioVale?: boolean } = {},
+  {
+    vazioVale = false,
+    base: basePedida,
+    tipo: tipoPedido,
+  }: { vazioVale?: boolean; base?: string; tipo?: string } = {},
 ): Promise<CargaDoControle> {
   const supabase = await createClient();
 
@@ -77,9 +88,14 @@ export async function carregarControle(
 
   const cliente = clientePedido?.trim() || clientes[0] || CLIENTE_PADRAO;
   const periodos = ((todos ?? []) as Periodo[]).filter((p) => p.cliente === cliente);
-  const regioes = ((regioesTodas ?? []) as (Regiao & { cliente: string })[])
+  const bases = ((regioesTodas ?? []) as (Regiao & { cliente: string })[])
     .filter((r) => r.cliente === cliente)
     .map(({ id, nome, ordem }) => ({ id, nome, ordem }));
+  // O recorte: base que não é do cliente, ou tipo que não existe, vale "todos".
+  const base = basePedida && bases.some((r) => r.nome === basePedida) ? basePedida : TODAS;
+  const tipo = CATEGORIAS.includes(tipoPedido as Categoria) ? (tipoPedido as Categoria) : null;
+  const recortado = base !== TODAS || tipo !== null;
+  const regioes = base === TODAS ? bases : bases.filter((r) => r.nome === base);
 
   const { data: totais, error: e3 } = await supabase
     .from("controle_mes")
@@ -87,7 +103,7 @@ export async function carregarControle(
     .eq("cliente", cliente)
     .order("mes");
   if (e3) return { ok: false, erro: e3.message, faltaMigracao: e3.code === "42P01" };
-  const serie = (
+  let serie = (
     (totais ?? []) as (Omit<TotalDoPeriodo, "anterior" | "aFaturar"> & {
       saldo_anterior: unknown;
       a_faturar: unknown;
@@ -126,7 +142,9 @@ export async function carregarControle(
   if (hist.error) {
     return { ok: false, erro: hist.error.message, faltaMigracao: hist.error.code === "42P01" };
   }
-  const historia = ((hist.data ?? []) as Celula[]).map((c) => ({
+  const historia = ((hist.data ?? []) as Celula[])
+    .filter((c) => (base === TODAS || c.regiao === base) && (tipo === null || c.categoria === tipo))
+    .map((c) => ({
     ...c,
     categoria: c.categoria as Categoria,
     saldo_anterior: n(c.saldo_anterior),
@@ -137,6 +155,9 @@ export async function carregarControle(
     recebido: n(c.recebido),
     a_receber_anterior: n(c.a_receber_anterior),
   }));
+  // Com recorte, a evolução sai das células da base e do tipo, e não do total
+  // do cliente: a mesma conta da view, somada aqui.
+  if (recortado) serie = serieDasCelulas(historia, periodos);
   const celulas = periodo ? historia.filter((c) => c.periodo_id === periodo.id) : [];
   // Sem a 0007 a view de início não existe: o recebimento fica desligado.
   const inicioRecebimento = ini.error ? null : ((ini.data?.mes as string | undefined) ?? null);
@@ -152,5 +173,36 @@ export async function carregarControle(
     celulas,
     historia,
     inicioRecebimento,
+    base,
+    tipo,
+    bases,
   };
+}
+
+/** O total de cada período a partir das células — o `controle_mes` de um recorte. */
+export function serieDasCelulas(celulas: Celula[], periodos: Periodo[]): TotalDoPeriodo[] {
+  const por = new Map<number, { anterior: number; medido: number; faturado: number }>();
+  for (const c of celulas) {
+    const t = por.get(c.periodo_id) ?? { anterior: 0, medido: 0, faturado: 0 };
+    t.anterior += c.saldo_anterior ?? 0;
+    t.medido += c.medido;
+    t.faturado += c.faturado;
+    por.set(c.periodo_id, t);
+  }
+  return periodos
+    .filter((p) => por.has(p.id))
+    .map((p) => {
+      const t = por.get(p.id)!;
+      return {
+        periodo_id: p.id,
+        mes: p.mes,
+        rotulo: p.rotulo,
+        anterior: t.anterior,
+        medido: t.medido,
+        faturado: t.faturado,
+        aFaturar: t.anterior + t.medido,
+        saldo: t.anterior + t.medido - t.faturado,
+      };
+    })
+    .filter((t) => t.anterior !== 0 || t.medido !== 0 || t.faturado !== 0);
 }

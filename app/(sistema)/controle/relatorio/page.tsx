@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
-import { TODAS, type Categoria, type Celula } from "@/lib/medicoes/controle";
+import { CATEGORIAS, ROTULO_CATEGORIA, TODAS, type Categoria } from "@/lib/medicoes/controle";
 import { carregarControle } from "../dados";
 import { RelatorioDaBase } from "./folha";
 
 export const dynamic = "force-dynamic";
 
-type Busca = { cliente?: string; periodo?: string; base?: string };
+type Busca = { cliente?: string; periodo?: string; base?: string; tipo?: string };
 
 /** O título é o nome do arquivo que o navegador sugere ao salvar o PDF. */
 export async function generateMetadata({
@@ -16,17 +15,20 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const q = await searchParams;
   const base = !q.base || q.base === TODAS ? "TODAS AS BASES" : q.base;
-  return { title: `Medições - ${q.cliente ?? "ÁGUAS DO RIO - AEGEA"} - ${base}`.replace(/\//g, "-") };
+  const tipo = CATEGORIAS.includes(q.tipo as Categoria) ? ` - ${ROTULO_CATEGORIA[q.tipo as Categoria].toUpperCase()}` : "";
+  return { title: `Medições - ${q.cliente ?? "ÁGUAS DO RIO - AEGEA"} - ${base}${tipo}`.replace(/\//g, "-") };
 }
 
 /**
- * O relatório de medições de uma base — ou de todas — numa posição: o que o
- * painel mostra, em papel. Sai em PDF pela janela de impressão e vai por
- * e-mail ou WhatsApp.
+ * O relatório de medições de uma base — ou de todas —, de um tipo ou de todos,
+ * numa posição: o que o painel mostra, em papel. Sai em PDF pela janela de
+ * impressão e vai por e-mail ou WhatsApp.
  */
 export default async function Relatorio({ searchParams }: { searchParams: Promise<Busca> }) {
   const q = await searchParams;
-  const carga = await carregarControle(q.cliente, q.periodo ? Number(q.periodo) : undefined);
+  // O relatório lê o cliente inteiro e recorta só o tipo: a base escolhida
+  // aparece na folha, mas a lista das bases continua toda, para escolher.
+  const carga = await carregarControle(q.cliente, q.periodo ? Number(q.periodo) : undefined, { tipo: q.tipo });
   if (!carga.ok) {
     return (
       <div className="rounded-lg border border-borda bg-superficie p-8 text-center">
@@ -36,20 +38,6 @@ export default async function Relatorio({ searchParams }: { searchParams: Promis
     );
   }
 
-  // A história inteira do cliente: é dela que sai a evolução da base.
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("controle_posicao")
-    .select("periodo_id, regiao_id, regiao, ordem, categoria, saldo_anterior, medido, faturado")
-    .eq("cliente", carga.cliente);
-  const historia = ((data ?? []) as Celula[]).map((c) => ({
-    ...c,
-    categoria: c.categoria as Categoria,
-    saldo_anterior: Number(c.saldo_anterior),
-    medido: Number(c.medido),
-    faturado: Number(c.faturado),
-  }));
-
   const base = q.base && carga.regioes.some((r) => r.nome === q.base) ? q.base : TODAS;
-  return <RelatorioDaBase carga={carga} historia={historia} base={base} />;
+  return <RelatorioDaBase carga={carga} historia={carga.historia} base={base} />;
 }

@@ -15,7 +15,7 @@ import {
   type LinhaDaRegiao,
 } from "@/lib/medicoes/controle";
 import type { CargaDoControle } from "../dados";
-import { EnviarRelatorio, EscolherBase, EscolherPeriodo } from "../vivo";
+import { EnviarRelatorio, EscolherPeriodo, EscolherRecorte } from "../vivo";
 
 // O papel tem as cores dele, e não os tokens do tema: sai igual impresso no
 // tema claro e no escuro, como o boletim. São as mesmas das categorias.
@@ -86,17 +86,20 @@ export function RelatorioDaBase({
   historia: Celula[];
   base: string;
 }) {
-  const { cliente, clientes, periodos, serie, periodo, regioes, celulas } = carga;
+  const { cliente, clientes, periodos, serie, periodo, regioes, celulas, tipo } = carga;
   const todas = base === TODAS;
-  const nomeBase = todas ? "Todas as bases" : `Base ${base}`;
+  const categorias = tipo ? [tipo] : CATEGORIAS;
+  const nomeBase = `${todas ? "Todas as bases" : `Base ${base}`}${tipo ? ` · ${ROTULO_CATEGORIA[tipo]}` : ""}`;
 
   const barra = (
     <Cabecalho
       titulo="Relatório de medições"
-      resumo="Escolha a base e a posição. O PDF sai do botão de imprimir, em A4, e vai anexo no e-mail."
+      resumo="Escolha a base, o tipo e a posição. O PDF sai do botão de imprimir, em A4, e vai anexo no e-mail."
       acoes={
         <Link
-          href={`/controle?cliente=${encodeURIComponent(cliente)}${periodo ? `&periodo=${periodo.id}` : ""}`}
+          href={`/controle?cliente=${encodeURIComponent(cliente)}${periodo ? `&periodo=${periodo.id}` : ""}${
+            todas ? "" : `&base=${encodeURIComponent(base)}`
+          }${tipo ? `&tipo=${tipo}` : ""}`}
           className={ESTILO_BOTAO.discreto}
         >
           Voltar ao painel
@@ -130,7 +133,7 @@ export function RelatorioDaBase({
     hour: "2-digit",
     minute: "2-digit",
   });
-  const endereco = `/controle/relatorio?cliente=${encodeURIComponent(cliente)}&periodo=${periodo.id}&base=${encodeURIComponent(base)}`;
+  const endereco = `/controle/relatorio?cliente=${encodeURIComponent(cliente)}&periodo=${periodo.id}&base=${encodeURIComponent(base)}${tipo ? `&tipo=${tipo}` : ""}`;
 
   // A primeira coluna é texto à esquerda; o resto é dinheiro à direita.
   const th = "px-[1.5mm] py-[1.2mm] text-right font-bold";
@@ -156,7 +159,7 @@ export function RelatorioDaBase({
             periodoId={periodo.id}
             comValor={serie.map((s) => s.periodo_id)}
           />
-          <EscolherBase bases={regioes.map((x) => x.nome)} base={base} />
+          <EscolherRecorte bases={regioes.map((x) => x.nome)} base={base} tipo={tipo} />
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <EnviarRelatorio cliente={cliente} rotulo={periodo.rotulo} linha={linha} endereco={endereco} />
             <Imprimir rotulo="Imprimir / PDF" />
@@ -209,7 +212,7 @@ export function RelatorioDaBase({
               </tr>
             </thead>
             <tbody>
-              {CATEGORIAS.map((c) => {
+              {categorias.map((c) => {
                 const s = linha.categorias[c];
                 return (
                   <tr key={c}>
@@ -250,7 +253,7 @@ export function RelatorioDaBase({
                 <thead>
                   <tr className="bg-[#16365C] text-[6.5pt] text-white">
                     <th className={thL1}>Base</th>
-                    {CATEGORIAS.map((c) => (
+                    {categorias.map((c) => (
                       <th key={c} className={thL}>
                         {ROTULO_CATEGORIA[c]}
                       </th>
@@ -266,7 +269,7 @@ export function RelatorioDaBase({
                   {r.regioes.map((x) => (
                     <tr key={x.regiao} className="break-inside-avoid">
                       <td className={`${tdL1} font-semibold`}>{x.regiao}</td>
-                      {CATEGORIAS.map((c) => (
+                      {categorias.map((c) => (
                         <td key={c} className={tdL}>
                           {temValor(x.categorias[c]) ? num(x.categorias[c].saldo) : "—"}
                         </td>
@@ -309,7 +312,7 @@ export function RelatorioDaBase({
                 <thead>
                   <tr className="bg-[#16365C] text-[6.5pt] text-white">
                     <th className={thL1}>Período</th>
-                    {CATEGORIAS.map((c) => (
+                    {categorias.map((c) => (
                       <th key={c} className={thL}>
                         Saldo {ROTULO_CATEGORIA[c].toLowerCase()}
                       </th>
@@ -325,7 +328,7 @@ export function RelatorioDaBase({
                   {[...fotos].reverse().map((f) => (
                     <tr key={f.periodo_id} className={f.periodo_id === periodo.id ? "bg-[#EEF3FA] font-semibold" : ""}>
                       <td className={`${tdL1} whitespace-nowrap`}>{f.rotulo}</td>
-                      {CATEGORIAS.map((c) => (
+                      {categorias.map((c) => (
                         <td key={c} className={tdL}>
                           {temValor(f.categorias[c]) ? num(f.categorias[c].saldo) : "—"}
                         </td>
