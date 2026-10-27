@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import { linhasDaLocacao, linhasDaManutencao, periodoDaPlanilha, type LinhaDaPlanilha } from "@/lib/medicoes/locacao";
+import { MOLDE_AEGEA_BASE64 } from "@/lib/medicoes/molde-aegea";
 import type { CargaDaMedicao } from "../../dados";
 import { mesPorExtenso } from "../../formato";
 
@@ -8,39 +9,12 @@ const ultimoDia = (mes: string) => {
   return d.toISOString().slice(0, 10);
 };
 
-/** As colunas da AEGEA, na ordem dela — e, depois do CHECK, as que a casa sugere. */
-const COLUNAS: { titulo: string; chave: keyof LinhaDaPlanilha | null; largura: number; dinheiro?: boolean; sugerida?: boolean }[] = [
-  { titulo: "SERVIÇO", chave: "servico", largura: 36 },
-  { titulo: "PATRIMÔNIOS", chave: "patrimonio", largura: 14 },
-  { titulo: "DATA DE EXECUÇÃO", chave: "execucao", largura: 24 },
-  { titulo: "UND. DE MEDIDA", chave: "unidade", largura: 9 },
-  { titulo: "TEMPO", chave: "tempo", largura: 8 },
-  { titulo: "QTDE", chave: "qtde", largura: 7 },
-  { titulo: "Valor da Unidade ", chave: "valor_unidade", largura: 13, dinheiro: true },
-  { titulo: "VALOR TOTAL DA OS", chave: "valor_total", largura: 14, dinheiro: true },
-  { titulo: "OS APROVADA?", chave: "aprovada", largura: 10 },
-  { titulo: "PROJETO", chave: "projeto", largura: 14 },
-  { titulo: "CIDADE", chave: "cidade", largura: 18 },
-  { titulo: "SUPERINTENDÊNCIA", chave: "superintendencia", largura: 18 },
-  { titulo: "BLOCO", chave: "bloco", largura: 10 },
-  { titulo: "CHECK SERVIÇO", chave: null, largura: 12 },
-  { titulo: "POSIÇÃO", chave: "posicao", largura: 9, sugerida: true },
-  { titulo: "TROCA", chave: "troca", largura: 34, sugerida: true },
-  { titulo: "COORDENADOR", chave: "coordenador", largura: 20, sugerida: true },
-  { titulo: "BASE (SISLOC)", chave: "base", largura: 34, sugerida: true },
-  { titulo: "REMESSA", chave: "remessa", largura: 11, sugerida: true },
-];
-
-const MARINHO = "FF16365C";
-const CINZA = "FFF2F4F8";
-const AMBAR = "FFFBF1DC";
-
 /**
- * A planilha padrão da AEGEA — a aba "EVIDÊNCIAS - OS & Equip." —, de todas
- * as bases e todos os contratos do mês: a locação posição a posição e, no fim,
- * as linhas de MANUTENÇÃO dos boletins do mês. As colunas da AEGEA vêm como
- * ela pede; as sugeridas (posição, troca, coordenador, base, remessa) vêm
- * depois, em outra cor, para tirar se o cliente não quiser.
+ * A planilha da AEGEA no modelo DELES: o arquivo deles como molde, com as
+ * mesmas abas, células, cores e fórmula do TOTAL — de todas as bases e todos
+ * os contratos do mês, uma linha por equipamento e, no fim, as linhas de
+ * MANUTENÇÃO dos boletins do mês. Depois do CHECK SERVIÇO, as colunas da
+ * casa: POSIÇÃO, TROCA, COORDENADOR, BASE (SISLOC) e REMESSA.
  */
 export async function montarPlanilha(
   carga: Extract<CargaDaMedicao, { ok: true }>,
@@ -95,87 +69,89 @@ export async function montarPlanilha(
   );
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "Nova Opção · Medições e Contratos";
-  const ws = wb.addWorksheet("EVIDÊNCIAS - OS & Equip.", { views: [{ state: "frozen", ySplit: 13 }] });
-  COLUNAS.forEach((c, i) => (ws.getColumn(i + 1).width = c.largura));
+  await wb.xlsx.load(Buffer.from(MOLDE_AEGEA_BASE64, "base64") as unknown as ArrayBuffer);
+  const ws = wb.getWorksheet("EVIDÊNCIAS - OS & Equip.");
+  if (!ws) throw new Error("O molde da AEGEA não tem a aba de evidências.");
 
-  const rotulo = (celula: string, texto: string) => {
-    const c = ws.getCell(celula);
-    c.value = texto;
-    c.font = { bold: true, size: 9, color: { argb: "FF4A5368" } };
-  };
-  const valor = (celula: string, texto: string | Date) => {
-    const c = ws.getCell(celula);
-    c.value = texto;
-    c.font = { bold: true, size: 10 };
-  };
-  ws.mergeCells("A2:N2");
-  const titulo = ws.getCell("A2");
-  titulo.value = "RELATÓRIO DE EVIDÊNCIAS — LOCAÇÃO DE EQUIPAMENTOS";
-  titulo.font = { bold: true, size: 14, color: { argb: "FFFFFFFF" } };
-  titulo.fill = { type: "pattern", pattern: "solid", fgColor: { argb: MARINHO } };
-  titulo.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
-  ws.getRow(2).height = 26;
-
-  rotulo("A5", "CONTRATANTE:");
-  valor("C5", m.contratante ?? "ÁGUAS DO RIO 1 E 4 SPE S.A");
-  rotulo("H5", "CONTRATADA:");
-  valor("I5", "NOVA OPÇÃO 2008 MÁQUINAS E SERVIÇOS LTDA");
-  rotulo("A6", "OBRA/ SERVIÇO:");
-  valor("C6", m.obra ?? "LOCAÇÃO DE EQUIPAMENTOS LEVES");
-  rotulo("A7", "Nº CONTRATO JURÍDICO ");
-  valor("C7", m.contrato_juridico ?? "");
-  rotulo("H7", "Nº CONTRATO SISTÊMICO ");
-  valor("I7", m.contrato_sistemico ?? "");
-  rotulo("A8", "SUPERINTENDÊNCIA ");
-  valor("C8", m.superintendencia ?? "");
-  rotulo("I8", "PERÍODO DE EXECUÇÃO:");
-  valor("J8", periodoDaPlanilha(m.mes, fim));
-  rotulo("A9", "OBSERVAÇÃO:");
-  valor("C9", m.observacao ?? "");
-  rotulo("A10", "Responsável pelo preenchimento do Relatório:");
-  valor("D10", responsavel.toUpperCase());
-  rotulo("J10", "Data:");
+  // O cabeçalho, nas células do modelo deles.
+  ws.getCell("C5").value = m.contratante ?? "ÁGUAS DO RIO 1 E 4 SPE S.A";
+  ws.getCell("I5").value = "NOVA OPÇÃO 2008 MÁQUINAS E SERVIÇOS LTDA";
+  ws.getCell("C6").value = m.obra ?? "LOCAÇÃO DE EQUIPAMENTOS LEVES";
+  ws.getCell("C7").value = m.contrato_juridico ?? "";
+  ws.getCell("I7").value = m.contrato_sistemico ?? "";
+  ws.getCell("C8").value = m.superintendencia ?? "";
+  ws.getCell("J8").value = periodoDaPlanilha(m.mes, fim);
+  ws.getCell("C9").value = m.observacao ?? "";
+  ws.getCell("D10").value = responsavel.toUpperCase();
   const hoje = new Date();
-  valor("K10", new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())));
-  ws.getCell("K10").numFmt = "dd/mm/yyyy";
+  ws.getCell("K10").value = new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()));
 
-  const reg = ws.getCell("A12");
-  reg.value = "Registro das Entregas Realizadas ";
-  reg.font = { bold: true, size: 11, color: { argb: MARINHO } };
-
-  const cab = ws.getRow(13);
-  COLUNAS.forEach((c, i) => {
-    const x = cab.getCell(i + 1);
+  // As colunas da casa, depois do CHECK SERVIÇO: no mesmo feitio das deles,
+  // para o cliente ler a troca sem perguntar. Quem não quiser apaga.
+  const NOSSAS = [
+    { titulo: "POSIÇÃO", largura: 9 },
+    { titulo: "TROCA", largura: 36 },
+    { titulo: "COORDENADOR", largura: 22 },
+    { titulo: "BASE (SISLOC)", largura: 40 },
+    { titulo: "REMESSA", largura: 12 },
+  ];
+  const tituloDeles = { ...ws.getRow(13).getCell(13).style };
+  NOSSAS.forEach((c, i) => {
+    const x = ws.getRow(13).getCell(15 + i);
+    x.style = { ...tituloDeles };
     x.value = c.titulo;
-    x.font = { bold: true, size: 9, color: { argb: c.sugerida ? "FF5B4210" : "FFFFFFFF" } };
-    x.fill = { type: "pattern", pattern: "solid", fgColor: { argb: c.sugerida ? AMBAR : MARINHO } };
-    x.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
-    x.border = { bottom: { style: "thin", color: { argb: "FFCBD3E0" } } };
+    ws.getColumn(15 + i).width = c.largura;
   });
-  cab.height = 30;
+
+  // A linha 14 dá o formato de cada linha; a 15, o do TOTAL.
+  const COLUNAS = 14;
+  const estiloDaLinha = Array.from({ length: COLUNAS }, (_, c) => ({ ...ws.getRow(14).getCell(c + 1).style }));
+  const estiloDoTotal = Array.from({ length: COLUNAS }, (_, c) => ({ ...ws.getRow(15).getCell(c + 1).style }));
+  const alturaDoTotal = ws.getRow(15).height;
+  for (let c = 1; c <= COLUNAS; c++) ws.getRow(15).getCell(c).value = null;
 
   linhas.forEach((l, n) => {
     const row = ws.getRow(14 + n);
-    COLUNAS.forEach((c, i) => {
-      const x = row.getCell(i + 1);
-      x.value = c.chave ? (l[c.chave] as string | number) : null;
-      x.font = { size: 9, ...(l.servico === "MANUTENÇÃO" ? { bold: true } : {}) };
-      if (c.dinheiro) x.numFmt = '#,##0.00';
-      if (c.sugerida) x.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFBF2" } };
-      else if (n % 2) x.fill = { type: "pattern", pattern: "solid", fgColor: { argb: CINZA } };
+    const valores: (string | number | null)[] = [
+      l.servico,
+      l.patrimonio,
+      l.execucao,
+      l.unidade,
+      l.tempo,
+      l.qtde,
+      l.valor_unidade,
+      l.valor_total,
+      l.aprovada,
+      l.projeto,
+      l.cidade,
+      l.superintendencia,
+      l.bloco,
+      null,
+    ];
+    valores.forEach((v, c) => {
+      const x = row.getCell(c + 1);
+      x.style = { ...estiloDaLinha[c] };
+      x.value = v;
+    });
+    [l.posicao, l.troca, l.coordenador, l.base, l.remessa].forEach((v, i) => {
+      const x = row.getCell(15 + i);
+      x.style = { ...estiloDaLinha[12] };
+      x.value = v || null;
     });
   });
-  const total = ws.getRow(14 + linhas.length);
+  const ultima = 13 + linhas.length;
+  const total = ws.getRow(ultima + 1);
+  for (let c = 1; c <= COLUNAS; c++) {
+    total.getCell(c).style = { ...estiloDoTotal[c - 1] };
+    total.getCell(c).value = null;
+  }
+  total.height = alturaDoTotal;
   total.getCell(7).value = "TOTAL";
-  total.getCell(7).font = { bold: true, size: 10 };
   total.getCell(8).value = {
-    formula: `SUM(H14:H${13 + linhas.length})`,
+    formula: `SUM(H14:H${ultima})`,
     result: Math.round(linhas.reduce((t, l) => t + l.valor_total, 0) * 100) / 100,
   };
-  total.getCell(8).numFmt = '#,##0.00';
-  total.getCell(8).font = { bold: true, size: 10 };
-  ws.autoFilter = { from: { row: 13, column: 1 }, to: { row: 13 + linhas.length, column: COLUNAS.length } };
+  ws.autoFilter = `A13:${String.fromCharCode(64 + COLUNAS + NOSSAS.length)}${ultima}`;
 
   const buffer = (await wb.xlsx.writeBuffer()) as ArrayBuffer;
   const nome = `Medição ${mesPorExtenso(m.mes)} Nova Opção - Locação ${m.cliente}`.replace(/[\\/:*?"<>|]/g, "-");

@@ -256,9 +256,12 @@ desfaz isso logo depois de criar.
   importação, com o que o nome já diz (`sugestaoDaBase`). As linhas de
   MANUTENÇÃO do fim da planilha somam os boletins de manutenção apresentados
   no mês, por projeto, município, superintendência e bloco da base. A planilha
-  (`/locacao/{id}/planilha`, com `exceljs`) traz as colunas da AEGEA como ela
-  pede e, depois do CHECK SERVIÇO, as sugeridas em outra cor: POSIÇÃO, TROCA,
-  COORDENADOR, BASE (SISLOC) e REMESSA.
+  (`/locacao/{id}/planilha`, com `exceljs`) é preenchida **no arquivo deles**:
+  o molde (`lib/medicoes/molde-aegea.ts`, o .xlsx deles sem os dados, em
+  base64) traz as abas, as células mescladas, as cores e o TOTAL; o sistema
+  escreve o cabeçalho e as linhas no formato da linha 14 do modelo. Depois do
+  CHECK SERVIÇO vêm as colunas da casa: POSIÇÃO, TROCA, COORDENADOR, BASE
+  (SISLOC) e REMESSA.
 - **relatório de manutenção** (`/relatorios`, 0021): o anexo que o Águas do
   Rio pede para cada OM cobrada — o "RELATÓRIO DE MANUTENÇÃO DE EQUIPAMENTO",
   que a orçamentista preenchia no Excel. Ela faz na hora, com o Sisloc aberto:
