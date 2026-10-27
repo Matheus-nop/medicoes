@@ -22,13 +22,42 @@ export interface CamposDaBase {
   modelo: string;
   /** A regional do controle (NORTE, VCG…). Vazio: sem regional. */
   regional: string;
+  /** O que a planilha de locação da AEGEA pede (0023). */
+  projeto: string;
+  municipio: string;
+  superintendencia: string;
+  bloco: string;
+  coordenador: string;
+  coordenadorContato: string;
 }
 
 function recado(erro: { code?: string; message: string }, oQue: string): string {
   if (erro.code === "23505") return "Já existe essa base para este cliente (o nome é o mesmo, só escrito diferente).";
   if (erro.code === "42501") return `Seu usuário não tem permissão para ${oQue} — quem lança boletim e base é ${quemLanca("boletim")}.`;
   if (erro.code === "42P01") return "Falta aplicar a migração 0010_bases.sql no Supabase.";
+  if (/projeto|municipio|superintendencia|bloco|coordenador/.test(erro.message)) {
+    return "Falta aplicar a migração 0023_medicao_de_locacao.sql no Supabase.";
+  }
   return `Não foi possível ${oQue}: ${erro.message}`;
+}
+
+/**
+ * Projeto, município, superintendência e bloco: maiúsculos e sem espaço
+ * sobrando — "BELFORD ROXO" só existe de um jeito, e a soma por município
+ * fecha. O bloco é sempre "BLOCO n".
+ */
+function camposDaAegea(c: Pick<CamposDaBase, "projeto" | "municipio" | "superintendencia" | "bloco" | "coordenador" | "coordenadorContato">) {
+  const t = (v: string) => v.trim().replace(/\s+/g, " ") || null;
+  const m = (v: string) => t(v.toUpperCase());
+  const n = /\d+/.exec(c.bloco);
+  return {
+    projeto: m(c.projeto),
+    municipio: m(c.municipio),
+    superintendencia: m(c.superintendencia),
+    bloco: n ? `BLOCO ${Number(n[0])}` : m(c.bloco),
+    coordenador: t(c.coordenador),
+    coordenador_contato: t(c.coordenadorContato),
+  };
 }
 
 /** Cria (sem id) ou atualiza a base. Não mexe em boletim nenhum. */
@@ -47,6 +76,7 @@ export async function salvarBase(id: number | null, c: CamposDaBase): Promise<Re
     observacao: t(c.observacao),
     modelo: c.modelo ? modeloLido(c.modelo) : null,
     regional: t(c.regional.toUpperCase().replace(/\s+/g, " ")),
+    ...camposDaAegea(c),
     atualizado_em: new Date().toISOString(),
     atualizado_por: auth.user?.id ?? null,
   };
