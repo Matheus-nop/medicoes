@@ -235,6 +235,33 @@ desfaz isso logo depois de criar.
   **medido a faturar**. Os alertas de consumo (80% avisa, 90% pede ação) e o
   **ritmo** (média do medido dos últimos 6 meses do ciclo) olham o medido, que
   é o que de fato gasta o contrato.
+- **medição de locação** (`/locacao`, 0023): a planilha padrão da AEGEA (aba
+  "EVIDÊNCIAS - OS & Equip."), de **todas as bases e todos os contratos** do
+  mês. O time exporta do Sisloc o "Boletim de medição" de cada base em PDF e
+  **arrasta** em `/locacao`: o servidor lê o PDF (`linhasDoPdf`, com `unpdf`) e
+  `lerBoletimDeLocacao` tira base (o Entrega sem o endereço), fichas, remessas
+  e cada linha; a soma confere com o TOTAL GERAL do Sisloc. Nada se grava até
+  "Gravar"; o boletim reimportado (mesmo código do Sisloc) troca o anterior.
+  Cada boletim cai na medição do mês do período dele (uma por cliente e mês).
+  Acessório a R$ 0,00 fica gravado e fora da planilha.
+- **posição** (locação): a vaga de um equipamento na frente. A **troca** não é
+  equipamento a mais: o Sisloc marca "Subs." no que SAIU, e o substituto entra
+  no dia seguinte (ou no mesmo dia), na mesma ficha, do mesmo tipo ou do mesmo
+  kit (o título sem quantidade, "CORTADORA DE PISO HUSQVARNA").
+  `posicoesDoBoletim` monta a corrente — não se grava. Na planilha, a troca sai
+  numerada (26.1, 26.2) com a coluna TROCA dizendo quem substituiu quem.
+- **campos da AEGEA na base** (0023): projeto, município, superintendência e
+  bloco, e o **coordenador** da AEGEA na base — digitados uma vez no cadastro,
+  em maiúsculas, e não em cada linha. Base nova entra no cadastro na
+  importação, com o que o nome já diz (`sugestaoDaBase`). As linhas de
+  MANUTENÇÃO do fim da planilha somam os boletins de manutenção apresentados
+  no mês, por projeto, município, superintendência e bloco da base. A planilha
+  (`/locacao/{id}/planilha`, com `exceljs`) é preenchida **no arquivo deles**:
+  o molde (`lib/medicoes/molde-aegea.ts`, o .xlsx deles sem os dados, em
+  base64) traz as abas, as células mescladas, as cores e o TOTAL; o sistema
+  escreve o cabeçalho e as linhas no formato da linha 14 do modelo. Depois do
+  CHECK SERVIÇO vêm as colunas da casa: POSIÇÃO, TROCA, COORDENADOR, BASE
+  (SISLOC) e REMESSA.
 - **relatório de manutenção** (`/relatorios`, 0021): o anexo que o Águas do
   Rio pede para cada OM cobrada — o "RELATÓRIO DE MANUTENÇÃO DE EQUIPAMENTO",
   que a orçamentista preenchia no Excel. Ela faz na hora, com o Sisloc aberto:
@@ -332,5 +359,12 @@ desfaz isso logo depois de criar.
       antes de ir ao banco; se tiver rodado, `tirar-a-leitura-do-estoque.sql`
       desfaz.) O que falta não é código: preencher o primeiro mês no sistema
       em vez do Excel.
+- [~] A medição de locação do VCG (`0023`): leitura do PDF do Sisloc, a
+      medição do mês, as trocas em posições, os campos da AEGEA e o coordenador
+      no cadastro de bases, e a planilha da AEGEA com as linhas de manutenção.
+      Falta aplicar a `0023`, completar projeto, município, superintendência,
+      bloco e coordenador das bases, e importar o primeiro mês ao lado da
+      planilha digitada. Depois: o papel da casa em PDF, a tabela de preço por
+      contrato e a locação alimentando o controle.
 - As provas de RLS de todas as migrações estão em
-  `supabase/scripts/provar-as-travas.sql` (trechos 1 a 22).
+  `supabase/scripts/provar-as-travas.sql` (trechos 1 a 23).

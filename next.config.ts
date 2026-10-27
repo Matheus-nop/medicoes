@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
     // faz aparece na hora; o que outra pessoa fez pode levar até vinte segundos.
     // É a mesma escolha do Estoque — ver o comentário longo em next.config.ts de lá.
     staleTimes: { dynamic: 20 },
+    // O PDF do Sisloc vai à ação que lê, um por vez: o de uma base grande
+    // (quatro páginas, cem linhas) passa de 1 MB quando é imagem impressa.
+    serverActions: { bodySizeLimit: "8mb" },
   },
 };
 

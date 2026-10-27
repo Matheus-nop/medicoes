@@ -18,6 +18,14 @@ export interface Base {
   regional?: string | null;
   /** Os outros nomes com que a base aparece na colagem do Sisloc (0017). */
   apelidos?: string[] | null;
+  /** O que a planilha da AEGEA pede de cada linha da medição de locação (0023). */
+  projeto?: string | null;
+  municipio?: string | null;
+  superintendencia?: string | null;
+  bloco?: string | null;
+  /** O coordenador da AEGEA na base: gente de fora, texto. */
+  coordenador?: string | null;
+  coordenador_contato?: string | null;
   atualizado_em?: string;
 }
 

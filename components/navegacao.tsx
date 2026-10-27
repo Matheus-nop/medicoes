@@ -8,6 +8,7 @@ import {
   IconeBase,
   IconeContrato,
   IconeLancar,
+  IconeLocacao,
   IconeMedicoes,
   IconePainel,
   IconeReceber,
@@ -28,6 +29,9 @@ import {
 //   BMs em aberto — a conferência dos boletins que recebem OMs o mês todo. Sem
 //     contador: contar pedia três consultas pesadas a cada tela aberta.
 //
+//   Medição de locação — os boletins do Sisloc de cada base, importados do
+//     PDF, compondo a medição do mês na planilha padrão da AEGEA.
+//
 //   Contratos — o que vence, o que reajusta e quanto já foi medido. O contador
 //     do item é o de contratos pedindo ação (ver `contratosPedindoAtencao`).
 const SECOES = [
@@ -44,6 +48,7 @@ const SECOES = [
     titulo: "Faturamento · painel",
     itens: [
       { href: "/controle/lancar", rotulo: "Lançar medições", Icone: IconeLancar },
+      { href: "/locacao", rotulo: "Medição de locação", Icone: IconeLocacao },
       { href: "/controle", rotulo: "Painel executivo", Icone: IconePainel },
     ],
   },

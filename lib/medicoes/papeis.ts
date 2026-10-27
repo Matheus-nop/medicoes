@@ -43,6 +43,8 @@ export const QUEM_LANCA = {
   recebimento: ["financeiro", "diretoria"],
   /** O contrato e os aditivos (a 0013). Apagar é só da diretoria. */
   contrato: ["faturamento", "diretoria"],
+  /** A medição de locação: importar o PDF do Sisloc e o cabeçalho da planilha (a 0023). */
+  locacao: ["faturamento", "diretoria"],
 } as const satisfies Record<string, readonly PapelReal[]>;
 
 export type Lancamento = keyof typeof QUEM_LANCA;

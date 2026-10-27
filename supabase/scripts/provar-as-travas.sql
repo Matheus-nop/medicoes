@@ -503,3 +503,39 @@ select count(*) as o_financeiro_le from medicoes.relatorios_de_manutencao_atuais
 insert into medicoes.relatorios_de_manutencao (om) values ('999023');
 rollback;
 */
+
+
+-- ── 23. A medição de locação: o faturamento importa, o orçamento só lê (0023) ──
+-- Esperado: o faturamento abre a medição, importa o boletim e grava a linha
+-- (INSERT 0 1 nos três); a medição em nome de outra pessoa, ERROR 42501; o
+-- orçamento lê (a contagem sai) mas não grava: ERROR 42501; e apagar a
+-- medição é só da diretoria: o DELETE do faturamento apaga 0 linhas.
+-- Precisa de alguém de faturamento e de orçamento.
+/*
+begin;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'faturamento' order by p.id limit 1))::text, true);
+set local role authenticated;
+insert into medicoes.locacao_medicoes (cliente, mes) values ('PROVA 23', '2099-01-01');
+insert into medicoes.locacao_boletins (medicao_id, base_nome, entrega, periodo_inicio, periodo_fim, cod_docto)
+select id, 'PROVA', 'PROVA - RUA X', '2099-01-01', '2099-01-31', '99923'
+from medicoes.locacao_medicoes where cliente = 'PROVA 23';
+insert into medicoes.locacao_itens (boletim_id, ordem, remessa, equipamento, inicio, fim, dias)
+select id, 1, '999999-01', 'MARTELO', '2099-01-01', '2099-01-31', 31
+from medicoes.locacao_boletins where cod_docto = '99923';
+savepoint a;
+insert into medicoes.locacao_medicoes (cliente, mes, criado_por)
+values ('PROVA 23B', '2099-01-01', (select p.id from medicoes.perfis p where p.papel = 'diretoria' order by p.id limit 1));
+rollback to a;
+delete from medicoes.locacao_medicoes where cliente = 'PROVA 23';
+select count(*) as a_medicao_continua from medicoes.locacao_medicoes where cliente = 'PROVA 23';
+reset role;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'orcamento' order by p.id limit 1))::text, true);
+set local role authenticated;
+select count(*) as o_orcamento_le from medicoes.locacao_itens;
+insert into medicoes.locacao_medicoes (cliente, mes) values ('PROVA 23C', '2099-02-01');
+rollback;
+*/

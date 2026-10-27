@@ -22,6 +22,12 @@ const vazio = (cliente = ""): CamposDaBase => ({
   observacao: "",
   modelo: "",
   regional: "",
+  projeto: "",
+  municipio: "",
+  superintendencia: "",
+  bloco: "",
+  coordenador: "",
+  coordenadorContato: "",
 });
 
 const daBaseParaCampos = (b: Base): CamposDaBase => ({
@@ -34,6 +40,12 @@ const daBaseParaCampos = (b: Base): CamposDaBase => ({
   observacao: b.observacao ?? "",
   modelo: b.modelo ?? "",
   regional: b.regional ?? "",
+  projeto: b.projeto ?? "",
+  municipio: b.municipio ?? "",
+  superintendencia: b.superintendencia ?? "",
+  bloco: b.bloco ?? "",
+  coordenador: b.coordenador ?? "",
+  coordenadorContato: b.coordenador_contato ?? "",
 });
 
 /**
@@ -160,6 +172,12 @@ function CartaoDaBase({ b, aoEditar }: { b: BaseNoQuadro; aoEditar?: () => void 
         {linha("Telefone", b.telefone)}
         {linha("Local da obra", b.local_obra, true)}
         {linha("Regional", b.regional ?? null)}
+        {(b.projeto || b.municipio || b.superintendencia || b.bloco) &&
+          linha(
+            "AEGEA",
+            [b.projeto, b.municipio, b.superintendencia, b.bloco].filter(Boolean).join(" · "),
+          )}
+        {b.coordenador && linha("Coordenador", [b.coordenador, b.coordenador_contato].filter(Boolean).join(" · "))}
         {b.apelidos && b.apelidos.length > 0 && linha("No Sisloc também", b.apelidos.join(" · "))}
         <div className="flex justify-between gap-3">
           <dt className="text-texto-3">Papel</dt>
@@ -257,6 +275,17 @@ function Formulario({
         </Campo>
         <div className="sm:col-span-2">{campo("observacao", "Observação de todo boletim", "Contrato, pedido de compra…")}</div>
       </div>
+      <fieldset className="rounded-lg border border-borda p-3">
+        <legend className="px-1 text-xs font-medium text-texto-2">Para a medição de locação da AEGEA</legend>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {campo("projeto", "Projeto", "VCG, SETORIZADA, CAV…")}
+          {campo("municipio", "Município (cidade)", "RIO BONITO")}
+          {campo("superintendencia", "Superintendência", "LAGOS")}
+          {campo("bloco", "Bloco", "BLOCO 1")}
+          {campo("coordenador", "Coordenador da AEGEA na base", "Nome")}
+          {campo("coordenadorContato", "Contato do coordenador", "Telefone ou e-mail")}
+        </div>
+      </fieldset>
       <div className="flex flex-wrap gap-2">
         <Botao type="submit" variante="primario" disabled={salvando}>
           {salvando ? "Salvando…" : "Salvar"}

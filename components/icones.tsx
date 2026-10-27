@@ -61,6 +61,16 @@ export const IconeLancar = svg(
   </>,
 );
 
+/** A medição de locação: a máquina com o calendário do mês. */
+export const IconeLocacao = svg(
+  <>
+    <rect x="3" y="5" width="12" height="11" rx="1.5" />
+    <path d="M3 9h12M7 3.5v3M11 3.5v3" />
+    <circle cx="17.5" cy="17.5" r="3.5" />
+    <path d="M17.5 15.8v1.9l1.2.8" />
+  </>,
+);
+
 export const IconeReceber = svg(
   <>
     <rect x="2.5" y="6" width="19" height="12" rx="2" />
