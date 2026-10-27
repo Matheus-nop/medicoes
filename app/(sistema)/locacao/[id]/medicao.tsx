@@ -92,9 +92,14 @@ export function Medicao({ carga, clientes, podeMexer }: { carga: Carga; clientes
               <Botao onClick={() => setImportando(true)}>Importar mais PDFs</Botao>
             )}
             {boletins.length > 0 && (
-              <a href={`/locacao/${m.id}/planilha`} className={ESTILO_BOTAO.primario} download>
-                Planilha AEGEA (.xlsx)
-              </a>
+              <>
+                <a href={`/locacao/${m.id}/planilha`} className={ESTILO_BOTAO.contorno} download>
+                  Planilha AEGEA (.xlsx)
+                </a>
+                <Link href={`/locacao/${m.id}/folha`} className={ESTILO_BOTAO.primario}>
+                  PDF Nova Opção
+                </Link>
+              </>
             )}
           </>
         }

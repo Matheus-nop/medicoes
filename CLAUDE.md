@@ -261,7 +261,10 @@ desfaz isso logo depois de criar.
   base64) traz as abas, as células mescladas, as cores e o TOTAL; o sistema
   escreve o cabeçalho e as linhas no formato da linha 14 do modelo. Depois do
   CHECK SERVIÇO vêm as colunas da casa: POSIÇÃO, TROCA, COORDENADOR, BASE
-  (SISLOC) e REMESSA.
+  (SISLOC) e REMESSA. O **PDF da casa** (`/locacao/{id}/folha`, `PapelDaLocacao`)
+  é o mesmo conteúdo no papel moderno: a faixa azul, o resumo por município,
+  superintendência e bloco, cada base com as posições e as trocas destacadas,
+  a manutenção do mês e o total — A4 em pé, pelo "Salvar como PDF".
 - **relatório de manutenção** (`/relatorios`, 0021): o anexo que o Águas do
   Rio pede para cada OM cobrada — o "RELATÓRIO DE MANUTENÇÃO DE EQUIPAMENTO",
   que a orçamentista preenchia no Excel. Ela faz na hora, com o Sisloc aberto:
@@ -362,9 +365,9 @@ desfaz isso logo depois de criar.
 - [~] A medição de locação do VCG (`0023`): leitura do PDF do Sisloc, a
       medição do mês, as trocas em posições, os campos da AEGEA e o coordenador
       no cadastro de bases, e a planilha da AEGEA com as linhas de manutenção.
-      Falta aplicar a `0023`, completar projeto, município, superintendência,
+      Falta completar projeto, município, superintendência,
       bloco e coordenador das bases, e importar o primeiro mês ao lado da
-      planilha digitada. Depois: o papel da casa em PDF, a tabela de preço por
+      planilha digitada. `0023` **aplicada**. Depois: a tabela de preço por
       contrato e a locação alimentando o controle.
 - As provas de RLS de todas as migrações estão em
   `supabase/scripts/provar-as-travas.sql` (trechos 1 a 23).
