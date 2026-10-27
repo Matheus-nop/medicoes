@@ -44,6 +44,15 @@ function Numero({ rotulo, valor, detalhe, forte }: { rotulo: string; valor: stri
   );
 }
 
+function Dado({ rotulo, children, largo, falta }: { rotulo: string; children: React.ReactNode; largo?: boolean; falta?: boolean }) {
+  return (
+    <div className={largo ? "col-span-2" : ""}>
+      <p className="text-[6.5pt] font-semibold tracking-[0.08em] text-[#7A8294] uppercase">{rotulo}</p>
+      <p className={`mt-[0.4mm] text-[8pt] leading-snug font-medium ${falta ? "text-[#B4232A]" : "text-[#141B2D]"}`}>{children}</p>
+    </div>
+  );
+}
+
 function Titulo({ numero, children }: { numero: string; children: React.ReactNode }) {
   return (
     <div className="mt-[5mm] mb-[2mm] flex items-center gap-[2.5mm] break-after-avoid">
@@ -55,6 +64,7 @@ function Titulo({ numero, children }: { numero: string; children: React.ReactNod
 }
 
 export function PapelDaLocacao({ carga, emitidoPor }: { carga: Extract<CargaDaMedicao, { ok: true }>; emitidoPor: string }) {
+  const hoje = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
   const { medicao: m, boletins, itens, manutencao } = carga;
   const ultimo = new Date(Date.UTC(+m.mes.slice(0, 4), +m.mes.slice(5, 7), 0)).toISOString().slice(0, 10);
 
@@ -125,7 +135,7 @@ export function PapelDaLocacao({ carga, emitidoPor }: { carga: Extract<CargaDaMe
           <p className="text-right text-[7pt] leading-relaxed text-white/80">
             Emitido por {emitidoPor || "—"}
             <br />
-            {new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
+            {hoje}
           </p>
         </div>
         <p className="mt-[3mm] text-[7.5pt] font-semibold tracking-[0.2em] text-white/70 uppercase">
@@ -150,7 +160,35 @@ export function PapelDaLocacao({ carga, emitidoPor }: { carga: Extract<CargaDaMe
           <Numero rotulo="Total da medição" valor={emReais(locacao + valorManut)} forte />
         </div>
 
-        <Titulo numero="1">Resumo por município, superintendência e bloco</Titulo>
+        <Titulo numero="1">Identificação</Titulo>
+        <div className="grid grid-cols-4 gap-x-[5mm] gap-y-[2.5mm] rounded-[2.5mm] bg-[#F6F7FA] px-[4mm] py-[3mm]">
+          <Dado rotulo="Contratante" largo>
+            {m.contratante ?? m.cliente}
+          </Dado>
+          <Dado rotulo="Contratada" largo>
+            NOVA OPÇÃO 2008 MÁQUINAS E SERVIÇOS LTDA
+          </Dado>
+          <Dado rotulo="Obra / serviço" largo>
+            {m.obra ?? "LOCAÇÃO DE EQUIPAMENTOS LEVES"}
+          </Dado>
+          <Dado rotulo="Nº contrato jurídico" falta={!m.contrato_juridico}>
+            {m.contrato_juridico ?? "não informado"}
+          </Dado>
+          <Dado rotulo="Nº contrato sistêmico">{m.contrato_sistemico ?? "—"}</Dado>
+          <Dado rotulo="Superintendência">{m.superintendencia ?? "—"}</Dado>
+          <Dado rotulo="Período de execução">
+            {diaMes(m.mes)}/{m.mes.slice(0, 4)} a {diaMes(ultimo)}/{ultimo.slice(0, 4)}
+          </Dado>
+          <Dado rotulo="Responsável pelo preenchimento">{emitidoPor ? emitidoPor.toUpperCase() : "—"}</Dado>
+          <Dado rotulo="Data">{hoje}</Dado>
+          {m.observacao && (
+            <Dado rotulo="Observação" largo>
+              {m.observacao}
+            </Dado>
+          )}
+        </div>
+
+        <Titulo numero="2">Resumo por município, superintendência e bloco</Titulo>
         <table className="w-full border-collapse tabular-nums">
           <thead className="bg-[#F6F7FA] text-[#4A5368]">
             <tr>
@@ -190,26 +228,32 @@ export function PapelDaLocacao({ carga, emitidoPor }: { carga: Extract<CargaDaMe
           </tbody>
         </table>
 
-        <Titulo numero="2">Equipamentos por base</Titulo>
+        <Titulo numero="3">Equipamentos por base</Titulo>
         <p className="mb-[2mm] text-[7pt] text-[#4A5368]">
           Cada posição é a vaga de um equipamento na frente. Quando o equipamento é trocado, a posição continua a mesma: a
           troca aparece dentro dela, com o período de cada um — e não como um equipamento a mais.
         </p>
         {bases.map((x) => (
           <section key={x.b.id} className="mb-[4mm]">
-            <div className="flex items-end justify-between gap-[3mm] rounded-t-[2mm] bg-[#F6F7FA] px-[3mm] py-[2mm] break-after-avoid">
-              <div className="min-w-0">
-                <p className="text-[9pt] font-bold">{x.b.base_nome}</p>
-                <p className="text-[7pt] text-[#4A5368]">
-                  {[x.base?.projeto, x.base?.municipio, x.base?.superintendencia, x.base?.bloco].filter(Boolean).join(" · ") || "—"}
-                  {x.base?.coordenador ? ` · Coordenador: ${x.base.coordenador}` : ""}
+            <div className="rounded-t-[2mm] bg-[#F6F7FA] px-[3mm] py-[2mm] break-after-avoid">
+              <div className="flex items-end justify-between gap-[3mm]">
+                <p className="min-w-0 text-[9pt] font-bold">{x.b.base_nome}</p>
+                <p className="shrink-0 text-right text-[7pt] text-[#4A5368]">
+                  {x.cobrados} equip. · {x.posicoes.length} posições ·{" "}
+                  <span className="text-[10pt] font-bold text-[#141B2D] tabular-nums">{emReais(x.valor)}</span>
                 </p>
               </div>
-              <p className="shrink-0 text-right text-[7pt] text-[#4A5368]">
-                {x.cobrados} equip. · {x.posicoes.length} posições
-                <br />
-                <span className="text-[10pt] font-bold text-[#141B2D] tabular-nums">{emReais(x.valor)}</span>
-              </p>
+              <div className="mt-[1.5mm] grid grid-cols-[1fr_1.4fr_1.4fr_0.8fr_2fr] gap-x-[4mm]">
+                <Dado rotulo="Projeto" falta={!x.base?.projeto}>{x.base?.projeto ?? "não informado"}</Dado>
+                <Dado rotulo="Município" falta={!x.base?.municipio}>{x.base?.municipio ?? "não informado"}</Dado>
+                <Dado rotulo="Superintendência" falta={!x.base?.superintendencia}>
+                  {x.base?.superintendencia ?? "não informada"}
+                </Dado>
+                <Dado rotulo="Bloco" falta={!x.base?.bloco}>{x.base?.bloco ?? "—"}</Dado>
+                <Dado rotulo="Coordenador (AEGEA)" falta={!x.base?.coordenador}>
+                  {x.base?.coordenador ?? "não informado"}
+                </Dado>
+              </div>
             </div>
             <table className="w-full border-collapse tabular-nums">
               <thead className="text-[#7A8294]">
@@ -228,7 +272,14 @@ export function PapelDaLocacao({ carga, emitidoPor }: { carga: Extract<CargaDaMe
                   p.itens.length === 1 ? (
                     <tr key={p.itens[0].remessa + p.itens[0].patrimonio} className="break-inside-avoid">
                       <td className={`${td} text-[#7A8294]`}>{n + 1}</td>
-                      <td className={td}>{p.itens[0].equipamento}</td>
+                      <td className={td}>
+                        {p.itens[0].equipamento}
+                        {(p.itens[0] as { coordenador?: string | null }).coordenador && (
+                          <span className="ml-[1.5mm] text-[6.5pt] text-[#4A5368]">
+                            coord. {(p.itens[0] as { coordenador?: string | null }).coordenador}
+                          </span>
+                        )}
+                      </td>
                       <td className={`${td} font-medium`}>{p.itens[0].patrimonio}</td>
                       <td className={td}>
                         {diaMes(p.itens[0].inicio)} a {diaMes(p.itens[0].fim)}
@@ -267,7 +318,7 @@ export function PapelDaLocacao({ carga, emitidoPor }: { carga: Extract<CargaDaMe
 
         {linhasManut.length > 0 && (
           <>
-            <Titulo numero="3">Manutenção do mês</Titulo>
+            <Titulo numero="4">Manutenção do mês</Titulo>
             <p className="mb-[2mm] text-[7pt] text-[#4A5368]">
               Os boletins de manutenção apresentados em {mesPorExtenso(m.mes)}, somados por projeto, município, superintendência e
               bloco — a mesma linha MANUTENÇÃO da planilha.

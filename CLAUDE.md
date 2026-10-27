@@ -264,7 +264,10 @@ desfaz isso logo depois de criar.
   (SISLOC) e REMESSA. O **PDF da casa** (`/locacao/{id}/folha`, `PapelDaLocacao`)
   é o mesmo conteúdo no papel moderno: a faixa azul, o resumo por município,
   superintendência e bloco, cada base com as posições e as trocas destacadas,
-  a manutenção do mês e o total — A4 em pé, pelo "Salvar como PDF".
+  a manutenção do mês e o total — A4 em pé, pelo "Salvar como PDF". Leva o
+  cabeçalho da planilha inteiro (Identificação) e, em cada base, projeto,
+  município, superintendência, bloco e o coordenador da AEGEA — em vermelho
+  quando falta no cadastro.
 - **relatório de manutenção** (`/relatorios`, 0021): o anexo que o Águas do
   Rio pede para cada OM cobrada — o "RELATÓRIO DE MANUTENÇÃO DE EQUIPAMENTO",
   que a orçamentista preenchia no Excel. Ela faz na hora, com o Sisloc aberto:
