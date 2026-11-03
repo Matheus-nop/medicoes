@@ -268,6 +268,17 @@ desfaz isso logo depois de criar.
   cabeçalho da planilha inteiro (Identificação) e, em cada base, projeto,
   município, superintendência, bloco e o coordenador da AEGEA — em vermelho
   quando falta no cadastro.
+- **manutenção da área na locação** (0024): embaixo da locação, a planilha e
+  o PDF levam a manutenção. A faturista exporta o PDF dos BMs de manutenção da
+  área (o papel de um boletim, ou o "PDF de todos") e arrasta no painel
+  "Manutenção da área" da medição. O PDF só diz **quais** boletins são: as
+  OMs impressas nele (`omsNoTexto`) acham no banco os boletins que têm a maior
+  parte delas no texto (`boletinsDoPdf`) — o número que coincide com a OM de
+  entrada de outro BM não basta. As linhas vêm do próprio boletim, uma por OM
+  (`linhasDosBms`: "MANUTENÇÃO - equipamento", patrimônio, data da OM, valor
+  cobrado, e a OM e o BM na coluna REMESSA); `locacao_manutencoes` guarda só a
+  escolha. Sem nenhum BM incluído, vale a soma automática dos boletins
+  apresentados no mês, como antes (`manutencaoDaMedicao`).
 - **relatório de manutenção** (`/relatorios`, 0021): o anexo que o Águas do
   Rio pede para cada OM cobrada — o "RELATÓRIO DE MANUTENÇÃO DE EQUIPAMENTO",
   que a orçamentista preenchia no Excel. Ela faz na hora, com o Sisloc aberto:
@@ -370,7 +381,8 @@ desfaz isso logo depois de criar.
       no cadastro de bases, e a planilha da AEGEA com as linhas de manutenção.
       Falta completar projeto, município, superintendência,
       bloco e coordenador das bases, e importar o primeiro mês ao lado da
-      planilha digitada. `0023` **aplicada**. Depois: a tabela de preço por
-      contrato e a locação alimentando o controle.
+      planilha digitada. `0023` **aplicada**. A `0024` traz os BMs de
+      manutenção da área para dentro da medição, pelo PDF deles. Depois: a
+      tabela de preço por contrato e a locação alimentando o controle.
 - As provas de RLS de todas as migrações estão em
-  `supabase/scripts/provar-as-travas.sql` (trechos 1 a 23).
+  `supabase/scripts/provar-as-travas.sql` (trechos 1 a 24).

@@ -29,6 +29,8 @@ import type { CargaDaMedicao, ItemGravado } from "../dados";
 import { salvarCabecalho, tirarBoletim, type CabecalhoDaMedicao } from "../acoes";
 import { diaMes, mesPorExtenso } from "../formato";
 import { Importador } from "../importador";
+import { manutencaoDaMedicao } from "../manutencao";
+import { ManutencaoDaArea } from "./bms";
 
 type Carga = Extract<CargaDaMedicao, { ok: true }>;
 
@@ -67,7 +69,8 @@ export function Medicao({ carga, clientes, podeMexer }: { carga: Carga; clientes
   const cobrados = porBase.reduce((t, x) => t + x.cobrados, 0);
   const posicoes = porBase.reduce((t, x) => t + x.posicoes.length, 0);
   const trocas = porBase.reduce((t, x) => t + x.trocas, 0);
-  const valorManutencao = manutencao.reduce((t, x) => t + x.valor, 0);
+  const daArea = manutencaoDaMedicao(carga);
+  const valorManutencao = daArea.linhas.reduce((t, l) => t + l.valor_total, 0);
   const repetidos = patrimoniosRepetidos(
     porBase.flatMap((x) =>
       x.itens.filter(cobravel).map((i) => ({ patrimonio: i.patrimonio, base: x.b.base_nome, inicio: i.inicio, fim: i.fim })),
@@ -75,7 +78,9 @@ export function Medicao({ carga, clientes, podeMexer }: { carga: Carga; clientes
   );
   const naoBatem = porBase.filter((x) => x.bate === false);
   const incompletas = porBase.filter((x) => x.falta.length > 0);
-  const manutencaoSemBase = [...new Set(manutencao.filter((x) => faltaNaBase(x.base).some((f) => f !== "coordenador")).map((x) => x.nome))];
+  const manutencaoSemBase = daArea.dosBms
+    ? [...new Set(carga.bms.filter((b) => faltaNaBase(b.base).some((f) => f !== "coordenador")).map((b) => b.base_nome))]
+    : [...new Set(manutencao.filter((x) => faltaNaBase(x.base).some((f) => f !== "coordenador")).map((x) => x.nome))];
   const aConferir = repetidos.length + naoBatem.length + incompletas.length + faltando.length;
 
   return (
@@ -143,7 +148,11 @@ export function Medicao({ carga, clientes, podeMexer }: { carga: Carga; clientes
           compacto
           rotulo="Manutenção do mês"
           valor={emReais(valorManutencao)}
-          detalhe={`${manutencao.length} boletim(ns) apresentados · entra na planilha`}
+          detalhe={
+            daArea.dosBms
+              ? `${carga.bms.length} BM(s) incluído(s) · ${daArea.linhas.length} OM(s)`
+              : `${manutencao.length} boletim(ns) do mês, somados · nenhum BM incluído`
+          }
           cor="bg-cat-manutencao"
         />
       </div>
@@ -189,6 +198,8 @@ export function Medicao({ carga, clientes, podeMexer }: { carga: Carga; clientes
       )}
 
       <CabecalhoDaPlanilha id={m.id} m={m} podeMexer={podeMexer} />
+
+      <ManutencaoDaArea carga={carga} podeMexer={podeMexer} />
 
       <div className="space-y-3">
         {porBase.map((x) => {

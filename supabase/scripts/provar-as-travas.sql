@@ -539,3 +539,37 @@ select count(*) as o_orcamento_le from medicoes.locacao_itens;
 insert into medicoes.locacao_medicoes (cliente, mes) values ('PROVA 23C', '2099-02-01');
 rollback;
 */
+
+
+-- ── 24. Os BMs de manutenção na medição de locação (0024) ──
+-- Esperado: o faturamento inclui um BM na medição (INSERT 0 1); em nome de
+-- outra pessoa, ERROR 42501; o update, ERROR 42501 (permission denied); e o
+-- orçamento lê mas não inclui: ERROR 42501. Precisa de um boletim qualquer,
+-- de alguém de faturamento e de orçamento.
+/*
+begin;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'faturamento' order by p.id limit 1))::text, true);
+set local role authenticated;
+insert into medicoes.locacao_medicoes (cliente, mes) values ('PROVA 24', '2099-01-01');
+insert into medicoes.locacao_manutencoes (medicao_id, boletim_id)
+select (select id from medicoes.locacao_medicoes where cliente = 'PROVA 24'), (select min(id) from medicoes.boletins);
+savepoint a;
+insert into medicoes.locacao_manutencoes (medicao_id, boletim_id, incluido_por)
+select (select id from medicoes.locacao_medicoes where cliente = 'PROVA 24'), (select max(id) from medicoes.boletins),
+       (select p.id from medicoes.perfis p where p.papel = 'diretoria' order by p.id limit 1);
+rollback to a;
+savepoint b;
+update medicoes.locacao_manutencoes set arquivo = 'mexido';
+rollback to b;
+reset role;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'orcamento' order by p.id limit 1))::text, true);
+set local role authenticated;
+select count(*) as o_orcamento_le from medicoes.locacao_manutencoes;
+insert into medicoes.locacao_manutencoes (medicao_id, boletim_id)
+select (select id from medicoes.locacao_medicoes where cliente = 'PROVA 24'), (select max(id) from medicoes.boletins);
+rollback;
+*/

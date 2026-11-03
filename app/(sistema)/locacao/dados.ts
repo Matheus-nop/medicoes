@@ -2,8 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { chaveDaFicha, ordemDaReferencia, type Vinculo } from "@/lib/medicoes/arquivo";
 import { acharBase, type Base } from "@/lib/medicoes/bases";
 import { CLIENTE_PADRAO } from "@/lib/medicoes/controle";
-import type { BaseDaPlanilha, ItemDeLocacao } from "@/lib/medicoes/locacao";
-import { chaveDoCliente } from "@/lib/medicoes/medicoes";
+import type { BaseDaPlanilha, BmNaMedicao, ItemDeLocacao } from "@/lib/medicoes/locacao";
+import { chaveDoCliente, dataDaOm, documentoDoBoletim } from "@/lib/medicoes/medicoes";
 
 type Cliente = Awaited<ReturnType<typeof createClient>>;
 
@@ -99,6 +99,12 @@ export type CargaDaMedicao =
       faltando: string[];
       /** Os boletins de manutenção apresentados no mês, com a base do cadastro. */
       manutencao: { valor: number; base: (Base & BaseDaPlanilha) | null; nome: string }[];
+      /**
+       * Os BMs de manutenção que a faturista incluiu (0024), com as OMs. Quando
+       * há algum, a manutenção da planilha são eles, OM por OM; sem nenhum,
+       * a soma automática dos boletins do mês (`manutencao`).
+       */
+      bms: (BmNaMedicao & { boletim_id: number; situacao: string; valor: number; arquivo: string | null })[];
       bases: Base[];
     }
   | { ok: false; erro: string; naoExiste?: boolean };
@@ -179,9 +185,43 @@ export async function carregarMedicao(id: number): Promise<CargaDaMedicao> {
     )
     .map((b) => ({ valor: Number(b.valor ?? 0), base: daBase(b.base ?? "", b.cliente), nome: b.base ?? "Sem base" }));
 
+  // Os BMs incluídos, com as OMs deles. Sem a 0024, nenhum.
+  let bms: Extract<CargaDaMedicao, { ok: true }>["bms"] = [];
+  const { data: incluidos, error: ei } = await supabase
+    .from("locacao_manutencoes")
+    .select("boletim_id, arquivo")
+    .eq("medicao_id", id);
+  if (!ei && incluidos?.length) {
+    const ids = (incluidos as { boletim_id: number }[]).map((x) => x.boletim_id);
+    const [info, oms] = await Promise.all([
+      supabase.from("boletins_atual").select("id, numero, referencia, documento, base, cliente, situacao, valor").in("id", ids),
+      supabase
+        .from("boletim_oms")
+        .select("boletim_id, om, patrimonio, equipamento, chegada_em, aberta_em, valor")
+        .in("boletim_id", ids)
+        .order("om"),
+    ]);
+    const arquivo = new Map((incluidos as { boletim_id: number; arquivo: string | null }[]).map((x) => [x.boletim_id, x.arquivo]));
+    bms = ((info.data ?? []) as { id: number; numero: string; referencia: string | null; documento: string | null; base: string | null; cliente: string; situacao: string; valor: unknown }[])
+      .map((b) => ({
+        boletim_id: b.id,
+        documento: documentoDoBoletim(b),
+        base_nome: b.base ?? "Sem base",
+        base: daBase(b.base ?? "", b.cliente),
+        situacao: b.situacao,
+        valor: Number(b.valor ?? 0),
+        arquivo: arquivo.get(b.id) ?? null,
+        oms: ((oms.data ?? []) as { boletim_id: number; om: string; patrimonio: string | null; equipamento: string | null; chegada_em: string | null; aberta_em: string | null; valor: unknown }[])
+          .filter((o) => o.boletim_id === b.id)
+          .map((o) => ({ om: o.om, patrimonio: o.patrimonio, equipamento: o.equipamento, data: dataDaOm(o), valor: Number(o.valor ?? 0) })),
+      }))
+      .sort((a, b) => (a.base?.bloco ?? "").localeCompare(b.base?.bloco ?? "") || a.base_nome.localeCompare(b.base_nome));
+  }
+
   return {
     ok: true,
     medicao: m,
+    bms,
     boletins: lista.map((b) => ({
       ...b,
       total_sisloc: n(b.total_sisloc),

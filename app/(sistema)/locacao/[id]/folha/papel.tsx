@@ -1,13 +1,13 @@
 import { emReais } from "@/lib/medicoes/dinheiro";
 import {
   cobravel,
-  linhasDaManutencao,
   posicoesDoBoletim,
   totalLido,
   type BaseDaPlanilha,
 } from "@/lib/medicoes/locacao";
 import type { CargaDaMedicao } from "../../dados";
 import { diaMes, mesPorExtenso } from "../../formato";
+import { manutencaoDaMedicao } from "../../manutencao";
 
 /**
  * A medição de locação no papel da casa: o que a planilha da AEGEA diz, lido
@@ -65,7 +65,7 @@ function Titulo({ numero, children }: { numero: string; children: React.ReactNod
 
 export function PapelDaLocacao({ carga, emitidoPor }: { carga: Extract<CargaDaMedicao, { ok: true }>; emitidoPor: string }) {
   const hoje = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
-  const { medicao: m, boletins, itens, manutencao } = carga;
+  const { medicao: m, boletins, itens, bms } = carga;
   const ultimo = new Date(Date.UTC(+m.mes.slice(0, 4), +m.mes.slice(5, 7), 0)).toISOString().slice(0, 10);
 
   const bases = [...boletins]
@@ -84,11 +84,7 @@ export function PapelDaLocacao({ carga, emitidoPor }: { carga: Extract<CargaDaMe
   const posicoes = bases.reduce((t, x) => t + x.posicoes.length, 0);
   const cobrados = bases.reduce((t, x) => t + x.cobrados, 0);
   const trocas = bases.reduce((t, x) => t + x.posicoes.filter((p) => p.itens.length > 1).length, 0);
-  const linhasManut = linhasDaManutencao(
-    manutencao.map((x) => ({ valor: x.valor, base: base(x.base) })),
-    m.mes,
-    ultimo,
-  );
+  const { linhas: linhasManut, dosBms } = manutencaoDaMedicao(carga);
   const valorManut = linhasManut.reduce((t, l) => t + l.valor_total, 0);
 
   // O resumo como a AEGEA contabiliza: município, superintendência, bloco.
@@ -316,36 +312,90 @@ export function PapelDaLocacao({ carga, emitidoPor }: { carga: Extract<CargaDaMe
           </section>
         ))}
 
-        {linhasManut.length > 0 && (
+        {dosBms ? (
           <>
-            <Titulo numero="4">Manutenção do mês</Titulo>
+            <Titulo numero="4">Manutenção</Titulo>
             <p className="mb-[2mm] text-[7pt] text-[#4A5368]">
-              Os boletins de manutenção apresentados em {mesPorExtenso(m.mes)}, somados por projeto, município, superintendência e
-              bloco — a mesma linha MANUTENÇÃO da planilha.
+              Os boletins de medição de manutenção da área, OM por OM — as mesmas linhas MANUTENÇÃO da planilha.
             </p>
-            <table className="w-full border-collapse tabular-nums">
-              <thead className="bg-[#F6F7FA] text-[#4A5368]">
-                <tr>
-                  <th className={th}>Projeto</th>
-                  <th className={th}>Município</th>
-                  <th className={th}>Superintendência</th>
-                  <th className={th}>Bloco</th>
-                  <th className={`${th} text-right`}>Valor</th>
-                </tr>
-              </thead>
-              <tbody>
-                {linhasManut.map((l) => (
-                  <tr key={[l.projeto, l.cidade, l.superintendencia, l.bloco].join("|")} className="break-inside-avoid">
-                    <td className={td}>{l.projeto || "—"}</td>
-                    <td className={td}>{l.cidade || "—"}</td>
-                    <td className={td}>{l.superintendencia || "—"}</td>
-                    <td className={td}>{l.bloco || "—"}</td>
-                    <td className={`${td} text-right`}>{emReais(l.valor_total)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {bms.map((b) => (
+              <section key={b.boletim_id} className="mb-[4mm]">
+                <div className="rounded-t-[2mm] bg-[#F6F7FA] px-[3mm] py-[2mm] break-after-avoid">
+                  <div className="flex items-end justify-between gap-[3mm]">
+                    <p className="min-w-0 text-[9pt] font-bold">
+                      {b.documento} · {b.base_nome}
+                    </p>
+                    <p className="shrink-0 text-right text-[7pt] text-[#4A5368]">
+                      {b.oms.length} OM(s) ·{" "}
+                      <span className="text-[10pt] font-bold text-[#141B2D] tabular-nums">
+                        {emReais(b.oms.reduce((t, o) => t + o.valor, 0))}
+                      </span>
+                    </p>
+                  </div>
+                  <p className="text-[7pt] text-[#4A5368]">
+                    {[b.base?.projeto, b.base?.municipio, b.base?.superintendencia, b.base?.bloco].filter(Boolean).join(" · ") ||
+                      "base sem os dados da AEGEA no cadastro"}
+                    {" · "}Coordenador (AEGEA):{" "}
+                    <span className={b.base?.coordenador ? "" : "text-[#B4232A]"}>{b.base?.coordenador ?? "não informado"}</span>
+                  </p>
+                </div>
+                <table className="w-full border-collapse tabular-nums">
+                  <thead className="text-[#7A8294]">
+                    <tr>
+                      <th className={th}>OM</th>
+                      <th className={th}>Equipamento</th>
+                      <th className={th}>Patrimônio</th>
+                      <th className={th}>Data</th>
+                      <th className={`${th} text-right`}>Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {b.oms.map((o) => (
+                      <tr key={o.om} className="break-inside-avoid">
+                        <td className={`${td} font-medium`}>{o.om}</td>
+                        <td className={td}>{o.equipamento ?? "—"}</td>
+                        <td className={td}>{o.patrimonio ?? "—"}</td>
+                        <td className={td}>{o.data ? `${o.data.slice(8, 10)}/${o.data.slice(5, 7)}/${o.data.slice(0, 4)}` : "—"}</td>
+                        <td className={`${td} text-right`}>{emReais(o.valor)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
+            ))}
           </>
+        ) : (
+          linhasManut.length > 0 && (
+            <>
+              <Titulo numero="4">Manutenção do mês</Titulo>
+              <p className="mb-[2mm] text-[7pt] text-[#4A5368]">
+                Os boletins de manutenção apresentados em {mesPorExtenso(m.mes)}, somados por projeto, município, superintendência e
+                bloco — a mesma linha MANUTENÇÃO da planilha.
+              </p>
+              <table className="w-full border-collapse tabular-nums">
+                <thead className="bg-[#F6F7FA] text-[#4A5368]">
+                  <tr>
+                    <th className={th}>Projeto</th>
+                    <th className={th}>Município</th>
+                    <th className={th}>Superintendência</th>
+                    <th className={th}>Bloco</th>
+                    <th className={`${th} text-right`}>Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {linhasManut.map((l) => (
+                    <tr key={[l.projeto, l.cidade, l.superintendencia, l.bloco].join("|")} className="break-inside-avoid">
+                      <td className={td}>{l.projeto || "—"}</td>
+                      <td className={td}>{l.cidade || "—"}</td>
+                      <td className={td}>{l.superintendencia || "—"}</td>
+                      <td className={td}>{l.bloco || "—"}</td>
+                      <td className={`${td} text-right`}>{emReais(l.valor_total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )
         )}
 
         <div className="mt-[6mm] flex items-center justify-between rounded-[2.5mm] px-[4mm] py-[3mm] text-white break-inside-avoid" style={{ background: AZUL }}>
