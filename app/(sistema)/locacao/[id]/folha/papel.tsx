@@ -266,7 +266,7 @@ export function PapelDaLocacao({ carga, emitidoPor }: { carga: Extract<CargaDaMe
               <tbody>
                 {x.posicoes.map((p, n) =>
                   p.itens.length === 1 ? (
-                    <tr key={p.itens[0].remessa + p.itens[0].patrimonio} className="break-inside-avoid">
+                    <tr key={n} className="break-inside-avoid">
                       <td className={`${td} text-[#7A8294]`}>{n + 1}</td>
                       <td className={td}>
                         {p.itens[0].equipamento}
@@ -276,7 +276,7 @@ export function PapelDaLocacao({ carga, emitidoPor }: { carga: Extract<CargaDaMe
                           </span>
                         )}
                       </td>
-                      <td className={`${td} font-medium`}>{p.itens[0].patrimonio}</td>
+                      <td className={`${td} font-medium`}>{p.itens[0].patrimonio ?? "—"}</td>
                       <td className={td}>
                         {diaMes(p.itens[0].inicio)} a {diaMes(p.itens[0].fim)}
                       </td>
@@ -286,7 +286,7 @@ export function PapelDaLocacao({ carga, emitidoPor }: { carga: Extract<CargaDaMe
                     </tr>
                   ) : (
                     p.itens.map((i, k) => (
-                      <tr key={i.remessa + i.patrimonio} className="break-inside-avoid bg-[#FFF8E8]">
+                      <tr key={`${n}.${k}`} className="break-inside-avoid bg-[#FFF8E8]">
                         <td className={`${td} font-semibold text-[#8A5A00]`}>
                           {n + 1}.{k + 1}
                         </td>
@@ -296,7 +296,7 @@ export function PapelDaLocacao({ carga, emitidoPor }: { carga: Extract<CargaDaMe
                             {k === 0 ? `trocado em ${diaMes(p.itens[1].inicio)}` : `substituiu ${p.itens[k - 1].patrimonio}`}
                           </span>
                         </td>
-                        <td className={`${td} font-medium`}>{i.patrimonio}</td>
+                        <td className={`${td} font-medium`}>{i.patrimonio ?? "—"}</td>
                         <td className={td}>
                           {diaMes(i.inicio)} a {diaMes(i.fim)}
                         </td>

@@ -252,19 +252,21 @@ export async function lerBmDoPdf(dados: FormData): Promise<PdfDeBm> {
   if (candidatas.length === 0) return { arquivo: arquivo.name, ok: false, erro: "Nenhuma OM no PDF." };
 
   const supabase = await createClient();
-  const achadas: { boletim_id: number; om: string }[] = [];
+  type OmDoBm = { boletim_id: number; om: string; om_retirada: string | null; recibo_entrega: string | null };
+  const colunas = "boletim_id, om, om_retirada, recibo_entrega";
+  const achadas: OmDoBm[] = [];
   for (let i = 0; i < candidatas.length; i += 150) {
-    const { data, error } = await supabase.from("boletim_oms").select("boletim_id, om").in("om", candidatas.slice(i, i + 150));
+    const { data, error } = await supabase.from("boletim_oms").select(colunas).in("om", candidatas.slice(i, i + 150));
     if (error) return { arquivo: arquivo.name, ok: false, erro: error.message };
-    achadas.push(...((data ?? []) as { boletim_id: number; om: string }[]));
+    achadas.push(...((data ?? []) as OmDoBm[]));
   }
   const ids = [...new Set(achadas.map((o) => o.boletim_id))];
   if (ids.length === 0) {
     return { arquivo: arquivo.name, ok: false, erro: "As OMs deste PDF não estão em nenhum boletim do sistema. É um BM gerado aqui?" };
   }
-  const { data: todas, error: et } = await supabase.from("boletim_oms").select("boletim_id, om").in("boletim_id", ids);
+  const { data: todas, error: et } = await supabase.from("boletim_oms").select(colunas).in("boletim_id", ids);
   if (et) return { arquivo: arquivo.name, ok: false, erro: et.message };
-  const deles = boletinsDoPdf(candidatas, (todas ?? []) as { boletim_id: number; om: string }[]);
+  const deles = boletinsDoPdf(candidatas, (todas ?? []) as OmDoBm[]);
   if (deles.length === 0) {
     return { arquivo: arquivo.name, ok: false, erro: "O PDF tem OMs soltas de vários boletins, mas nenhum BM inteiro." };
   }
