@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { chaveDaFicha, ordemDaReferencia, type Vinculo } from "@/lib/medicoes/arquivo";
 import { acharBase, type Base } from "@/lib/medicoes/bases";
 import { CLIENTE_PADRAO } from "@/lib/medicoes/controle";
-import type { BaseDaPlanilha, BmNaMedicao, ItemDeLocacao } from "@/lib/medicoes/locacao";
+import { separarPatrimonio, type BaseDaPlanilha, type BmNaMedicao, type ItemDeLocacao } from "@/lib/medicoes/locacao";
 import { chaveDoCliente, dataDaOm, documentoDoBoletim } from "@/lib/medicoes/medicoes";
 
 type Cliente = Awaited<ReturnType<typeof createClient>>;
@@ -150,8 +150,12 @@ export async function carregarMedicao(id: number): Promise<CargaDaMedicao> {
           )
         ).map((i) => {
           const x = i as Record<string, unknown>;
+          // O boletim importado antes de o leitor separar o patrimônio que
+          // quebrou de linha guardou "NOME (24093-207)" sem patrimônio.
+          const nome = !x.patrimonio ? separarPatrimonio(String(x.equipamento ?? "")) : null;
           return {
             ...(x as unknown as ItemGravado),
+            ...(nome?.patrimonio ? nome : {}),
             qtde: Number(x.qtde),
             valor_base: Number(x.valor_base),
             valor_total: Number(x.valor_total),

@@ -244,7 +244,7 @@ export function Medicao({ carga, clientes, podeMexer }: { carga: Carga; clientes
                         <tr key={p.itens[0].id} className="border-b border-borda/50">
                           <td className="px-4 py-1.5 text-texto-3">{n + 1}</td>
                           <td className="py-1.5 pr-3">{p.itens[0].equipamento}</td>
-                          <td className="py-1.5 pr-3 font-medium">{p.itens[0].patrimonio}</td>
+                          <td className="py-1.5 pr-3 font-medium">{p.itens[0].patrimonio ?? "—"}</td>
                           <td className="py-1.5 pr-3">
                             {diaMes(p.itens[0].inicio)} a {diaMes(p.itens[0].fim)}
                             {p.semSubstituta && <span className="ml-2 text-manutencao">saiu sem substituta</span>}
@@ -278,7 +278,7 @@ export function Medicao({ carga, clientes, podeMexer }: { carga: Carga; clientes
                               <td className="py-1.5 pr-3">
                                 {k === 0 ? "até a troca" : "substituta"} · {i.equipamento}
                               </td>
-                              <td className="py-1.5 pr-3 font-medium text-texto">{i.patrimonio}</td>
+                              <td className="py-1.5 pr-3 font-medium text-texto">{i.patrimonio ?? "—"}</td>
                               <td className="py-1.5 pr-3">
                                 {diaMes(i.inicio)} a {diaMes(i.fim)}
                               </td>

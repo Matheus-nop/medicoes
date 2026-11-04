@@ -66,7 +66,8 @@ function dataNoPeriodo(diaMes: string, inicio: string, fim: string): string {
 export function separarPatrimonio(texto: string): { equipamento: string; patrimonio: string | null } {
   const m = /^(.*?)\s*\(([^()]+)\)\s*$/.exec(texto.trim());
   if (!m || !/\d/.test(m[2])) return { equipamento: texto.trim().replace(/\s+/g, " "), patrimonio: null };
-  return { equipamento: m[1].trim().replace(/\s+/g, " "), patrimonio: m[2].trim().toUpperCase() };
+  // O patrimônio que quebrou no meio ("(16016-" / "151)") volta sem o espaço.
+  return { equipamento: m[1].trim().replace(/\s+/g, " "), patrimonio: m[2].replace(/\s+/g, "").toUpperCase() };
 }
 
 const ENDERECO = /\s+-\s+(RUA|R\.|AV\.?|AVENIDA|RODOVIA|ROD\.?|ESTRADA|EST\.?|TRAVESSA|TV\.?|PRAÇA|PRACA|ALAMEDA|LARGO|VIA|BECO)\b/i;
@@ -195,10 +196,15 @@ export function lerBoletimDeLocacao(linhas: string[]): LeituraDeLocacao {
       continue;
     }
     // Sem quantidade: ou é o resto do nome do item de cima, ou o título do kit.
-    if (p.length === 1 && /^[A-ZÀ-Ü0-9]/.test(t)) {
+    if (p.length === 1 && /^[A-ZÀ-Ü0-9(]/.test(t)) {
       const ultimo = itens[itens.length - 1];
-      if (anteriorEhItem && ultimo && !ultimo.patrimonio && t.length <= 15) {
-        ultimo.equipamento = `${ultimo.equipamento} ${t}`;
+      // O resto do nome pode trazer o patrimônio ("30KG (240914-609)"): aí é
+      // continuação qualquer que seja o tamanho, e o patrimônio se separa.
+      // E o parêntese que ficou aberto em cima ("(16016-") fecha embaixo ("151)").
+      const comPatrimonio = /\([^()]*\d[^()]*\)\s*$/.test(t);
+      const abriu = ultimo && (ultimo.equipamento.split("(").length > ultimo.equipamento.split(")").length) && /\)\s*$/.test(t);
+      if (anteriorEhItem && ultimo && !ultimo.patrimonio && (t.length <= 15 || comPatrimonio || abriu)) {
+        Object.assign(ultimo, separarPatrimonio(`${ultimo.equipamento} ${t}`));
       } else {
         grupo = t.replace(/\s+/g, " ");
       }
@@ -225,9 +231,14 @@ export function lerBoletimDeLocacao(linhas: string[]): LeituraDeLocacao {
 
 /* ── O que se cobra, e a troca ────────────────────────────── */
 
-/** O que entra na planilha: equipamento com patrimônio e valor. Acessório a R$ 0,00 fica de fora. */
-export function cobravel(i: Pick<ItemDeLocacao, "patrimonio" | "valor_base" | "valor_total">): boolean {
-  return !!i.patrimonio && (i.valor_base > 0 || i.valor_total > 0);
+/**
+ * O que entra na planilha: a linha com valor. Acessório a R$ 0,00 fica de
+ * fora. O patrimônio não decide: linha com valor e sem patrimônio lido também
+ * se cobra (o Sisloc a soma no TOTAL GERAL), e ficar fora dela fazia o total
+ * da base não bater com as linhas.
+ */
+export function cobravel(i: Pick<ItemDeLocacao, "valor_base" | "valor_total">): boolean {
+  return i.valor_base > 0 || i.valor_total > 0;
 }
 
 export const fichaDaRemessa = (remessa: string) => remessa.split("-")[0];
@@ -504,17 +515,33 @@ export function omsNoTexto(linhas: string[]): string[] {
  * Que boletins o PDF é: os que têm a maior parte das OMs dele impressas no
  * texto. O "PDF de todos" traz vários BMs num arquivo só, e todos entram. A
  * folga é para a OM que a impressão cortou; abaixo da metade, não é ele.
+ *
+ * O número que está no texto porque é o **Nº OM** (a entrada) ou a **OM
+ * ENTREGA** de uma OM cujo número principal também está no texto não conta
+ * para outro boletim: a bomba que entrou na OM 031733 em julho e foi cobrada
+ * na 033091 em outubro imprime as duas, e o BM antigo de uma OM só, a 031733,
+ * entrava por inteiro.
  */
 export function boletinsDoPdf(
   achadas: string[],
-  oms: { boletim_id: number; om: string }[],
+  oms: { boletim_id: number; om: string; om_retirada?: string | null; recibo_entrega?: string | null }[],
 ): { boletim_id: number; achadas: number; total: number }[] {
   const conjunto = new Set(achadas);
+  // número → os boletins cuja OM impressa o explica como entrada ou entrega
+  const explicado = new Map<string, Set<number>>();
+  for (const o of oms) {
+    if (!conjunto.has(o.om)) continue;
+    for (const n of [o.om_retirada, o.recibo_entrega]) {
+      if (!n || n === o.om) continue;
+      explicado.set(n, (explicado.get(n) ?? new Set()).add(o.boletim_id));
+    }
+  }
   const por = new Map<number, { achadas: number; total: number }>();
   for (const o of oms) {
     const p = por.get(o.boletim_id) ?? { achadas: 0, total: 0 };
     p.total += 1;
-    if (conjunto.has(o.om)) p.achadas += 1;
+    const deOutro = [...(explicado.get(o.om) ?? [])].some((b) => b !== o.boletim_id);
+    if (conjunto.has(o.om) && !deOutro) p.achadas += 1;
     por.set(o.boletim_id, p);
   }
   return [...por.entries()]

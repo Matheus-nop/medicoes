@@ -276,3 +276,69 @@ test("uma linha de MANUTENÇÃO por BM, com o total dele, a base do BM e o docum
   e(l[0].remessa, "BM-0003 - SETEMBRO/2026");
   e(l[1].projeto, "");
 });
+
+test("o número que é a OM de entrada de uma OM impressa não traz o BM antigo de uma OM só", () => {
+  // A bomba entrou na 031733 (BM 01, de julho) e foi cobrada na 033091 (BM 12):
+  // o papel do BM 12 imprime as duas.
+  const oms = [
+    { boletim_id: 12, om: "033091", om_retirada: "031733", recibo_entrega: null },
+    { boletim_id: 1, om: "031733", om_retirada: null, recibo_entrega: null },
+  ];
+  deepStrictEqual(
+    boletinsDoPdf(["033091", "031733"], oms).map((b) => b.boletim_id),
+    [12],
+  );
+  // Sem a 033091 no texto, a 031733 é a do BM 01 mesmo.
+  deepStrictEqual(
+    boletinsDoPdf(["031733"], oms).map((b) => b.boletim_id),
+    [1],
+  );
+});
+
+test("o patrimônio que quebra de linha com o resto do nome se separa, e a linha com valor sempre se cobra", () => {
+  const r = lerBoletimDeLocacao([
+    L("Período Faturamento :", "Medição Mensal : 01/10/2026 - 31/10/2026"),
+    L("Entrega :GRANDE DIÂMETRO - CENTRO SUL - RUA X, 1"),
+    L("Remessa:", "001300-01", "Data:", "01/07/2025", "NF Remessa:", "004607"),
+    item("1", "GRUPO GERADOR 9KVA MONOF. PARTIDA", "01/10", "31/10", "31 D", "Não", "350,00", "350,00"),
+    L("ELÉTRICA (24093-207)"),
+    item("1", "MARTELO ROMPEDOR 30KG (240914-609)", "01/10", "31/10", "31 D", "Não", "450,00", "450,00"),
+    item("1", "TAXA DE MOBILIZAÇÃO", "01/10", "31/10", "31 D", "Não", "175,00", "175,00"),
+    L("TOTAL GERAL :", "975,00"),
+  ]);
+  if (!r.ok) throw new Error(r.erro);
+  const [gerador, martelo, taxa] = r.boletim.itens;
+  e(gerador.patrimonio, "24093-207");
+  e(gerador.equipamento, "GRUPO GERADOR 9KVA MONOF. PARTIDA ELÉTRICA");
+  e(martelo.grupo, null);
+  e(taxa.patrimonio, null);
+  e(r.boletim.itens.filter(cobravel).length, 3);
+  e(posicoesDoBoletim(r.boletim.itens).reduce((t, p) => t + p.valor_total, 0), 975);
+});
+
+test("o patrimônio que quebra no meio, num nome que já tem parênteses, volta inteiro", () => {
+  const r = lerBoletimDeLocacao([
+    L("Período Faturamento :", "Medição Mensal : 01/10/2026 - 31/10/2026"),
+    L("Entrega :GRANDE DIÂMETRO - CENTRO SUL - AVENIDA REPORTER NESTOR MOREIRA, 40"),
+    L("Remessa:", "002354-10", "Data:", "23/09/2025 16:05", "NF Remessa:"),
+    item("1", "BOMBA SUBMERSÍVEL SPV 4\" (ÁGUA SUJA) (16016-", "01/10", "31/10", "31 D", "Não", "455,00", "455,00"),
+    L("151)"),
+    L("Total Remessa [002354-10] :", "455,00"),
+    L("Remessa:", "002354-11", "Data:", "04/02/2026 15:57", "NF Remessa:"),
+    item("1", "BOMBA SUBMERSÍVEL HIDROSUL 4\" (ÁGUA SUJA)", "01/10", "31/10", "31 D", "Não", "520,00", "520,00"),
+    L("(26016-192)"),
+    L("TOTAL GERAL :", "975,00"),
+  ]);
+  if (!r.ok) throw new Error(r.erro);
+  const [spv, hidrosul] = r.boletim.itens;
+  e(spv.patrimonio, "16016-151");
+  e(spv.equipamento, "BOMBA SUBMERSÍVEL SPV 4\" (ÁGUA SUJA)");
+  e(hidrosul.patrimonio, "26016-192");
+  e(hidrosul.equipamento, "BOMBA SUBMERSÍVEL HIDROSUL 4\" (ÁGUA SUJA)");
+  e(posicoesDoBoletim(r.boletim.itens).length, 2);
+  // o que já foi gravado com o nome inteiro se lê de novo do nome
+  deepStrictEqual(separarPatrimonio("BOMBA SUBMERSÍVEL SPV 4\" (ÁGUA SUJA) (16016- 151)"), {
+    equipamento: "BOMBA SUBMERSÍVEL SPV 4\" (ÁGUA SUJA)",
+    patrimonio: "16016-151",
+  });
+});
