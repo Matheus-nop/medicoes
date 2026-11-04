@@ -135,8 +135,37 @@ export async function montarPlanilha(
     result: Math.round(linhas.reduce((t, l) => t + l.valor_total, 0) * 100) / 100,
   };
   ws.autoFilter = `A13:${String.fromCharCode(64 + COLUNAS + NOSSAS.length)}${ultima}`;
+  limparParaOExcel(wb);
 
   const buffer = (await wb.xlsx.writeBuffer()) as ArrayBuffer;
   const nome = `Medição ${mesPorExtenso(m.mes)} Nova Opção - Locação ${m.cliente}`.replace(/[\\/:*?"<>|]/g, "-");
   return { buffer, nome };
+}
+
+const CONTROLE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g;
+
+/**
+ * O arquivo da AEGEA traz nomes definidos que o Excel recusa no nosso: o
+ * "Logo" aponta para outra pasta de trabalho ("[1]Empresas"), cujo vínculo não
+ * veio no molde, e o filtro guardado é o do modelo vazio (A13:N14), sem a
+ * aba a que pertence (o ExcelJS não grava o `localSheetId`). Com eles o Excel
+ * abre pedindo para "recuperar o conteúdo". Fica só o que aponta para dentro
+ * do arquivo; o filtro é o `autoFilter` da aba, que o Excel lê sem o nome; e a
+ * fórmula morta (`=#REF!`) da aba de fotos sai. Os títulos de impressão o
+ * ExcelJS regrava a partir da página de cada aba.
+ */
+function limparParaOExcel(wb: ExcelJS.Workbook) {
+  wb.definedNames.model = wb.definedNames.model.filter(
+    (n) => !n.name.startsWith("_xlnm.") && n.ranges.every((r) => !r.includes("[") && !r.includes("#REF!")),
+  );
+  wb.eachSheet((s) =>
+    s.eachRow({ includeEmpty: false }, (row) =>
+      row.eachCell({ includeEmpty: false }, (cell) => {
+        const f = (cell.value as { formula?: string } | null)?.formula;
+        if (f && f.includes("#REF!")) cell.value = null;
+        // Caractere de controle vindo do texto do PDF também quebra o arquivo.
+        if (typeof cell.value === "string") cell.value = cell.value.replace(CONTROLE, "");
+      }),
+    ),
+  );
 }
