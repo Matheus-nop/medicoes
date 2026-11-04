@@ -315,3 +315,30 @@ test("o patrimônio que quebra de linha com o resto do nome se separa, e a linha
   e(r.boletim.itens.filter(cobravel).length, 3);
   e(posicoesDoBoletim(r.boletim.itens).reduce((t, p) => t + p.valor_total, 0), 975);
 });
+
+test("o patrimônio que quebra no meio, num nome que já tem parênteses, volta inteiro", () => {
+  const r = lerBoletimDeLocacao([
+    L("Período Faturamento :", "Medição Mensal : 01/10/2026 - 31/10/2026"),
+    L("Entrega :GRANDE DIÂMETRO - CENTRO SUL - AVENIDA REPORTER NESTOR MOREIRA, 40"),
+    L("Remessa:", "002354-10", "Data:", "23/09/2025 16:05", "NF Remessa:"),
+    item("1", "BOMBA SUBMERSÍVEL SPV 4\" (ÁGUA SUJA) (16016-", "01/10", "31/10", "31 D", "Não", "455,00", "455,00"),
+    L("151)"),
+    L("Total Remessa [002354-10] :", "455,00"),
+    L("Remessa:", "002354-11", "Data:", "04/02/2026 15:57", "NF Remessa:"),
+    item("1", "BOMBA SUBMERSÍVEL HIDROSUL 4\" (ÁGUA SUJA)", "01/10", "31/10", "31 D", "Não", "520,00", "520,00"),
+    L("(26016-192)"),
+    L("TOTAL GERAL :", "975,00"),
+  ]);
+  if (!r.ok) throw new Error(r.erro);
+  const [spv, hidrosul] = r.boletim.itens;
+  e(spv.patrimonio, "16016-151");
+  e(spv.equipamento, "BOMBA SUBMERSÍVEL SPV 4\" (ÁGUA SUJA)");
+  e(hidrosul.patrimonio, "26016-192");
+  e(hidrosul.equipamento, "BOMBA SUBMERSÍVEL HIDROSUL 4\" (ÁGUA SUJA)");
+  e(posicoesDoBoletim(r.boletim.itens).length, 2);
+  // o que já foi gravado com o nome inteiro se lê de novo do nome
+  deepStrictEqual(separarPatrimonio("BOMBA SUBMERSÍVEL SPV 4\" (ÁGUA SUJA) (16016- 151)"), {
+    equipamento: "BOMBA SUBMERSÍVEL SPV 4\" (ÁGUA SUJA)",
+    patrimonio: "16016-151",
+  });
+});

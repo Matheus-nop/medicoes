@@ -66,7 +66,8 @@ function dataNoPeriodo(diaMes: string, inicio: string, fim: string): string {
 export function separarPatrimonio(texto: string): { equipamento: string; patrimonio: string | null } {
   const m = /^(.*?)\s*\(([^()]+)\)\s*$/.exec(texto.trim());
   if (!m || !/\d/.test(m[2])) return { equipamento: texto.trim().replace(/\s+/g, " "), patrimonio: null };
-  return { equipamento: m[1].trim().replace(/\s+/g, " "), patrimonio: m[2].trim().toUpperCase() };
+  // O patrimônio que quebrou no meio ("(16016-" / "151)") volta sem o espaço.
+  return { equipamento: m[1].trim().replace(/\s+/g, " "), patrimonio: m[2].replace(/\s+/g, "").toUpperCase() };
 }
 
 const ENDERECO = /\s+-\s+(RUA|R\.|AV\.?|AVENIDA|RODOVIA|ROD\.?|ESTRADA|EST\.?|TRAVESSA|TV\.?|PRAÇA|PRACA|ALAMEDA|LARGO|VIA|BECO)\b/i;
@@ -195,12 +196,14 @@ export function lerBoletimDeLocacao(linhas: string[]): LeituraDeLocacao {
       continue;
     }
     // Sem quantidade: ou é o resto do nome do item de cima, ou o título do kit.
-    if (p.length === 1 && /^[A-ZÀ-Ü0-9]/.test(t)) {
+    if (p.length === 1 && /^[A-ZÀ-Ü0-9(]/.test(t)) {
       const ultimo = itens[itens.length - 1];
       // O resto do nome pode trazer o patrimônio ("30KG (240914-609)"): aí é
       // continuação qualquer que seja o tamanho, e o patrimônio se separa.
+      // E o parêntese que ficou aberto em cima ("(16016-") fecha embaixo ("151)").
       const comPatrimonio = /\([^()]*\d[^()]*\)\s*$/.test(t);
-      if (anteriorEhItem && ultimo && !ultimo.patrimonio && (t.length <= 15 || comPatrimonio)) {
+      const abriu = ultimo && (ultimo.equipamento.split("(").length > ultimo.equipamento.split(")").length) && /\)\s*$/.test(t);
+      if (anteriorEhItem && ultimo && !ultimo.patrimonio && (t.length <= 15 || comPatrimonio || abriu)) {
         Object.assign(ultimo, separarPatrimonio(`${ultimo.equipamento} ${t}`));
       } else {
         grupo = t.replace(/\s+/g, " ");
