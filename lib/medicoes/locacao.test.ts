@@ -249,19 +249,30 @@ test("o PDF é dos boletins com a maior parte das OMs nele; o de todos traz vár
   );
 });
 
-test("uma linha de MANUTENÇÃO por OM, com a base do BM e a OM na coluna da remessa", () => {
-  const l = linhasDosBms([
-    {
-      documento: "BM-0003 - SETEMBRO/2026",
-      base_nome: "BASE NORTE - ILHA",
-      base: { nome: "BASE NORTE - ILHA", projeto: "SETORIZADA", municipio: "RIO DE JANEIRO", superintendencia: "NORTE", bloco: "BLOCO 4", coordenador: "Fulano" },
-      oms: [{ om: "034292", patrimonio: "24068-186", equipamento: "CORTADORA", data: "2026-09-12T10:00:00Z", valor: 1250 }],
-    },
-  ]);
-  e(l.length, 1);
-  e(l[0].servico, "MANUTENÇÃO - CORTADORA");
-  e(l[0].execucao, "12/09/2026");
-  e(l[0].valor_total, 1250);
+test("uma linha de MANUTENÇÃO por BM, com o total dele, a base do BM e o documento na coluna da remessa", () => {
+  const base = { nome: "BASE NORTE - ILHA", projeto: "SETORIZADA", municipio: "RIO DE JANEIRO", superintendencia: "NORTE", bloco: "BLOCO 4", coordenador: "Fulano" };
+  const l = linhasDosBms(
+    [
+      {
+        documento: "BM-0003 - SETEMBRO/2026",
+        base_nome: "BASE NORTE - ILHA",
+        base,
+        oms: [
+          { om: "034292", patrimonio: "24068-186", equipamento: "CORTADORA", data: "2026-09-12T10:00:00Z", valor: 1250 },
+          { om: "034301", patrimonio: "251214-929", equipamento: "MARTELO", data: "2026-09-15T10:00:00Z", valor: 980.5 },
+        ],
+      },
+      { documento: "BM-0007 - SETEMBRO/2026", base_nome: "OUTRA", base: null, oms: [{ om: "034400", patrimonio: null, equipamento: null, data: null, valor: 300 }] },
+    ],
+    "2026-09-01",
+    "2026-09-30",
+  );
+  e(l.length, 2);
+  e(l[0].servico, "MANUTENÇÃO");
+  e(l[0].valor_total, 2230.5);
+  e(l[0].execucao, "01/09/2026 a 30/09/2026");
+  e(l[0].tempo, 30);
   e(l[0].superintendencia, "NORTE");
-  e(l[0].remessa, "OM 034292 · BM-0003 - SETEMBRO/2026");
+  e(l[0].remessa, "BM-0003 - SETEMBRO/2026");
+  e(l[1].projeto, "");
 });

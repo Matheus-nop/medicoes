@@ -316,53 +316,43 @@ export function PapelDaLocacao({ carga, emitidoPor }: { carga: Extract<CargaDaMe
           <>
             <Titulo numero="4">Manutenção</Titulo>
             <p className="mb-[2mm] text-[7pt] text-[#4A5368]">
-              Os boletins de medição de manutenção da área, OM por OM — as mesmas linhas MANUTENÇÃO da planilha.
+              Os boletins de medição de manutenção da área, cada um pelo seu total — as mesmas linhas MANUTENÇÃO da planilha.
             </p>
-            {bms.map((b) => (
-              <section key={b.boletim_id} className="mb-[4mm]">
-                <div className="rounded-t-[2mm] bg-[#F6F7FA] px-[3mm] py-[2mm] break-after-avoid">
-                  <div className="flex items-end justify-between gap-[3mm]">
-                    <p className="min-w-0 text-[9pt] font-bold">
-                      {b.documento} · {b.base_nome}
-                    </p>
-                    <p className="shrink-0 text-right text-[7pt] text-[#4A5368]">
-                      {b.oms.length} OM(s) ·{" "}
-                      <span className="text-[10pt] font-bold text-[#141B2D] tabular-nums">
-                        {emReais(b.oms.reduce((t, o) => t + o.valor, 0))}
-                      </span>
-                    </p>
-                  </div>
-                  <p className="text-[7pt] text-[#4A5368]">
-                    {[b.base?.projeto, b.base?.municipio, b.base?.superintendencia, b.base?.bloco].filter(Boolean).join(" · ") ||
-                      "base sem os dados da AEGEA no cadastro"}
-                    {" · "}Coordenador (AEGEA):{" "}
-                    <span className={b.base?.coordenador ? "" : "text-[#B4232A]"}>{b.base?.coordenador ?? "não informado"}</span>
-                  </p>
-                </div>
-                <table className="w-full border-collapse tabular-nums">
-                  <thead className="text-[#7A8294]">
-                    <tr>
-                      <th className={th}>OM</th>
-                      <th className={th}>Equipamento</th>
-                      <th className={th}>Patrimônio</th>
-                      <th className={th}>Data</th>
-                      <th className={`${th} text-right`}>Valor</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {b.oms.map((o) => (
-                      <tr key={o.om} className="break-inside-avoid">
-                        <td className={`${td} font-medium`}>{o.om}</td>
-                        <td className={td}>{o.equipamento ?? "—"}</td>
-                        <td className={td}>{o.patrimonio ?? "—"}</td>
-                        <td className={td}>{o.data ? `${o.data.slice(8, 10)}/${o.data.slice(5, 7)}/${o.data.slice(0, 4)}` : "—"}</td>
-                        <td className={`${td} text-right`}>{emReais(o.valor)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </section>
-            ))}
+            <table className="w-full border-collapse tabular-nums">
+              <thead className="bg-[#F6F7FA] text-[#4A5368]">
+                <tr>
+                  <th className={th}>BM</th>
+                  <th className={th}>Base</th>
+                  <th className={th}>Município</th>
+                  <th className={th}>Superintendência</th>
+                  <th className={th}>Bloco</th>
+                  <th className={th}>Coordenador (AEGEA)</th>
+                  <th className={`${th} text-right`}>OMs</th>
+                  <th className={`${th} text-right`}>Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bms.map((b) => (
+                  <tr key={b.boletim_id} className="break-inside-avoid">
+                    <td className={`${td} font-medium`}>{b.documento}</td>
+                    <td className={td}>{b.base_nome}</td>
+                    <td className={td}>{b.base?.municipio ?? "—"}</td>
+                    <td className={td}>{b.base?.superintendencia ?? "—"}</td>
+                    <td className={td}>{b.base?.bloco ?? "—"}</td>
+                    <td className={`${td} ${b.base?.coordenador ? "" : "text-[#B4232A]"}`}>{b.base?.coordenador ?? "não informado"}</td>
+                    <td className={`${td} text-right`}>{b.oms.length}</td>
+                    <td className={`${td} text-right`}>{emReais(b.oms.reduce((t, o) => t + o.valor, 0))}</td>
+                  </tr>
+                ))}
+                <tr className="font-bold" style={{ color: AZUL }}>
+                  <td className="px-[1.5mm] py-[1.3mm]" colSpan={6}>
+                    Total da manutenção
+                  </td>
+                  <td className="px-[1.5mm] text-right">{bms.reduce((t, b) => t + b.oms.length, 0)}</td>
+                  <td className="px-[1.5mm] text-right">{emReais(valorManut)}</td>
+                </tr>
+              </tbody>
+            </table>
           </>
         ) : (
           linhasManut.length > 0 && (
