@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { Aviso, Botao, Painel, Selo } from "@/components/ui";
@@ -175,7 +176,11 @@ export function ManutencaoDaArea({ carga, podeMexer }: { carga: Carga; podeMexer
                       <td className="py-1.5 pr-3 font-medium">{b.documento}</td>
                       <td className="py-1.5 pr-3">
                         {b.base_nome}
-                        {!b.base?.municipio && <span className="ml-2 text-manutencao">sem município no cadastro</span>}
+                        {!b.base?.municipio && (
+                          <Link href={`/bases?base=${encodeURIComponent(b.base_nome)}`} className="ml-2 text-manutencao underline">
+                            completar no cadastro de bases
+                          </Link>
+                        )}
                       </td>
                       <td className="py-1.5 pr-3">
                         <Selo tom={TOM_SITUACAO[s]}>{ROTULO_SITUACAO[s]}</Selo>

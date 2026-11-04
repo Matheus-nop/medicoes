@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { chaveDaFicha, ordemDaReferencia, type Vinculo } from "@/lib/medicoes/arquivo";
-import { acharBase, type Base } from "@/lib/medicoes/bases";
+import { acharBase, chaveDaBase, type Base } from "@/lib/medicoes/bases";
 import { CLIENTE_PADRAO } from "@/lib/medicoes/controle";
 import { separarPatrimonio, type BaseDaPlanilha, type BmNaMedicao, type ItemDeLocacao } from "@/lib/medicoes/locacao";
 import { chaveDoCliente, dataDaOm, documentoDoBoletim } from "@/lib/medicoes/medicoes";
@@ -133,7 +133,31 @@ export async function carregarMedicao(id: number): Promise<CargaDaMedicao> {
   const chaveDoMeu = chaveDaFicha(m.cliente, vinculos);
   if (boletins.error) return { ok: false, erro: boletins.error.message };
   const cadastro = (bases.data ?? []) as Base[];
-  const daBase = (nome: string, cliente = m.cliente) => acharBase(cadastro, cliente, nome) as (Base & BaseDaPlanilha) | null;
+  // A base do cadastro com os dados da AEGEA. O nome acha a base pelo cliente
+  // do boletim; mas a mesma base pode estar no cadastro duas vezes ("BASE
+  // GRANDE DIÂMETRO BOTAFOGO - CAV" aberta pela colagem e a outra) ou com o
+  // nome do cliente do controle, e o índice prefere a que tem regional — não a
+  // que alguém completou. Quando a achada não tem projeto, município,
+  // superintendência nem bloco, vale a de mesmo nome do mesmo cliente (pelo
+  // vínculo) que tem.
+  const temAegea = (b: Base | null) => {
+    const x = b as (Base & BaseDaPlanilha) | null;
+    return !!(x && (x.projeto || x.municipio || x.superintendencia || x.bloco));
+  };
+  const soNome = (n: string) => chaveDaBase("", n).split("|")[1];
+  const daBase = (nome: string, cliente = m.cliente) => {
+    const achada = acharBase(cadastro, cliente, nome);
+    if (!nome.trim() || temAegea(achada)) return achada as (Base & BaseDaPlanilha) | null;
+    const k = soNome(nome);
+    const fichas = new Set([chaveDaFicha(cliente, vinculos), chaveDoMeu]);
+    const outra = cadastro.find(
+      (b) =>
+        temAegea(b) &&
+        fichas.has(chaveDaFicha(b.cliente, vinculos)) &&
+        [b.nome, ...((b as { apelidos?: string[] | null }).apelidos ?? [])].some((n) => soNome(n) === k),
+    );
+    return (outra ?? achada) as (Base & BaseDaPlanilha) | null;
+  };
 
   const lista = (boletins.data ?? []) as BoletimImportado[];
   const quem = [...new Set(lista.map((b) => (b as unknown as { importado_por: string }).importado_por))];

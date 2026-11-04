@@ -116,10 +116,10 @@ export function QuadroDeBases({
       ) : (
         clientes.map((c) => (
           <Painel key={c.chave} titulo={c.nome} descricao={`${c.bases.length} base(s)`}>
-            <div className="grid gap-3 p-4 md:grid-cols-2 2xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 p-4 md:grid-cols-2 2xl:grid-cols-3">
               {c.bases.map((b) =>
                 editando === b.id ? (
-                  <div key={b.id} className="rounded-xl border border-acento bg-superficie shadow-cartao md:col-span-2 2xl:col-span-3">
+                  <div key={b.id} className="min-w-0 rounded-xl border border-acento bg-superficie shadow-cartao md:col-span-2 2xl:col-span-3">
                     <Formulario
                       id={b.id}
                       inicial={daBaseParaCampos(b)}
@@ -154,7 +154,7 @@ function CartaoDaBase({ b, aoEditar }: { b: BaseNoQuadro; aoEditar?: () => void 
     </div>
   );
   return (
-    <section className={`rounded-xl border bg-superficie p-4 shadow-cartao ${falta.length ? "border-manutencao/40" : "border-borda"}`}>
+    <section className={`min-w-0 rounded-xl border bg-superficie p-4 shadow-cartao ${falta.length ? "border-manutencao/40" : "border-borda"}`}>
       <header className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-sm font-semibold" title={b.nome}>
