@@ -485,3 +485,81 @@ export function faltaNaBase(b: BaseDaPlanilha | null): string[] {
     !b.coordenador && "coordenador",
   ].filter((x): x is string => !!x);
 }
+
+/* ── Os BMs de manutenção na medição (0024) ──────────────── */
+
+/**
+ * Os números que podem ser OM no texto de um PDF de BM gerado aqui: os
+ * pedaços só de dígitos, de 4 a 10 (a OM do Sisloc tem 6, com zeros na
+ * frente). Vem lixo junto — CEP, telefone, ano —, e não faz mal: quem decide
+ * é o banco, que só devolve o que é OM de algum boletim.
+ */
+export function omsNoTexto(linhas: string[]): string[] {
+  const achadas = new Set<string>();
+  for (const l of linhas) for (const m of l.matchAll(/(?<![\d.,/-])\d{4,10}(?![\d.,/-]|-\d)/g)) achadas.add(m[0]);
+  return [...achadas];
+}
+
+/**
+ * Que boletins o PDF é: os que têm a maior parte das OMs dele impressas no
+ * texto. O "PDF de todos" traz vários BMs num arquivo só, e todos entram. A
+ * folga é para a OM que a impressão cortou; abaixo da metade, não é ele.
+ */
+export function boletinsDoPdf(
+  achadas: string[],
+  oms: { boletim_id: number; om: string }[],
+): { boletim_id: number; achadas: number; total: number }[] {
+  const conjunto = new Set(achadas);
+  const por = new Map<number, { achadas: number; total: number }>();
+  for (const o of oms) {
+    const p = por.get(o.boletim_id) ?? { achadas: 0, total: 0 };
+    p.total += 1;
+    if (conjunto.has(o.om)) p.achadas += 1;
+    por.set(o.boletim_id, p);
+  }
+  return [...por.entries()]
+    .map(([boletim_id, p]) => ({ boletim_id, ...p }))
+    .filter((p) => p.achadas > 0 && p.achadas / p.total >= 0.5)
+    .sort((a, b) => b.achadas - a.achadas);
+}
+
+/** Um BM de manutenção incluído na medição, com as OMs dele e a base do cadastro. */
+export interface BmNaMedicao {
+  documento: string;
+  base_nome: string;
+  base: BaseDaPlanilha | null;
+  oms: { om: string; patrimonio: string | null; equipamento: string | null; data: string | null; valor: number }[];
+}
+
+/**
+ * As linhas de MANUTENÇÃO dos BMs incluídos: uma por OM, embaixo da locação.
+ * O SERVIÇO diz que é manutenção e de qual equipamento; a data é a da OM
+ * (a chegada, ou a abertura); projeto, município, superintendência e bloco
+ * são os da base do BM; e na coluna REMESSA vão a OM e o BM, para o cliente
+ * achar o papel.
+ */
+export function linhasDosBms(bms: BmNaMedicao[]): LinhaDaPlanilha[] {
+  const dia = (d: string | null) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : "");
+  return bms.flatMap((b) =>
+    b.oms.map((o) => ({
+      servico: o.equipamento ? `MANUTENÇÃO - ${o.equipamento}` : "MANUTENÇÃO",
+      patrimonio: o.patrimonio || "-",
+      execucao: dia(o.data),
+      unidade: "UND",
+      tempo: 1,
+      qtde: 1,
+      valor_unidade: o.valor,
+      valor_total: o.valor,
+      aprovada: "SIM",
+      projeto: b.base?.projeto ?? "",
+      cidade: b.base?.municipio ?? "",
+      superintendencia: b.base?.superintendencia ?? "",
+      bloco: b.base?.bloco ?? "",
+      posicao: "",
+      troca: "",
+      coordenador: b.base?.coordenador ?? "",
+      base: b.base_nome,
+      remessa: `OM ${o.om} · ${b.documento}`,
+    })),
+  );
+}

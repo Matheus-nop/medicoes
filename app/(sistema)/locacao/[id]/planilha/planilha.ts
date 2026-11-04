@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
-import { linhasDaLocacao, linhasDaManutencao, periodoDaPlanilha, type LinhaDaPlanilha } from "@/lib/medicoes/locacao";
+import { linhasDaLocacao, periodoDaPlanilha, type LinhaDaPlanilha } from "@/lib/medicoes/locacao";
+import { manutencaoDaMedicao } from "../../manutencao";
 import { MOLDE_AEGEA_BASE64 } from "@/lib/medicoes/molde-aegea";
 import type { CargaDaMedicao } from "../../dados";
 import { mesPorExtenso } from "../../formato";
@@ -20,7 +21,7 @@ export async function montarPlanilha(
   carga: Extract<CargaDaMedicao, { ok: true }>,
   responsavel: string,
 ): Promise<{ buffer: ArrayBuffer; nome: string }> {
-  const { medicao: m, boletins, itens, manutencao } = carga;
+  const { medicao: m, boletins, itens } = carga;
   const ordenados = [...boletins].sort(
     (a, b) =>
       (a.base?.bloco ?? "").localeCompare(b.base?.bloco ?? "") ||
@@ -48,25 +49,7 @@ export async function montarPlanilha(
     );
   }
   const fim = ultimoDia(m.mes);
-  linhas.push(
-    ...linhasDaManutencao(
-      manutencao.map((x) => ({
-        valor: x.valor,
-        base: x.base
-          ? {
-              nome: x.base.nome,
-              projeto: x.base.projeto ?? null,
-              municipio: x.base.municipio ?? null,
-              superintendencia: x.base.superintendencia ?? null,
-              bloco: x.base.bloco ?? null,
-              coordenador: x.base.coordenador ?? null,
-            }
-          : null,
-      })),
-      m.mes,
-      fim,
-    ),
-  );
+  linhas.push(...manutencaoDaMedicao(carga).linhas);
 
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(Buffer.from(MOLDE_AEGEA_BASE64, "base64") as unknown as ArrayBuffer);

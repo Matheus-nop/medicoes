@@ -4,10 +4,13 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { acharBase, type Base } from "@/lib/medicoes/bases";
 import {
+  boletinsDoPdf,
   lerBoletimDeLocacao,
+  omsNoTexto,
   sugestaoDaBase,
   type BoletimDeLocacao,
 } from "@/lib/medicoes/locacao";
+import { documentoDoBoletim } from "@/lib/medicoes/medicoes";
 import { linhasDoPdf } from "@/lib/medicoes/pdf";
 import { quemLanca } from "@/lib/medicoes/papeis";
 
@@ -212,6 +215,117 @@ export async function trocarCoordenador(medicaoId: number, itemIds: number[], co
     .update({ coordenador: coordenador.trim() || null })
     .in("id", itemIds);
   if (error) return { ok: false, erro: recado(error, "trocar o coordenador") };
+  revalidatePath(`/locacao/${medicaoId}`);
+  return { ok: true };
+}
+
+/* ── Os BMs de manutenção (0024) ─────────────────────────── */
+
+/** Um BM que o PDF mostrou, para a tela conferir antes de incluir. */
+export interface BmLido {
+  boletim_id: number;
+  documento: string;
+  base: string | null;
+  referencia: string | null;
+  situacao: string;
+  oms: number;
+  achadas: number;
+  valor: number;
+}
+
+export type PdfDeBm = { arquivo: string } & ({ ok: true; bms: BmLido[] } | { ok: false; erro: string });
+
+/**
+ * Lê o PDF de um BM de manutenção gerado aqui (o papel de um boletim, ou o
+ * "PDF de todos"): acha as OMs impressas e devolve os boletins delas. Não
+ * grava nada; as linhas vêm do boletim, e não do PDF.
+ */
+export async function lerBmDoPdf(dados: FormData): Promise<PdfDeBm> {
+  const arquivo = dados.get("pdf");
+  if (!(arquivo instanceof File)) return { arquivo: "", ok: false, erro: "Nenhum arquivo." };
+  let candidatas: string[];
+  try {
+    candidatas = omsNoTexto(await linhasDoPdf(new Uint8Array(await arquivo.arrayBuffer())));
+  } catch (e) {
+    return { arquivo: arquivo.name, ok: false, erro: `Não deu para abrir o PDF: ${(e as Error).message}` };
+  }
+  if (candidatas.length === 0) return { arquivo: arquivo.name, ok: false, erro: "Nenhuma OM no PDF." };
+
+  const supabase = await createClient();
+  const achadas: { boletim_id: number; om: string }[] = [];
+  for (let i = 0; i < candidatas.length; i += 150) {
+    const { data, error } = await supabase.from("boletim_oms").select("boletim_id, om").in("om", candidatas.slice(i, i + 150));
+    if (error) return { arquivo: arquivo.name, ok: false, erro: error.message };
+    achadas.push(...((data ?? []) as { boletim_id: number; om: string }[]));
+  }
+  const ids = [...new Set(achadas.map((o) => o.boletim_id))];
+  if (ids.length === 0) {
+    return { arquivo: arquivo.name, ok: false, erro: "As OMs deste PDF não estão em nenhum boletim do sistema. É um BM gerado aqui?" };
+  }
+  const { data: todas, error: et } = await supabase.from("boletim_oms").select("boletim_id, om").in("boletim_id", ids);
+  if (et) return { arquivo: arquivo.name, ok: false, erro: et.message };
+  const deles = boletinsDoPdf(candidatas, (todas ?? []) as { boletim_id: number; om: string }[]);
+  if (deles.length === 0) {
+    return { arquivo: arquivo.name, ok: false, erro: "O PDF tem OMs soltas de vários boletins, mas nenhum BM inteiro." };
+  }
+  const { data: info, error: ei } = await supabase
+    .from("boletins_atual")
+    .select("id, numero, referencia, documento, base, situacao, valor")
+    .in("id", deles.map((d) => d.boletim_id));
+  if (ei) return { arquivo: arquivo.name, ok: false, erro: ei.message };
+  const porId = new Map(((info ?? []) as { id: number; numero: string; referencia: string | null; documento: string | null; base: string | null; situacao: string; valor: unknown }[]).map((b) => [b.id, b]));
+  return {
+    arquivo: arquivo.name,
+    ok: true,
+    bms: deles.flatMap((d) => {
+      const b = porId.get(d.boletim_id);
+      if (!b) return [];
+      return [
+        {
+          boletim_id: d.boletim_id,
+          documento: documentoDoBoletim(b),
+          base: b.base,
+          referencia: b.referencia,
+          situacao: b.situacao,
+          oms: d.total,
+          achadas: d.achadas,
+          valor: Number(b.valor ?? 0),
+        },
+      ];
+    }),
+  };
+}
+
+/** Inclui os BMs na medição. O que já estava não duplica. */
+export async function incluirBms(medicaoId: number, bms: { boletim_id: number; arquivo: string }[]): Promise<Resultado> {
+  if (bms.length === 0) return { ok: false, erro: "Nenhum BM para incluir." };
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { ok: false, erro: "Sessão expirada. Entre de novo." };
+  const { error } = await supabase.from("locacao_manutencoes").upsert(
+    bms.map((b) => ({ medicao_id: medicaoId, boletim_id: b.boletim_id, arquivo: b.arquivo, incluido_por: auth.user!.id })),
+    { onConflict: "medicao_id,boletim_id", ignoreDuplicates: true },
+  );
+  if (error) {
+    if (error.code === "42P01" || /locacao_manutencoes/.test(error.message)) {
+      return { ok: false, erro: "Falta aplicar a migração 0024_manutencao_na_locacao.sql no Supabase." };
+    }
+    return { ok: false, erro: recado(error, "incluir os BMs") };
+  }
+  revalidatePath(`/locacao/${medicaoId}`);
+  return { ok: true };
+}
+
+export async function tirarBm(medicaoId: number, boletimId: number): Promise<Resultado> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("locacao_manutencoes")
+    .delete()
+    .eq("medicao_id", medicaoId)
+    .eq("boletim_id", boletimId)
+    .select("id");
+  if (error) return { ok: false, erro: recado(error, "tirar o BM") };
+  if (!data?.length) return { ok: false, erro: recado({ code: "42501", message: "" }, "tirar o BM") };
   revalidatePath(`/locacao/${medicaoId}`);
   return { ok: true };
 }

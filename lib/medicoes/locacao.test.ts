@@ -6,6 +6,9 @@ import { strictEqual as e, deepStrictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import {
   bateComOSisloc,
+  boletinsDoPdf,
+  linhasDosBms,
+  omsNoTexto,
   cobravel,
   faltaNaBase,
   lerBoletimDeLocacao,
@@ -216,4 +219,49 @@ test("a manutenção soma por projeto, município, superintendência e bloco", (
 test("o que falta na base para a planilha sair completa", () => {
   deepStrictEqual(faltaNaBase({ ...BASE, municipio: null, coordenador: null }), ["município", "coordenador"]);
   deepStrictEqual(faltaNaBase(null), ["cadastro"]);
+});
+
+/* ── Os BMs de manutenção ─────────────────────────────────── */
+
+test("as OMs no texto do PDF: os números soltos, sem data, valor, CEP com traço nem comprovante", () => {
+  const achadas = omsNoTexto([
+    "BM-0003 - SETEMBRO/2026\tBASE NORTE",
+    "034292\t24068-186\tCORTADORA\t12/09/2026\tR$ 1.250,00",
+    "1170-01\t034301\t034302",
+    "21240-002",
+  ]);
+  deepStrictEqual(achadas.sort(), ["034292", "034301", "034302"]);
+});
+
+test("o PDF é dos boletins com a maior parte das OMs nele; o de todos traz vários", () => {
+  const oms = [
+    { boletim_id: 1, om: "034292" },
+    { boletim_id: 1, om: "034301" },
+    { boletim_id: 2, om: "034302" },
+    { boletim_id: 2, om: "034303" },
+    { boletim_id: 3, om: "034400" },
+    { boletim_id: 3, om: "034401" },
+    { boletim_id: 3, om: "034402" },
+  ];
+  deepStrictEqual(
+    boletinsDoPdf(["034292", "034301", "034302", "034303", "034400"], oms).map((b) => b.boletim_id),
+    [1, 2],
+  );
+});
+
+test("uma linha de MANUTENÇÃO por OM, com a base do BM e a OM na coluna da remessa", () => {
+  const l = linhasDosBms([
+    {
+      documento: "BM-0003 - SETEMBRO/2026",
+      base_nome: "BASE NORTE - ILHA",
+      base: { nome: "BASE NORTE - ILHA", projeto: "SETORIZADA", municipio: "RIO DE JANEIRO", superintendencia: "NORTE", bloco: "BLOCO 4", coordenador: "Fulano" },
+      oms: [{ om: "034292", patrimonio: "24068-186", equipamento: "CORTADORA", data: "2026-09-12T10:00:00Z", valor: 1250 }],
+    },
+  ]);
+  e(l.length, 1);
+  e(l[0].servico, "MANUTENÇÃO - CORTADORA");
+  e(l[0].execucao, "12/09/2026");
+  e(l[0].valor_total, 1250);
+  e(l[0].superintendencia, "NORTE");
+  e(l[0].remessa, "OM 034292 · BM-0003 - SETEMBRO/2026");
 });
