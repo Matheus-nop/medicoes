@@ -532,34 +532,32 @@ export interface BmNaMedicao {
 }
 
 /**
- * As linhas de MANUTENÇÃO dos BMs incluídos: uma por OM, embaixo da locação.
- * O SERVIÇO diz que é manutenção e de qual equipamento; a data é a da OM
- * (a chegada, ou a abertura); projeto, município, superintendência e bloco
- * são os da base do BM; e na coluna REMESSA vão a OM e o BM, para o cliente
- * achar o papel.
+ * As linhas de MANUTENÇÃO dos BMs incluídos: uma por BM, com o valor total
+ * dele, embaixo da locação — no feitio das linhas MANUTENÇÃO que a planilha
+ * da AEGEA já trazia (o período do mês, a unidade a R$ 0 e o total na OS).
+ * Projeto, município, superintendência e bloco são os da base do BM; na
+ * coluna REMESSA vai o documento do BM, para o cliente achar o papel.
  */
-export function linhasDosBms(bms: BmNaMedicao[]): LinhaDaPlanilha[] {
-  const dia = (d: string | null) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : "");
-  return bms.flatMap((b) =>
-    b.oms.map((o) => ({
-      servico: o.equipamento ? `MANUTENÇÃO - ${o.equipamento}` : "MANUTENÇÃO",
-      patrimonio: o.patrimonio || "-",
-      execucao: dia(o.data),
-      unidade: "UND",
-      tempo: 1,
-      qtde: 1,
-      valor_unidade: o.valor,
-      valor_total: o.valor,
-      aprovada: "SIM",
-      projeto: b.base?.projeto ?? "",
-      cidade: b.base?.municipio ?? "",
-      superintendencia: b.base?.superintendencia ?? "",
-      bloco: b.base?.bloco ?? "",
-      posicao: "",
-      troca: "",
-      coordenador: b.base?.coordenador ?? "",
-      base: b.base_nome,
-      remessa: `OM ${o.om} · ${b.documento}`,
-    })),
-  );
+export function linhasDosBms(bms: BmNaMedicao[], inicio: string, fim: string): LinhaDaPlanilha[] {
+  const dias = Math.round((Date.parse(fim) - Date.parse(inicio)) / 86_400_000) + 1;
+  return bms.map((b) => ({
+    servico: "MANUTENÇÃO",
+    patrimonio: "-",
+    execucao: periodoDaPlanilha(inicio, fim),
+    unidade: "UND",
+    tempo: dias,
+    qtde: 1,
+    valor_unidade: 0,
+    valor_total: Math.round(b.oms.reduce((t, o) => t + o.valor, 0) * 100) / 100,
+    aprovada: "SIM",
+    projeto: b.base?.projeto ?? "",
+    cidade: b.base?.municipio ?? "",
+    superintendencia: b.base?.superintendencia ?? "",
+    bloco: b.base?.bloco ?? "",
+    posicao: "",
+    troca: "",
+    coordenador: b.base?.coordenador ?? "",
+    base: b.base_nome,
+    remessa: b.documento,
+  }));
 }

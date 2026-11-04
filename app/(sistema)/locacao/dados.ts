@@ -101,7 +101,7 @@ export type CargaDaMedicao =
       manutencao: { valor: number; base: (Base & BaseDaPlanilha) | null; nome: string }[];
       /**
        * Os BMs de manutenção que a faturista incluiu (0024), com as OMs. Quando
-       * há algum, a manutenção da planilha são eles, OM por OM; sem nenhum,
+       * há algum, a manutenção da planilha são eles, um por linha com o total; sem nenhum,
        * a soma automática dos boletins do mês (`manutencao`).
        */
       bms: (BmNaMedicao & { boletim_id: number; situacao: string; valor: number; arquivo: string | null })[];

@@ -274,10 +274,11 @@ desfaz isso logo depois de criar.
   "Manutenção da área" da medição. O PDF só diz **quais** boletins são: as
   OMs impressas nele (`omsNoTexto`) acham no banco os boletins que têm a maior
   parte delas no texto (`boletinsDoPdf`) — o número que coincide com a OM de
-  entrada de outro BM não basta. As linhas vêm do próprio boletim, uma por OM
-  (`linhasDosBms`: "MANUTENÇÃO - equipamento", patrimônio, data da OM, valor
-  cobrado, e a OM e o BM na coluna REMESSA); `locacao_manutencoes` guarda só a
-  escolha. Sem nenhum BM incluído, vale a soma automática dos boletins
+  entrada de outro BM não basta. O valor vem do próprio boletim, **uma linha
+  por BM** com o total dele (`linhasDosBms`: "MANUTENÇÃO", o período do mês,
+  os dados da base do BM e o documento do BM na coluna REMESSA — o feitio das
+  linhas MANUTENÇÃO que a planilha da AEGEA já trazia); `locacao_manutencoes`
+  guarda só a escolha. Sem nenhum BM incluído, vale a soma automática dos boletins
   apresentados no mês, como antes (`manutencaoDaMedicao`).
 - **relatório de manutenção** (`/relatorios`, 0021): o anexo que o Águas do
   Rio pede para cada OM cobrada — o "RELATÓRIO DE MANUTENÇÃO DE EQUIPAMENTO",
@@ -382,7 +383,8 @@ desfaz isso logo depois de criar.
       Falta completar projeto, município, superintendência,
       bloco e coordenador das bases, e importar o primeiro mês ao lado da
       planilha digitada. `0023` **aplicada**. A `0024` traz os BMs de
-      manutenção da área para dentro da medição, pelo PDF deles. Depois: a
+      manutenção da área para dentro da medição, pelo PDF deles, uma linha por
+      BM. Depois: a
       tabela de preço por contrato e a locação alimentando o controle.
 - As provas de RLS de todas as migrações estão em
   `supabase/scripts/provar-as-travas.sql` (trechos 1 a 24).

@@ -13,7 +13,8 @@ type Carga = Extract<CargaDaMedicao, { ok: true }>;
 /**
  * A manutenção da área, embaixo da locação: a faturista exporta o PDF dos BMs
  * de manutenção (gerados aqui) e arrasta. O PDF só diz QUAIS boletins são —
- * pelas OMs impressas —, e as linhas vêm do boletim, com o valor cobrado.
+ * pelas OMs impressas —, e o valor vem do boletim: uma linha por BM, com o
+ * total cobrado.
  * Sem nenhum BM incluído, a planilha soma os boletins apresentados no mês.
  */
 export function ManutencaoDaArea({ carga, podeMexer }: { carga: Carga; podeMexer: boolean }) {
@@ -52,7 +53,7 @@ export function ManutencaoDaArea({ carga, podeMexer }: { carga: Carga; podeMexer
       titulo={`Manutenção da área · ${bms.length ? `${bms.length} BM(s)` : "automática"}`}
       descricao={
         bms.length
-          ? `As OMs dos BMs incluídos, uma linha cada, embaixo da locação · ${emReais(total)}`
+          ? `Os BMs incluídos, uma linha por BM com o total dele, embaixo da locação · ${emReais(total)}`
           : `Nenhum BM incluído: a planilha soma os ${manutencao.length} boletim(ns) apresentados no mês (${emReais(automatico)}). Arraste os PDFs dos BMs da área para escolher quais entram.`
       }
       recolhido={!aberto}
@@ -85,7 +86,7 @@ export function ManutencaoDaArea({ carga, podeMexer }: { carga: Carga; podeMexer
             >
               <span className="block font-semibold text-acento">Arraste aqui os PDFs dos BMs de manutenção</span>
               <span className="text-xs text-texto-3">
-                o papel do boletim, ou o “PDF de todos” da regional · o sistema acha o BM pelas OMs e traz as linhas dele
+                o papel do boletim, ou o “PDF de todos” da regional · o sistema acha o BM pelas OMs e traz o total dele
               </span>
             </button>
             <input
@@ -148,7 +149,7 @@ export function ManutencaoDaArea({ carga, podeMexer }: { carga: Carga; podeMexer
               >
                 {ocupado ? "Incluindo…" : `Incluir ${novos.size} BM(s) na medição`}
               </Botao>
-              <span className="text-xs text-texto-3">As linhas vêm do boletim: o que mudar nele aparece aqui.</span>
+              <span className="text-xs text-texto-3">O valor vem do boletim: o que mudar nele aparece aqui.</span>
             </div>
           </div>
         )}

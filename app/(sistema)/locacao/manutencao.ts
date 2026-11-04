@@ -18,13 +18,13 @@ const daBase = (b: Carga["manutencao"][number]["base"]): BaseDaPlanilha | null =
 /**
  * As linhas de MANUTENÇÃO da medição — o que vai embaixo da locação, na
  * planilha e no PDF. Com BMs incluídos pela faturista (0024), são eles, uma
- * linha por OM; sem nenhum, a soma dos boletins apresentados no mês, por
+ * linha por BM, com o total dele; sem nenhum, a soma dos boletins apresentados no mês, por
  * projeto, município, superintendência e bloco, como antes.
  */
 export function manutencaoDaMedicao(carga: Carga): { linhas: LinhaDaPlanilha[]; dosBms: boolean } {
-  if (carga.bms.length > 0) return { linhas: linhasDosBms(carga.bms), dosBms: true };
   const m = carga.medicao.mes;
   const fim = new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7), 0)).toISOString().slice(0, 10);
+  if (carga.bms.length > 0) return { linhas: linhasDosBms(carga.bms, m, fim), dosBms: true };
   return {
     linhas: linhasDaManutencao(
       carga.manutencao.map((x) => ({ valor: x.valor, base: daBase(x.base) })),
