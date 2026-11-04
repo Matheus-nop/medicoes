@@ -173,13 +173,24 @@ export function ManutencaoDaArea({ carga, podeMexer }: { carga: Carga; podeMexer
                   const s = situacaoLida(b.situacao);
                   return (
                     <tr key={b.boletim_id} className="border-b border-borda/50">
-                      <td className="py-1.5 pr-3 font-medium">{b.documento}</td>
+                      <td className="py-1.5 pr-3 font-medium">
+                        <Link href={`/boletins/${b.boletim_id}`} className="text-acento underline">
+                          {b.documento}
+                        </Link>
+                      </td>
                       <td className="py-1.5 pr-3">
                         {b.base_nome}
-                        {!b.base?.municipio && (
-                          <Link href={`/bases?base=${encodeURIComponent(b.base_nome)}`} className="ml-2 text-manutencao underline">
-                            completar no cadastro de bases
+                        {!b.base ? (
+                          // Sem ficha no cadastro: o que se acerta é a base do BM, no próprio boletim.
+                          <Link href={`/boletins/${b.boletim_id}`} className="ml-2 text-manutencao underline">
+                            base fora do cadastro — abrir o BM e trocar a base
                           </Link>
+                        ) : (
+                          !b.base.municipio && (
+                            <Link href={`/bases?base=${encodeURIComponent(b.base.nome)}`} className="ml-2 text-manutencao underline">
+                              completar no cadastro de bases
+                            </Link>
+                          )
                         )}
                       </td>
                       <td className="py-1.5 pr-3">
