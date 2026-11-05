@@ -17,7 +17,8 @@ const carregar = cache((id: number) => carregarMedicao(id));
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const carga = await carregar(Number((await params).id));
   if (!carga.ok) return {};
-  return { title: `Medição de locação - ${mesPorExtenso(carga.medicao.mes)} - Nova Opção` };
+  const sup = carga.medicao.superintendencia ? ` - ${carga.medicao.superintendencia}` : "";
+  return { title: `Medição de locação${sup} - ${mesPorExtenso(carga.medicao.mes)} - Nova Opção` };
 }
 
 /** A medição de locação em papel, no padrão da casa: A4 em pé, em PDF pelo próprio navegador. */

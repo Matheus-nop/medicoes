@@ -573,3 +573,63 @@ insert into medicoes.locacao_manutencoes (medicao_id, boletim_id)
 select (select id from medicoes.locacao_medicoes where cliente = 'PROVA 24'), (select max(id) from medicoes.boletins);
 rollback;
 */
+
+
+-- ── 25. A medição por superintendência, e a fechada que nada muda (0025) ──
+-- Esperado, nesta ordem:
+--   · o faturamento abre a do VCG e a do GRANDE DIÂMETRO no mesmo mês (INSERT 0 1
+--     nas duas) e importa um boletim na do VCG (INSERT 0 1);
+--   · a segunda do VCG no mesmo mês: ERROR 23505 (duplicate key);
+--   · o faturamento fecha a do VCG (UPDATE 1);
+--   · com ela fechada: o boletim novo, ERROR 42501; o BM, ERROR 42501; a linha
+--     no boletim que já estava, ERROR 42501; tirar o boletim, DELETE 0;
+--     reabrir pelo faturamento, UPDATE 0;
+--   · a do GRANDE DIÂMETRO, aberta, continua recebendo (INSERT 0 1);
+--   · a diretoria reabre (UPDATE 1).
+-- Precisa de alguém de faturamento, da diretoria e de um boletim qualquer.
+/*
+begin;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'faturamento' order by p.id limit 1))::text, true);
+set local role authenticated;
+insert into medicoes.locacao_medicoes (cliente, mes, superintendencia) values ('PROVA 25', '2099-01-01', 'VCG');
+insert into medicoes.locacao_medicoes (cliente, mes, superintendencia) values ('PROVA 25', '2099-01-01', 'GRANDE DIÂMETRO');
+insert into medicoes.locacao_boletins (medicao_id, base_nome, entrega, periodo_inicio, periodo_fim, cod_docto)
+select id, 'PROVA', 'PROVA - RUA X', '2099-01-01', '2099-01-31', '99925'
+from medicoes.locacao_medicoes where cliente = 'PROVA 25' and superintendencia = 'VCG';
+savepoint a;
+insert into medicoes.locacao_medicoes (cliente, mes, superintendencia) values ('PROVA 25', '2099-01-01', 'vcg');
+rollback to a;
+update medicoes.locacao_medicoes set fechada_em = now(), fechada_por = auth.uid()
+where cliente = 'PROVA 25' and superintendencia = 'VCG';
+savepoint b;
+insert into medicoes.locacao_boletins (medicao_id, base_nome, entrega, periodo_inicio, periodo_fim, cod_docto)
+select id, 'PROVA 2', 'PROVA 2 - RUA Y', '2099-01-01', '2099-01-31', '99926'
+from medicoes.locacao_medicoes where cliente = 'PROVA 25' and superintendencia = 'VCG';
+rollback to b;
+savepoint c;
+insert into medicoes.locacao_manutencoes (medicao_id, boletim_id)
+select (select id from medicoes.locacao_medicoes where cliente = 'PROVA 25' and superintendencia = 'VCG'),
+       (select min(id) from medicoes.boletins);
+rollback to c;
+savepoint d;
+insert into medicoes.locacao_itens (boletim_id, ordem, remessa, equipamento, inicio, fim, dias)
+select id, 1, '999999-01', 'MARTELO', '2099-01-01', '2099-01-31', 31
+from medicoes.locacao_boletins where cod_docto = '99925';
+rollback to d;
+delete from medicoes.locacao_boletins where cod_docto = '99925';
+update medicoes.locacao_medicoes set fechada_em = null
+where cliente = 'PROVA 25' and superintendencia = 'VCG';
+insert into medicoes.locacao_boletins (medicao_id, base_nome, entrega, periodo_inicio, periodo_fim, cod_docto)
+select id, 'PROVA 3', 'PROVA 3 - RUA Z', '2099-01-01', '2099-01-31', '99927'
+from medicoes.locacao_medicoes where cliente = 'PROVA 25' and superintendencia = 'GRANDE DIÂMETRO';
+reset role;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'diretoria' order by p.id limit 1))::text, true);
+set local role authenticated;
+update medicoes.locacao_medicoes set fechada_em = null, fechada_por = null
+where cliente = 'PROVA 25' and superintendencia = 'VCG';
+rollback;
+*/

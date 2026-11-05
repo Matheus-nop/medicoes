@@ -18,6 +18,9 @@ export interface MedicaoDeLocacao {
   superintendencia: string | null;
   observacao: string | null;
   criado_em: string;
+  /** Vazio, aberta. Fechada, nada entra nem sai (0025). */
+  fechada_em: string | null;
+  fechada_por: string | null;
 }
 
 export interface BoletimImportado {
@@ -106,6 +109,14 @@ export type CargaDaMedicao =
        */
       bms: (BmNaMedicao & { boletim_id: number; situacao: string; valor: number; arquivo: string | null })[];
       bases: Base[];
+      /**
+       * O mês do cliente está dividido em mais de uma medição (uma por
+       * superintendência, 0025). Aí a soma automática dos boletins de
+       * manutenção do mês não vale: ela cairia inteira em cada uma.
+       */
+      separada: boolean;
+      /** Quem fechou a medição, quando está fechada. */
+      fechadaPorNome: string | null;
     }
   | { ok: false; erro: string; naoExiste?: boolean };
 
@@ -116,15 +127,16 @@ export async function carregarMedicao(id: number): Promise<CargaDaMedicao> {
   if (!medicao) return { ok: false, erro: "Medição não encontrada.", naoExiste: true };
   const m = medicao as MedicaoDeLocacao;
 
-  const [boletins, bases, anterior, manut, vinc] = await Promise.all([
+  const [boletins, bases, anterior, doMes, manut, vinc] = await Promise.all([
     supabase.from("locacao_boletins").select("*").eq("medicao_id", id).order("base_nome"),
     supabase.from("bases").select("*"),
     supabase
       .from("locacao_medicoes")
-      .select("id, cliente")
+      .select("id, cliente, superintendencia")
       .lt("mes", m.mes)
       .order("mes", { ascending: false })
-      .limit(5),
+      .limit(60),
+    supabase.from("locacao_medicoes").select("id, cliente").eq("mes", m.mes).neq("id", m.id),
     supabase.from("boletins_atual").select("cliente, base, referencia, valor, situacao"),
     // O boletim tem o nome do Sisloc, e a medição o do controle: o vínculo (0012) junta.
     supabase.from("vinculos_de_cliente").select("nome, cliente"),
@@ -160,7 +172,9 @@ export async function carregarMedicao(id: number): Promise<CargaDaMedicao> {
   };
 
   const lista = (boletins.data ?? []) as BoletimImportado[];
-  const quem = [...new Set(lista.map((b) => (b as unknown as { importado_por: string }).importado_por))];
+  const quem = [
+    ...new Set([...lista.map((b) => (b as unknown as { importado_por: string }).importado_por), ...(m.fechada_por ? [m.fechada_por] : [])]),
+  ];
   const { data: perfis } = quem.length ? await supabase.from("perfis").select("id, nome").in("id", quem) : { data: [] };
   const nome = new Map((perfis ?? []).map((p: { id: string; nome: string }) => [p.id, p.nome]));
 
@@ -190,10 +204,13 @@ export async function carregarMedicao(id: number): Promise<CargaDaMedicao> {
     return { ok: false, erro: (e as Error).message };
   }
 
-  // O mês anterior do mesmo cliente: as bases que vieram lá e não aqui.
+  // O mês anterior do mesmo cliente e da mesma superintendência: as bases
+  // que vieram lá e não aqui.
   let faltando: string[] = [];
-  const doCliente = ((anterior.data ?? []) as { id: number; cliente: string }[]).find(
-    (x) => chaveDoCliente(x.cliente) === chaveDoCliente(m.cliente),
+  const doCliente = ((anterior.data ?? []) as { id: number; cliente: string; superintendencia: string | null }[]).find(
+    (x) =>
+      chaveDoCliente(x.cliente) === chaveDoCliente(m.cliente) &&
+      chaveDoCliente(x.superintendencia ?? "") === chaveDoCliente(m.superintendencia ?? ""),
   );
   if (doCliente) {
     const { data: antes } = await supabase.from("locacao_boletins").select("base_nome").eq("medicao_id", doCliente.id);
@@ -203,8 +220,9 @@ export async function carregarMedicao(id: number): Promise<CargaDaMedicao> {
     );
   }
 
+  const separada = ((doMes.data ?? []) as { cliente: string }[]).some((x) => chaveDoCliente(x.cliente) === chaveDoCliente(m.cliente));
   const ref = Number(m.mes.slice(0, 4)) * 100 + Number(m.mes.slice(5, 7));
-  const manutencao = ((manut.data ?? []) as { cliente: string; base: string | null; referencia: string | null; valor: unknown; situacao: string }[])
+  const manutencao = separada ? [] : ((manut.data ?? []) as { cliente: string; base: string | null; referencia: string | null; valor: unknown; situacao: string }[])
     .filter(
       (b) =>
         chaveDaFicha(b.cliente, vinculos) === chaveDoMeu &&
@@ -260,5 +278,7 @@ export async function carregarMedicao(id: number): Promise<CargaDaMedicao> {
     faltando,
     manutencao,
     bases: cadastro,
+    separada,
+    fechadaPorNome: m.fechada_por ? (nome.get(m.fechada_por) ?? "—") : null,
   };
 }

@@ -242,8 +242,22 @@ desfaz isso logo depois de criar.
   `lerBoletimDeLocacao` tira base (o Entrega sem o endereço), fichas, remessas
   e cada linha; a soma confere com o TOTAL GERAL do Sisloc. Nada se grava até
   "Gravar"; o boletim reimportado (mesmo código do Sisloc) troca o anterior.
-  Cada boletim cai na medição do mês do período dele (uma por cliente e mês).
   Acessório a R$ 0,00 fica gravado e fora da planilha.
+- **medição por superintendência** (0025): a AEGEA recebe uma medição por
+  superintendência — GRANDE DIÂMETRO, VCG, BAIXADA 1… —, e não uma do mês.
+  A medição é uma por cliente, mês e **superintendência** (o campo do
+  cabeçalho); na lista, quem importa diz para qual vai, e cada boletim cai na
+  dessa superintendência no mês do período dele. Dentro de uma medição, o
+  importado vai para ela (só os do mês dela). O boletim reimportado (mesmo
+  código do Sisloc) sai de qualquer medição do cliente no mês e vem para a
+  escolhida — é assim que o importado na superintendência errada muda de
+  lugar. Com o mês dividido, a soma automática da manutenção não vale (cairia
+  inteira em cada uma): a manutenção é a dos BMs arrastados, e o mesmo BM não
+  entra em duas medições.
+- **medição fechada** (0025, `fechada_em`): nada entra nem sai — boletim,
+  linha, BM — e o cabeçalho fica. O faturamento e a diretoria fecham;
+  reabrir é só da diretoria. A trava é da RLS (policies restritivas com
+  `locacao_aberta()`); a tela só esconde os botões.
 - **posição** (locação): a vaga de um equipamento na frente. A **troca** não é
   equipamento a mais: o Sisloc marca "Subs." no que SAIU, e o substituto entra
   no dia seguinte (ou no mesmo dia), na mesma ficha, do mesmo tipo ou do mesmo
@@ -384,7 +398,8 @@ desfaz isso logo depois de criar.
       bloco e coordenador das bases, e importar o primeiro mês ao lado da
       planilha digitada. `0023` **aplicada**. A `0024` traz os BMs de
       manutenção da área para dentro da medição, pelo PDF deles, uma linha por
-      BM. Depois: a
+      BM. A `0025` separa a medição por superintendência e a fecha (falta
+      aplicar). Depois: a
       tabela de preço por contrato e a locação alimentando o controle.
 - As provas de RLS de todas as migrações estão em
-  `supabase/scripts/provar-as-travas.sql` (trechos 1 a 24).
+  `supabase/scripts/provar-as-travas.sql` (trechos 1 a 25).

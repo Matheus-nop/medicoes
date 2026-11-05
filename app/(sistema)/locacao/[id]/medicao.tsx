@@ -26,7 +26,7 @@ import {
 } from "@/lib/medicoes/locacao";
 import { quemLanca } from "@/lib/medicoes/papeis";
 import type { CargaDaMedicao, ItemGravado } from "../dados";
-import { salvarCabecalho, tirarBoletim, type CabecalhoDaMedicao } from "../acoes";
+import { fecharMedicao, reabrirMedicao, salvarCabecalho, tirarBoletim, type CabecalhoDaMedicao } from "../acoes";
 import { diaMes, mesPorExtenso } from "../formato";
 import { Importador } from "../importador";
 import { manutencaoDaMedicao } from "../manutencao";
@@ -39,11 +39,25 @@ type Carga = Extract<CargaDaMedicao, { ok: true }>;
  * conferir, o cabeçalho da planilha da AEGEA e, base a base, os equipamentos
  * em posições — a troca dentro da posição, e não como um equipamento a mais.
  */
-export function Medicao({ carga, clientes, podeMexer }: { carga: Carga; clientes: string[]; podeMexer: boolean }) {
+export function Medicao({
+  carga,
+  clientes,
+  podeMexer: podeLancar,
+  eDiretoria,
+}: {
+  carga: Carga;
+  clientes: string[];
+  podeMexer: boolean;
+  /** Só a diretoria reabre a medição fechada (0025). */
+  eDiretoria: boolean;
+}) {
   const { medicao: m, boletins, itens, faltando, manutencao } = carga;
   const router = useRouter();
+  const medicaoFechada = !!m.fechada_em;
+  // Fechada, ninguém mexe — a diretoria reabre primeiro.
+  const podeMexer = podeLancar && !medicaoFechada;
   const [aberta, setAberta] = useState<Record<number, boolean>>({});
-  const [importando, setImportando] = useState(boletins.length === 0);
+  const [importando, setImportando] = useState(boletins.length === 0 && !medicaoFechada);
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, iniciar] = useTransition();
 
@@ -86,7 +100,7 @@ export function Medicao({ carga, clientes, podeMexer }: { carga: Carga; clientes
   return (
     <div className="space-y-5">
       <Cabecalho
-        titulo={`Medição de locação · ${mesPorExtenso(m.mes)}`}
+        titulo={`Medição de locação · ${m.superintendencia ?? "sem superintendência"} · ${mesPorExtenso(m.mes)}`}
         resumo={[m.cliente, m.contrato_juridico, m.contratante].filter(Boolean).join(" · ")}
         acoes={
           <>
@@ -95,6 +109,43 @@ export function Medicao({ carga, clientes, podeMexer }: { carga: Carga; clientes
             </Link>
             {podeMexer && !importando && (
               <Botao onClick={() => setImportando(true)}>Importar mais PDFs</Botao>
+            )}
+            {podeMexer && boletins.length > 0 && (
+              <Botao
+                disabled={ocupado}
+                onClick={() => {
+                  if (
+                    !confirm(
+                      `Fechar a medição ${m.superintendencia ?? ""} de ${mesPorExtenso(m.mes)}? Depois disso nenhum boletim nem BM entra ou sai — só a diretoria reabre.`,
+                    )
+                  )
+                    return;
+                  iniciar(async () => {
+                    setErro(null);
+                    const r = await fecharMedicao(m.id);
+                    if (!r.ok) return setErro(r.erro ?? "Não deu certo.");
+                    setImportando(false);
+                    router.refresh();
+                  });
+                }}
+              >
+                Fechar medição
+              </Botao>
+            )}
+            {medicaoFechada && eDiretoria && (
+              <Botao
+                disabled={ocupado}
+                onClick={() =>
+                  iniciar(async () => {
+                    setErro(null);
+                    const r = await reabrirMedicao(m.id);
+                    if (!r.ok) return setErro(r.erro ?? "Não deu certo.");
+                    router.refresh();
+                  })
+                }
+              >
+                Reabrir
+              </Botao>
             )}
             {boletins.length > 0 && (
               <>
@@ -110,7 +161,18 @@ export function Medicao({ carga, clientes, podeMexer }: { carga: Carga; clientes
         }
       />
 
-      {!podeMexer && <SoLeitura>Você vê a medição, mas quem importa é {quemLanca("locacao")}.</SoLeitura>}
+      {medicaoFechada ? (
+        <Aviso tom="ok">
+          <span>
+            <strong>Medição fechada</strong>
+            {carga.fechadaPorNome ? ` por ${carga.fechadaPorNome}` : ""} em{" "}
+            {new Date(m.fechada_em!).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}: nenhum boletim nem
+            BM entra ou sai. {eDiretoria ? "Para mexer, reabra." : "Só a diretoria reabre."}
+          </span>
+        </Aviso>
+      ) : (
+        !podeLancar && <SoLeitura>Você vê a medição, mas quem importa é {quemLanca("locacao")}.</SoLeitura>
+      )}
       {erro && (
         <Aviso tom="erro" aoFechar={() => setErro(null)}>
           {erro}
@@ -118,8 +180,11 @@ export function Medicao({ carga, clientes, podeMexer }: { carga: Carga; clientes
       )}
 
       {importando && podeMexer && (
-        <Painel titulo="Importar os PDFs do Sisloc" descricao={`Cada boletim vai para a medição do mês dele — os de ${mesPorExtenso(m.mes)} caem aqui.`}>
-          <Importador clientes={clientes} clienteInicial={m.cliente} aoGravar="ficar" />
+        <Painel
+          titulo="Importar os PDFs do Sisloc"
+          descricao={`Só os boletins de ${m.superintendencia ?? "esta medição"} de ${mesPorExtenso(m.mes)}. Os de outra superintendência vão pela lista de medições.`}
+        >
+          <Importador clientes={clientes} clienteInicial={m.cliente} medicaoId={m.id} aoGravar="ficar" />
         </Painel>
       )}
 
@@ -150,8 +215,10 @@ export function Medicao({ carga, clientes, podeMexer }: { carga: Carga; clientes
           valor={emReais(valorManutencao)}
           detalhe={
             daArea.dosBms
-              ? `${carga.bms.length} BM(s) incluído(s) · ${daArea.linhas.length} OM(s)`
-              : `${manutencao.length} boletim(ns) do mês, somados · nenhum BM incluído`
+              ? `${carga.bms.length} BM(s) incluído(s)`
+              : carga.separada
+                ? "nenhum BM incluído · arraste os desta superintendência"
+                : `${manutencao.length} boletim(ns) do mês, somados · nenhum BM incluído`
           }
           cor="bg-cat-manutencao"
         />

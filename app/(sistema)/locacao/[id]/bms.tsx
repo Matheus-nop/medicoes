@@ -16,7 +16,9 @@ type Carga = Extract<CargaDaMedicao, { ok: true }>;
  * de manutenção (gerados aqui) e arrasta. O PDF só diz QUAIS boletins são —
  * pelas OMs impressas —, e o valor vem do boletim: uma linha por BM, com o
  * total cobrado.
- * Sem nenhum BM incluído, a planilha soma os boletins apresentados no mês.
+ * Sem nenhum BM incluído, a planilha soma os boletins apresentados no mês —
+ * a não ser que o mês esteja dividido por superintendência (0025): aí a soma
+ * cairia inteira em cada medição, e a manutenção é só a dos BMs arrastados.
  */
 export function ManutencaoDaArea({ carga, podeMexer }: { carga: Carga; podeMexer: boolean }) {
   const router = useRouter();
@@ -51,11 +53,13 @@ export function ManutencaoDaArea({ carga, podeMexer }: { carga: Carga; podeMexer
 
   return (
     <Painel
-      titulo={`Manutenção da área · ${bms.length ? `${bms.length} BM(s)` : "automática"}`}
+      titulo={`Manutenção da área · ${bms.length ? `${bms.length} BM(s)` : carga.separada ? "nenhum BM" : "automática"}`}
       descricao={
         bms.length
           ? `Os BMs incluídos, uma linha por BM com o total dele, embaixo da locação · ${emReais(total)}`
-          : `Nenhum BM incluído: a planilha soma os ${manutencao.length} boletim(ns) apresentados no mês (${emReais(automatico)}). Arraste os PDFs dos BMs da área para escolher quais entram.`
+          : carga.separada
+            ? "Nenhum BM incluído. O mês tem uma medição por superintendência, e a manutenção de cada uma são os BMs arrastados nela: arraste os PDFs dos BMs desta área."
+            : `Nenhum BM incluído: a planilha soma os ${manutencao.length} boletim(ns) apresentados no mês (${emReais(automatico)}). Arraste os PDFs dos BMs da área para escolher quais entram.`
       }
       recolhido={!aberto}
       aoRecolher={() => setAberto((x) => !x)}

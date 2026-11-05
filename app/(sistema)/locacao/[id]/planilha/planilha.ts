@@ -138,7 +138,8 @@ export async function montarPlanilha(
   limparParaOExcel(wb);
 
   const buffer = (await wb.xlsx.writeBuffer()) as ArrayBuffer;
-  const nome = `Medição ${mesPorExtenso(m.mes)} Nova Opção - Locação ${m.cliente}`.replace(/[\\/:*?"<>|]/g, "-");
+  const sup = m.superintendencia ? ` ${m.superintendencia}` : "";
+  const nome = `Medição ${mesPorExtenso(m.mes)} Nova Opção - Locação${sup} ${m.cliente}`.replace(/[\\/:*?"<>|]/g, "-");
   return { buffer, nome };
 }
 

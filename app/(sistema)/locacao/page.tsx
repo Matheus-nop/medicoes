@@ -1,4 +1,4 @@
-import { Cabecalho, CartaoDoQuadro, Painel, SoLeitura, Vazio } from "@/components/ui";
+import { Cabecalho, CartaoDoQuadro, Painel, Selo, SoLeitura, Vazio } from "@/components/ui";
 import { emReais } from "@/lib/medicoes/dinheiro";
 import { CLIENTE_PADRAO } from "@/lib/medicoes/controle";
 import { podeLancar, quemLanca } from "@/lib/medicoes/papeis";
@@ -34,16 +34,22 @@ export default async function MedicoesDeLocacao() {
     <div className="space-y-5">
       <Cabecalho
         titulo="Medição de locação"
-        resumo="Exporte do Sisloc o Boletim de medição de cada base, em PDF, e arraste aqui. O sistema lê, confere com o total do Sisloc e monta a medição do mês — e a planilha padrão da AEGEA sai pronta."
+        resumo="Exporte do Sisloc o Boletim de medição de cada base, em PDF, e arraste aqui. O sistema lê, confere com o total do Sisloc e monta a medição do mês, uma por superintendência — e a planilha padrão da AEGEA sai pronta."
       />
       {pode ? (
         <Painel titulo="Importar os PDFs do Sisloc">
-          <Importador clientes={carga.clientes} clienteInicial={carga.clientes.includes(CLIENTE_PADRAO) ? CLIENTE_PADRAO : carga.clientes[0]} />
+          <Importador
+            clientes={carga.clientes}
+            clienteInicial={carga.clientes.includes(CLIENTE_PADRAO) ? CLIENTE_PADRAO : carga.clientes[0]}
+            superintendencias={[
+              ...new Set(carga.medicoes.map((m) => m.superintendencia?.trim().toUpperCase()).filter((x): x is string => !!x)),
+            ].sort()}
+          />
         </Painel>
       ) : (
         <SoLeitura>Você vê as medições, mas quem importa é {quemLanca("locacao")}.</SoLeitura>
       )}
-      <Painel titulo={`Medições · ${carga.medicoes.length}`} descricao="Uma por cliente e mês, com todas as bases e todos os contratos.">
+      <Painel titulo={`Medições · ${carga.medicoes.length}`} descricao="Uma por cliente, mês e superintendência — GRANDE DIÂMETRO, VCG, BAIXADA 1… —, com todas as bases e todos os contratos dela.">
         {carga.medicoes.length === 0 ? (
           <div className="p-4">
             <Vazio>Nenhuma medição ainda. A primeira nasce com o primeiro PDF gravado.</Vazio>
@@ -54,8 +60,9 @@ export default async function MedicoesDeLocacao() {
               <CartaoDoQuadro
                 key={m.id}
                 href={`/locacao/${m.id}`}
-                titulo={mesPorExtenso(m.mes)}
+                titulo={`${mesPorExtenso(m.mes)} · ${m.superintendencia ?? "sem superintendência"}`}
                 subtitulo={m.cliente}
+                selo={m.fechada_em ? <Selo tom="neutro">Fechada</Selo> : <Selo tom="ok">Aberta</Selo>}
                 linhas={[
                   { rotulo: "Bases importadas", valor: m.boletins },
                   { rotulo: "Contrato", valor: m.contrato_juridico ?? "—" },
