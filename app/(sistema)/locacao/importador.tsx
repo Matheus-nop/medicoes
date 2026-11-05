@@ -17,20 +17,30 @@ import { mesPorExtenso } from "./formato";
  * Arrastar os PDFs do Sisloc: cada um é lido no servidor, um por vez, e
  * aparece aqui com o que se leu e se bate com o total do Sisloc. Nada se grava
  * até "Gravar" — como a colagem dos boletins de manutenção.
+ *
+ * Na lista de medições, quem importa diz o cliente e a SUPERINTENDÊNCIA: cada
+ * uma é uma medição (0025). Dentro de uma medição, os boletins vão para ela.
  */
 export function Importador({
   clientes,
   clienteInicial,
+  superintendencias = [],
+  medicaoId,
   aoGravar,
 }: {
   clientes: string[];
   clienteInicial: string;
+  /** As que já existem, para sugerir. */
+  superintendencias?: string[];
+  /** Dentro de uma medição: grava nela, sem perguntar cliente nem superintendência. */
+  medicaoId?: number;
   /** Para onde ir depois: a medição gravada, por padrão. */
   aoGravar?: "ficar";
 }) {
   const router = useRouter();
   const entrada = useRef<HTMLInputElement>(null);
   const [cliente, setCliente] = useState(clienteInicial);
+  const [superintendencia, setSuperintendencia] = useState("");
   const [lidos, setLidos] = useState<PdfLido[]>([]);
   const [lendo, setLendo] = useState(0);
   const [arrastando, setArrastando] = useState(false);
@@ -64,14 +74,32 @@ export function Importador({
           {erro}
         </Aviso>
       )}
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,18rem)_1fr]">
-        <Campo rotulo="Cliente da medição">
-          <select value={cliente} onChange={(e) => setCliente(e.target.value)} className={`${CAMPO} w-full`}>
-            {clientes.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
-        </Campo>
+      <div className={`grid gap-3 ${medicaoId ? "" : "sm:grid-cols-[minmax(0,18rem)_1fr]"}`}>
+        {!medicaoId && (
+          <div className="space-y-3">
+            <Campo rotulo="Cliente da medição">
+              <select value={cliente} onChange={(e) => setCliente(e.target.value)} className={`${CAMPO} w-full`}>
+                {clientes.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            </Campo>
+            <Campo rotulo="Superintendência (uma medição para cada)">
+              <input
+                value={superintendencia}
+                onChange={(e) => setSuperintendencia(e.target.value.toUpperCase())}
+                list="superintendencias-da-locacao"
+                placeholder="GRANDE DIÂMETRO, VCG, BAIXADA 1…"
+                className={`${CAMPO} w-full`}
+              />
+              <datalist id="superintendencias-da-locacao">
+                {superintendencias.map((x) => (
+                  <option key={x} value={x} />
+                ))}
+              </datalist>
+            </Campo>
+          </div>
+        )}
         <button
           type="button"
           onClick={() => entrada.current?.click()}
@@ -176,12 +204,12 @@ export function Importador({
         <div className="flex flex-wrap items-center gap-3">
           <Botao
             variante="primario"
-            disabled={gravando || lendo > 0}
+            disabled={gravando || lendo > 0 || (!medicaoId && !superintendencia.trim())}
             onClick={() =>
               iniciar(async () => {
                 setErro(null);
                 const r = await gravarBoletins(
-                  cliente,
+                  medicaoId ? { medicaoId } : { cliente, superintendencia },
                   bons.map((b) => ({ arquivo: b.arquivo, boletim: b.boletim })),
                 );
                 if (!r.ok) return setErro(r.erro ?? "Não deu certo.");
@@ -191,10 +219,17 @@ export function Importador({
               })
             }
           >
-            {gravando ? "Gravando…" : `Gravar ${bons.length} boletim(ns) na medição`}
+            {gravando
+              ? "Gravando…"
+              : medicaoId || superintendencia.trim()
+                ? `Gravar ${bons.length} boletim(ns) na medição${medicaoId ? "" : ` ${superintendencia.trim()}`}`
+                : "Diga a superintendência para gravar"}
           </Botao>
           <span className="text-xs text-texto-3">
-            Cada um vai para a medição do mês dele. O boletim que já estava (mesmo código do Sisloc) é trocado.
+            {medicaoId
+              ? "Os boletins vão para esta medição."
+              : "Cada um vai para a medição desta superintendência no mês dele."}{" "}
+            O boletim que já estava (mesmo código do Sisloc) em outra medição do mês sai de lá e vem para cá.
           </span>
         </div>
       )}

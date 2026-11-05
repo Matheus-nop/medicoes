@@ -25,6 +25,7 @@ export default async function PaginaDaMedicao({ params }: { params: Promise<{ id
       carga={carga}
       clientes={lista.ok ? lista.clientes : [carga.medicao.cliente]}
       podeMexer={podeLancar(sessao.papel, "locacao")}
+      eDiretoria={sessao.papel === "diretoria"}
     />
   );
 }

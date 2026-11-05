@@ -21,6 +21,10 @@ export interface Resultado {
 }
 
 function recado(erro: { code?: string; message: string }, oQue: string): string {
+  if (erro.code === "23505" && /locacao_uma_medicao/.test(erro.message)) {
+    return `Não dá para ${oQue}: já existe uma medição desta superintendência no mês.`;
+  }
+  if (/em_medicao_aberta/.test(erro.message)) return `Não dá para ${oQue}: a medição está fechada. A diretoria reabre.`;
   if (erro.code === "42501") return `Seu usuário não pode ${oQue}: quem lança a locação é ${quemLanca("locacao")}.`;
   if (erro.code === "42P01" || /locacao_/.test(erro.message)) {
     return "Falta aplicar a migração 0023_medicao_de_locacao.sql no Supabase.";
@@ -44,20 +48,34 @@ export async function lerPdf(dados: FormData): Promise<PdfLido> {
 }
 
 const mesDe = (d: string) => `${d.slice(0, 7)}-01`;
+const chave = (t: string | null | undefined) => (t ?? "").trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ");
+
+/** Para onde vão os boletins: uma medição aberta, ou a do cliente e da superintendência no mês de cada um. */
+export type DestinoDosBoletins = { medicaoId: number } | { cliente: string; superintendencia: string };
+
+type MedicaoDoDestino = { id: number; cliente: string; mes: string; superintendencia: string | null; fechada_em: string | null };
 
 /**
- * Grava os boletins lidos na medição do mês do período deles (abre a medição
- * se ainda não existe, com o cabeçalho da anterior). A base se acha no
- * cadastro pelo nome (e pelos outros nomes dela); a que não está entra, com o
- * que o nome já diz. O boletim que já estava (mesmo código do Sisloc) é
- * trocado pelo novo.
+ * Grava os boletins lidos. Na tela de uma medição, vão para ela — e só os do
+ * mês dela. Na lista, vão para a medição do cliente e da superintendência no
+ * mês do período de cada um (abre a medição se ainda não existe, com o
+ * cabeçalho da anterior da mesma superintendência). Medição fechada não recebe.
+ * A base se acha no cadastro pelo nome (e pelos outros nomes dela); a que não
+ * está entra, com o que o nome já diz. O boletim que já estava (mesmo código
+ * do Sisloc) em qualquer medição do cliente no mês é trocado pelo novo — é
+ * assim que o boletim importado na superintendência errada muda de medição.
  */
 export async function gravarBoletins(
-  cliente: string,
+  destino: DestinoDosBoletins,
   lidos: { arquivo: string; boletim: BoletimDeLocacao }[],
 ): Promise<Resultado & { medicoes?: number[] }> {
-  if (!cliente.trim()) return { ok: false, erro: "Escolha o cliente da medição." };
   if (lidos.length === 0) return { ok: false, erro: "Nenhum boletim para gravar." };
+  if ("cliente" in destino) {
+    if (!destino.cliente.trim()) return { ok: false, erro: "Escolha o cliente da medição." };
+    if (!destino.superintendencia.trim()) {
+      return { ok: false, erro: "Diga a superintendência da medição (GRANDE DIÂMETRO, VCG, BAIXADA 1…): cada uma é uma medição." };
+    }
+  }
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return { ok: false, erro: "Sessão expirada. Entre de novo." };
@@ -66,34 +84,73 @@ export async function gravarBoletins(
   if (eb) return { ok: false, erro: recado(eb, "ler o cadastro de bases") };
   const cadastro = (bases ?? []) as Base[];
 
+  const campos = "id, cliente, mes, superintendencia, fechada_em";
+  let fixa: MedicaoDoDestino | null = null;
+  if ("medicaoId" in destino) {
+    const { data, error } = await supabase.from("locacao_medicoes").select(campos).eq("id", destino.medicaoId).maybeSingle();
+    if (error) return { ok: false, erro: recado(error, "abrir a medição") };
+    if (!data) return { ok: false, erro: "Medição não encontrada." };
+    fixa = data as MedicaoDoDestino;
+    const outroMes = lidos.find((l) => mesDe(l.boletim.periodo_inicio) !== fixa!.mes);
+    if (outroMes) {
+      return {
+        ok: false,
+        erro: `O boletim de ${outroMes.boletim.base} é de outro mês (${outroMes.boletim.periodo_inicio.split("-").reverse().join("/")}). Importe-o pela lista de medições.`,
+      };
+    }
+  }
+  const cliente = fixa ? fixa.cliente : (destino as { cliente: string }).cliente.trim();
+  const superintendencia = fixa ? fixa.superintendencia : (destino as { superintendencia: string }).superintendencia.trim().toUpperCase();
+  const nomeDa = (m: Pick<MedicaoDoDestino, "mes" | "superintendencia">) =>
+    `${m.superintendencia ?? "sem superintendência"} de ${m.mes.slice(5, 7)}/${m.mes.slice(0, 4)}`;
+
+  // As medições do cliente no mês: a do destino, e as outras, de onde o
+  // boletim reimportado sai.
+  const doMes = new Map<string, MedicaoDoDestino[]>();
+  const medicoesDoMes = async (mes: string): Promise<MedicaoDoDestino[] | string> => {
+    if (doMes.has(mes)) return doMes.get(mes)!;
+    const { data, error } = await supabase.from("locacao_medicoes").select(campos).eq("mes", mes);
+    if (error) return recado(error, "abrir a medição");
+    const delas = ((data ?? []) as MedicaoDoDestino[]).filter((m) => chave(m.cliente) === chave(cliente));
+    doMes.set(mes, delas);
+    return delas;
+  };
+
   const medicoes = new Map<string, number>();
   const medicaoDoMes = async (mes: string): Promise<number | string> => {
-    if (medicoes.has(mes)) return medicoes.get(mes)!;
-    const { data: achada, error } = await supabase
-      .from("locacao_medicoes")
-      .select("id, cliente")
-      .eq("mes", mes);
-    if (error) return recado(error, "abrir a medição");
-    const dele = (achada ?? []).find((m) => m.cliente.trim().toUpperCase() === cliente.trim().toUpperCase());
-    if (dele) {
-      medicoes.set(mes, dele.id);
-      return dele.id;
+    if (fixa) {
+      if (fixa.fechada_em) return `A medição ${nomeDa(fixa)} está fechada: reabra para importar.`;
+      return fixa.id;
     }
-    // O cabeçalho da medição anterior do cliente vem junto: muda pouco.
-    const { data: anterior } = await supabase
+    if (medicoes.has(mes)) return medicoes.get(mes)!;
+    const delas = await medicoesDoMes(mes);
+    if (typeof delas === "string") return delas;
+    const dela = delas.find((m) => chave(m.superintendencia) === chave(superintendencia));
+    if (dela) {
+      if (dela.fechada_em) return `A medição ${nomeDa(dela)} está fechada: reabra para importar.`;
+      medicoes.set(mes, dela.id);
+      return dela.id;
+    }
+    // O cabeçalho vem da medição anterior da mesma superintendência (ou, na
+    // primeira dela, da anterior do cliente): muda pouco.
+    const { data: antes } = await supabase
       .from("locacao_medicoes")
-      .select("contratante, obra, contrato_juridico, contrato_sistemico, superintendencia")
-      .eq("cliente", cliente.trim())
+      .select("cliente, contratante, obra, contrato_juridico, contrato_sistemico, superintendencia")
       .lt("mes", mes)
       .order("mes", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(60);
+    const doCliente = ((antes ?? []) as Record<string, string | null>[]).filter((m) => chave(m.cliente) === chave(cliente));
+    const modelo = doCliente.find((m) => chave(m.superintendencia) === chave(superintendencia)) ?? doCliente[0];
+    const cabecalho = modelo
+      ? { contratante: modelo.contratante, obra: modelo.obra, contrato_juridico: modelo.contrato_juridico, contrato_sistemico: modelo.contrato_sistemico }
+      : {};
     const { data: nova, error: en } = await supabase
       .from("locacao_medicoes")
-      .insert({ cliente: cliente.trim(), mes, criado_por: auth.user!.id, ...(anterior ?? {}) })
-      .select("id")
+      .insert({ cliente, mes, superintendencia, criado_por: auth.user!.id, ...cabecalho })
+      .select(campos)
       .single();
     if (en) return recado(en, "abrir a medição");
+    delas.push(nova as MedicaoDoDestino);
     medicoes.set(mes, nova.id);
     return nova.id;
   };
@@ -125,12 +182,26 @@ export async function gravarBoletins(
     }
 
     if (b.cod_docto) {
-      const { error } = await supabase
+      // O mesmo boletim em qualquer medição do cliente no mês sai: na desta
+      // superintendência é a troca; na de outra, é ele mudando de medição.
+      const delas = await medicoesDoMes(mesDe(b.periodo_inicio));
+      if (typeof delas === "string") return { ok: false, erro: delas };
+      const ids = [...new Set([medicaoId, ...delas.map((m) => m.id)])];
+      const { data: estava, error: ee } = await supabase
         .from("locacao_boletins")
-        .delete()
-        .eq("medicao_id", medicaoId)
+        .select("id, medicao_id")
+        .in("medicao_id", ids)
         .eq("cod_docto", b.cod_docto);
-      if (error) return { ok: false, erro: recado(error, "trocar o boletim que já estava") };
+      if (ee) return { ok: false, erro: recado(ee, "procurar o boletim que já estava") };
+      for (const x of (estava ?? []) as { id: number; medicao_id: number }[]) {
+        const onde = delas.find((m) => m.id === x.medicao_id);
+        if (onde?.fechada_em) {
+          return { ok: false, erro: `O boletim de ${b.base} (cód. ${b.cod_docto}) já está na medição ${nomeDa(onde)}, que está fechada.` };
+        }
+        const { data: saiu, error } = await supabase.from("locacao_boletins").delete().eq("id", x.id).select("id");
+        if (error) return { ok: false, erro: recado(error, "trocar o boletim que já estava") };
+        if (!saiu?.length) return { ok: false, erro: recado({ code: "42501", message: "" }, "trocar o boletim que já estava") };
+      }
     }
     const { data: bol, error: e1 } = await supabase
       .from("locacao_boletins")
@@ -165,6 +236,47 @@ export async function gravarBoletins(
   return { ok: true, medicoes: [...medicoes.values()] };
 }
 
+/**
+ * Fecha a medição: daí em diante nenhum boletim do Sisloc nem BM de
+ * manutenção entra ou sai, e o cabeçalho fica. Reabrir é só da diretoria —
+ * a RLS (0025) confere; a tela só esconde o botão.
+ */
+export async function fecharMedicao(id: number): Promise<Resultado> {
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { ok: false, erro: "Sessão expirada. Entre de novo." };
+  const { data, error } = await supabase
+    .from("locacao_medicoes")
+    .update({ fechada_em: new Date().toISOString(), fechada_por: auth.user.id })
+    .eq("id", id)
+    .is("fechada_em", null)
+    .select("id");
+  if (error) return { ok: false, erro: recadoDaFechada(error, "fechar a medição") };
+  if (!data?.length) return { ok: false, erro: "A medição já estava fechada, ou seu usuário não pode fechá-la." };
+  revalidatePath(`/locacao/${id}`);
+  revalidatePath("/locacao");
+  return { ok: true };
+}
+
+export async function reabrirMedicao(id: number): Promise<Resultado> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("locacao_medicoes")
+    .update({ fechada_em: null, fechada_por: null })
+    .eq("id", id)
+    .select("id");
+  if (error) return { ok: false, erro: recadoDaFechada(error, "reabrir a medição") };
+  if (!data?.length) return { ok: false, erro: "Só a diretoria reabre medição fechada." };
+  revalidatePath(`/locacao/${id}`);
+  revalidatePath("/locacao");
+  return { ok: true };
+}
+
+function recadoDaFechada(erro: { code?: string; message: string }, oQue: string): string {
+  if (/fechada_em|fechada_por/.test(erro.message)) return "Falta aplicar a migração 0025_locacao_por_superintendencia.sql no Supabase.";
+  return recado(erro, oQue);
+}
+
 /** O cabeçalho da planilha da AEGEA. */
 export interface CabecalhoDaMedicao {
   contratante: string;
@@ -191,7 +303,7 @@ export async function salvarCabecalho(id: number, c: CabecalhoDaMedicao): Promis
     .eq("id", id)
     .select("id");
   if (error) return { ok: false, erro: recado(error, "salvar o cabeçalho") };
-  if (!data?.length) return { ok: false, erro: recado({ code: "42501", message: "" }, "salvar o cabeçalho") };
+  if (!data?.length) return { ok: false, erro: "Não deu para salvar o cabeçalho: a medição está fechada, ou seu usuário não pode mexer nela." };
   revalidatePath(`/locacao/${id}`);
   return { ok: true };
 }
@@ -201,7 +313,7 @@ export async function tirarBoletim(medicaoId: number, boletimId: number): Promis
   const supabase = await createClient();
   const { data, error } = await supabase.from("locacao_boletins").delete().eq("id", boletimId).select("id");
   if (error) return { ok: false, erro: recado(error, "tirar o boletim") };
-  if (!data?.length) return { ok: false, erro: recado({ code: "42501", message: "" }, "tirar o boletim") };
+  if (!data?.length) return { ok: false, erro: "Não deu para tirar o boletim: a medição está fechada, ou seu usuário não pode mexer nela." };
   revalidatePath(`/locacao/${medicaoId}`);
   revalidatePath("/locacao");
   return { ok: true };
@@ -210,11 +322,13 @@ export async function tirarBoletim(medicaoId: number, boletimId: number): Promis
 /** O coordenador de uma linha, quando não é o da base. Vazio volta ao da base. */
 export async function trocarCoordenador(medicaoId: number, itemIds: number[], coordenador: string): Promise<Resultado> {
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("locacao_itens")
     .update({ coordenador: coordenador.trim() || null })
-    .in("id", itemIds);
+    .in("id", itemIds)
+    .select("id");
   if (error) return { ok: false, erro: recado(error, "trocar o coordenador") };
+  if (!data?.length) return { ok: false, erro: "Não deu para trocar o coordenador: a medição está fechada, ou seu usuário não pode mexer nela." };
   revalidatePath(`/locacao/${medicaoId}`);
   return { ok: true };
 }
@@ -304,6 +418,24 @@ export async function incluirBms(medicaoId: number, bms: { boletim_id: number; a
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return { ok: false, erro: "Sessão expirada. Entre de novo." };
+  // O mesmo BM em duas medições seria cobrado duas vezes: a do VCG e a do
+  // Grande Diâmetro do mesmo mês não dividem boletim.
+  const { data: emOutra } = await supabase
+    .from("locacao_manutencoes")
+    .select("boletim_id, medicao_id")
+    .in("boletim_id", bms.map((b) => b.boletim_id))
+    .neq("medicao_id", medicaoId);
+  if (emOutra?.length) {
+    const ids = [...new Set((emOutra as { medicao_id: number }[]).map((x) => x.medicao_id))];
+    const { data: outras } = await supabase.from("locacao_medicoes").select("id, mes, superintendencia").in("id", ids);
+    const nomes = ((outras ?? []) as { mes: string; superintendencia: string | null }[])
+      .map((m) => `${m.superintendencia ?? "sem superintendência"} de ${m.mes.slice(5, 7)}/${m.mes.slice(0, 4)}`)
+      .join(", ");
+    return {
+      ok: false,
+      erro: `${emOutra.length} BM(s) deste PDF já estão em outra medição (${nomes}). Tire de lá antes, ou deixe de fora daqui.`,
+    };
+  }
   const { error } = await supabase.from("locacao_manutencoes").upsert(
     bms.map((b) => ({ medicao_id: medicaoId, boletim_id: b.boletim_id, arquivo: b.arquivo, incluido_por: auth.user!.id })),
     { onConflict: "medicao_id,boletim_id", ignoreDuplicates: true },
@@ -327,7 +459,7 @@ export async function tirarBm(medicaoId: number, boletimId: number): Promise<Res
     .eq("boletim_id", boletimId)
     .select("id");
   if (error) return { ok: false, erro: recado(error, "tirar o BM") };
-  if (!data?.length) return { ok: false, erro: recado({ code: "42501", message: "" }, "tirar o BM") };
+  if (!data?.length) return { ok: false, erro: "Não deu para tirar o BM: a medição está fechada, ou seu usuário não pode mexer nela." };
   revalidatePath(`/locacao/${medicaoId}`);
   return { ok: true };
 }
