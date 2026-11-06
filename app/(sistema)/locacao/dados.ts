@@ -2,7 +2,13 @@ import { createClient } from "@/lib/supabase/server";
 import { chaveDaFicha, ordemDaReferencia, type Vinculo } from "@/lib/medicoes/arquivo";
 import { acharBase, chaveDaBase, type Base } from "@/lib/medicoes/bases";
 import { CLIENTE_PADRAO } from "@/lib/medicoes/controle";
-import { separarPatrimonio, type BaseDaPlanilha, type BmNaMedicao, type ItemDeLocacao } from "@/lib/medicoes/locacao";
+import {
+  separarPatrimonio,
+  type AjusteDaMedicao,
+  type BaseDaPlanilha,
+  type BmNaMedicao,
+  type ItemDeLocacao,
+} from "@/lib/medicoes/locacao";
 import { chaveDoCliente, dataDaOm, documentoDoBoletim } from "@/lib/medicoes/medicoes";
 
 type Cliente = Awaited<ReturnType<typeof createClient>>;
@@ -117,6 +123,8 @@ export type CargaDaMedicao =
       separada: boolean;
       /** Quem fechou a medição, quando está fechada. */
       fechadaPorNome: string | null;
+      /** Os descontos e acréscimos (0026), na ordem em que entraram. Sem a 0026, nenhum. */
+      ajustes: (AjusteDaMedicao & { id: number })[];
     }
   | { ok: false; erro: string; naoExiste?: boolean };
 
@@ -220,6 +228,15 @@ export async function carregarMedicao(id: number): Promise<CargaDaMedicao> {
     );
   }
 
+  const { data: ajustesLidos, error: ea } = await supabase
+    .from("locacao_ajustes")
+    .select("id, tipo, descricao, forma, valor")
+    .eq("medicao_id", id)
+    .order("id");
+  const ajustes = ea
+    ? []
+    : ((ajustesLidos ?? []) as (AjusteDaMedicao & { id: number; valor: unknown })[]).map((a) => ({ ...a, valor: Number(a.valor) }));
+
   const separada = ((doMes.data ?? []) as { cliente: string }[]).some((x) => chaveDoCliente(x.cliente) === chaveDoCliente(m.cliente));
   const ref = Number(m.mes.slice(0, 4)) * 100 + Number(m.mes.slice(5, 7));
   const manutencao = separada ? [] : ((manut.data ?? []) as { cliente: string; base: string | null; referencia: string | null; valor: unknown; situacao: string }[])
@@ -280,5 +297,6 @@ export async function carregarMedicao(id: number): Promise<CargaDaMedicao> {
     bases: cadastro,
     separada,
     fechadaPorNome: m.fechada_por ? (nome.get(m.fechada_por) ?? "—") : null,
+    ajustes,
   };
 }

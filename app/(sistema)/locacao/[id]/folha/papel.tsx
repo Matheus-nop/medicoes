@@ -1,6 +1,7 @@
 import { emReais } from "@/lib/medicoes/dinheiro";
 import {
   cobravel,
+  contaDosAjustes,
   posicoesDoBoletim,
   totalLido,
   type BaseDaPlanilha,
@@ -86,6 +87,8 @@ export function PapelDaLocacao({ carga, emitidoPor }: { carga: Extract<CargaDaMe
   const trocas = bases.reduce((t, x) => t + x.posicoes.filter((p) => p.itens.length > 1).length, 0);
   const { linhas: linhasManut, dosBms } = manutencaoDaMedicao(carga);
   const valorManut = linhasManut.reduce((t, l) => t + l.valor_total, 0);
+  // Os descontos e acréscimos (0026): o percentual é sobre o subtotal.
+  const ajustado = contaDosAjustes(Math.round((locacao + valorManut) * 100) / 100, carga.ajustes);
 
   // O resumo como a AEGEA contabiliza: município, superintendência, bloco.
   const resumo = new Map<string, { municipio: string; superintendencia: string; bloco: string; bases: number; posicoes: number; locacao: number; manutencao: number }>();
@@ -153,7 +156,12 @@ export function PapelDaLocacao({ carga, emitidoPor }: { carga: Extract<CargaDaMe
           <Numero rotulo="Bases" valor={String(bases.length)} detalhe={`${cobrados} equipamentos`} />
           <Numero rotulo="Posições" valor={String(posicoes)} detalhe={`${trocas} troca(s) dentro delas`} />
           <Numero rotulo="Locação" valor={emReais(locacao)} detalhe={`manutenção ${emReais(valorManut)}`} />
-          <Numero rotulo="Total da medição" valor={emReais(locacao + valorManut)} forte />
+          <Numero
+            rotulo="Total da medição"
+            valor={emReais(ajustado.total)}
+            detalhe={carga.ajustes.length ? `com descontos e acréscimos` : undefined}
+            forte
+          />
         </div>
 
         <Titulo numero="1">Identificação</Titulo>
@@ -213,7 +221,7 @@ export function PapelDaLocacao({ carga, emitidoPor }: { carga: Extract<CargaDaMe
             ))}
             <tr className="font-bold" style={{ color: AZUL }}>
               <td className="px-[1.5mm] py-[1.3mm]" colSpan={3}>
-                Total
+                {carga.ajustes.length ? "Subtotal (antes de descontos e acréscimos)" : "Total"}
               </td>
               <td className="px-[1.5mm] text-right">{bases.length}</td>
               <td className="px-[1.5mm] text-right">{posicoes}</td>
@@ -388,9 +396,46 @@ export function PapelDaLocacao({ carga, emitidoPor }: { carga: Extract<CargaDaMe
           )
         )}
 
+        {ajustado.linhas.length > 0 && (
+          <>
+            <Titulo numero={linhasManut.length > 0 || bms.length > 0 ? "5" : "4"}>Descontos e acréscimos</Titulo>
+            <table className="w-full border-collapse tabular-nums">
+              <thead className="bg-[#F6F7FA] text-[#4A5368]">
+                <tr>
+                  <th className={th}>Tipo</th>
+                  <th className={th}>Descrição</th>
+                  <th className={`${th} text-right`}>Lançado</th>
+                  <th className={`${th} text-right`}>Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="break-inside-avoid">
+                  <td className={`${td} font-medium`} colSpan={3}>
+                    Subtotal da medição (locação + manutenção)
+                  </td>
+                  <td className={`${td} text-right font-medium`}>{emReais(locacao + valorManut)}</td>
+                </tr>
+                {ajustado.linhas.map((a) => (
+                  <tr key={a.id} className="break-inside-avoid">
+                    <td className={`${td} font-medium`}>{a.tipo === "desconto" ? "Desconto" : "Acréscimo"}</td>
+                    <td className={td}>{a.descricao}</td>
+                    <td className={`${td} text-right text-[#4A5368]`}>
+                      {a.forma === "percentual" ? `${String(a.valor).replace(".", ",")}% do subtotal` : "em R$"}
+                    </td>
+                    <td className={`${td} text-right ${a.tipo === "desconto" ? "text-[#B4232A]" : ""}`}>
+                      {a.tipo === "desconto" ? "− " : "+ "}
+                      {emReais(a.calculado)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+
         <div className="mt-[6mm] flex items-center justify-between rounded-[2.5mm] px-[4mm] py-[3mm] text-white break-inside-avoid" style={{ background: AZUL }}>
           <p className="text-[8pt] font-semibold tracking-[0.08em] uppercase">Total da medição · {mesPorExtenso(m.mes)}</p>
-          <p className="text-[15pt] font-bold tabular-nums">{emReais(locacao + valorManut)}</p>
+          <p className="text-[15pt] font-bold tabular-nums">{emReais(ajustado.total)}</p>
         </div>
         <p className="mt-[3mm] text-[6.5pt] text-[#7A8294]">
           Nova Opção 2008 Máquinas e Serviços Ltda · os valores de locação são os dos boletins de medição do Sisloc, base a base.

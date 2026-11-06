@@ -463,3 +463,44 @@ export async function tirarBm(medicaoId: number, boletimId: number): Promise<Res
   revalidatePath(`/locacao/${medicaoId}`);
   return { ok: true };
 }
+
+/* ── Descontos e acréscimos (0026) ─────────────────────────── */
+
+/** Lança um desconto ou acréscimo na medição. O valor em reais do percentual não se grava: sai da conta. */
+export async function lancarAjuste(
+  medicaoId: number,
+  a: { tipo: "desconto" | "acrescimo"; descricao: string; forma: "valor" | "percentual"; valor: number },
+): Promise<Resultado> {
+  const descricao = a.descricao.trim().replace(/\s+/g, " ");
+  if (!descricao) return { ok: false, erro: "Escreva a descrição: é ela que explica o ajuste ao cliente." };
+  if (!(a.valor > 0)) return { ok: false, erro: "O valor tem de ser maior que zero (o tipo já diz se é desconto ou acréscimo)." };
+  if (a.forma === "percentual" && a.valor > 100) return { ok: false, erro: "O percentual vai até 100%." };
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { ok: false, erro: "Sessão expirada. Entre de novo." };
+  const { error } = await supabase.from("locacao_ajustes").insert({
+    medicao_id: medicaoId,
+    tipo: a.tipo,
+    descricao,
+    forma: a.forma,
+    valor: Math.round(a.valor * 100) / 100,
+    criado_por: auth.user.id,
+  });
+  if (error) {
+    if (error.code === "42P01" || error.code === "PGRST205" || /Could not find the table/i.test(error.message)) {
+      return { ok: false, erro: "Falta aplicar a migração 0026_ajustes_da_locacao.sql no Supabase." };
+    }
+    return { ok: false, erro: recado(error, "lançar o ajuste") };
+  }
+  revalidatePath(`/locacao/${medicaoId}`);
+  return { ok: true };
+}
+
+export async function tirarAjuste(medicaoId: number, ajusteId: number): Promise<Resultado> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("locacao_ajustes").delete().eq("id", ajusteId).select("id");
+  if (error) return { ok: false, erro: recado(error, "tirar o ajuste") };
+  if (!data?.length) return { ok: false, erro: "Não deu para tirar o ajuste: a medição está fechada, ou seu usuário não pode mexer nela." };
+  revalidatePath(`/locacao/${medicaoId}`);
+  return { ok: true };
+}

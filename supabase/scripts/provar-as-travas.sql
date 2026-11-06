@@ -633,3 +633,53 @@ update medicoes.locacao_medicoes set fechada_em = null, fechada_por = null
 where cliente = 'PROVA 25' and superintendencia = 'VCG';
 rollback;
 */
+
+
+-- ── 26. Descontos e acréscimos da medição de locação (0026) ──
+-- Esperado, nesta ordem: o faturamento lança um desconto em R$ e um acréscimo
+-- em % (INSERT 0 1 nos dois); em nome de outra pessoa, ERROR 42501; 150%,
+-- ERROR 23514 (check); valor zero, ERROR 23514; com a medição fechada, o
+-- ajuste novo, ERROR 42501, e tirar o que estava, DELETE 0; e o orçamento lê
+-- (a contagem sai) mas não lança: ERROR 42501.
+-- Precisa de alguém de faturamento, da diretoria e de orçamento.
+/*
+begin;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'faturamento' order by p.id limit 1))::text, true);
+set local role authenticated;
+insert into medicoes.locacao_medicoes (cliente, mes, superintendencia) values ('PROVA 26', '2099-01-01', 'VCG');
+insert into medicoes.locacao_ajustes (medicao_id, tipo, descricao, forma, valor)
+select id, 'desconto', 'dias parados', 'valor', 150 from medicoes.locacao_medicoes where cliente = 'PROVA 26';
+insert into medicoes.locacao_ajustes (medicao_id, tipo, descricao, forma, valor)
+select id, 'acrescimo', 'frete', 'percentual', 5 from medicoes.locacao_medicoes where cliente = 'PROVA 26';
+savepoint a;
+insert into medicoes.locacao_ajustes (medicao_id, tipo, descricao, forma, valor, criado_por)
+select id, 'desconto', 'em nome de outro', 'valor', 10,
+       (select p.id from medicoes.perfis p where p.papel = 'diretoria' order by p.id limit 1)
+from medicoes.locacao_medicoes where cliente = 'PROVA 26';
+rollback to a;
+savepoint b;
+insert into medicoes.locacao_ajustes (medicao_id, tipo, descricao, forma, valor)
+select id, 'desconto', 'demais', 'percentual', 150 from medicoes.locacao_medicoes where cliente = 'PROVA 26';
+rollback to b;
+savepoint c;
+insert into medicoes.locacao_ajustes (medicao_id, tipo, descricao, forma, valor)
+select id, 'desconto', 'zero', 'valor', 0 from medicoes.locacao_medicoes where cliente = 'PROVA 26';
+rollback to c;
+update medicoes.locacao_medicoes set fechada_em = now(), fechada_por = auth.uid() where cliente = 'PROVA 26';
+savepoint d;
+insert into medicoes.locacao_ajustes (medicao_id, tipo, descricao, forma, valor)
+select id, 'desconto', 'depois de fechada', 'valor', 10 from medicoes.locacao_medicoes where cliente = 'PROVA 26';
+rollback to d;
+delete from medicoes.locacao_ajustes where descricao = 'dias parados';
+reset role;
+select set_config('request.jwt.claims', json_build_object('sub',
+  (select p.id::text from medicoes.perfis p
+    where p.ativo and p.papel = 'orcamento' order by p.id limit 1))::text, true);
+set local role authenticated;
+select count(*) as o_orcamento_le from medicoes.locacao_ajustes;
+insert into medicoes.locacao_ajustes (medicao_id, tipo, descricao, forma, valor)
+select id, 'desconto', 'do orçamento', 'valor', 10 from medicoes.locacao_medicoes where cliente = 'PROVA 26';
+rollback;
+*/
