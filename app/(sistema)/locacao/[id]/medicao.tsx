@@ -27,7 +27,7 @@ import {
 } from "@/lib/medicoes/locacao";
 import { quemLanca } from "@/lib/medicoes/papeis";
 import type { CargaDaMedicao, ItemGravado } from "../dados";
-import { fecharMedicao, reabrirMedicao, salvarCabecalho, tirarBoletim, type CabecalhoDaMedicao } from "../acoes";
+import { excluirMedicao, fecharMedicao, reabrirMedicao, salvarCabecalho, tirarBoletim, type CabecalhoDaMedicao } from "../acoes";
 import { diaMes, mesPorExtenso } from "../formato";
 import { Importador } from "../importador";
 import { manutencaoDaMedicao } from "../manutencao";
@@ -133,6 +133,33 @@ export function Medicao({
                 }}
               >
                 Fechar medição
+              </Botao>
+            )}
+            {!medicaoFechada && eDiretoria && (
+              <Botao
+                disabled={ocupado}
+                className="text-manutencao"
+                onClick={() => {
+                  const partes = [
+                    `${boletins.length} boletim(ns) do Sisloc`,
+                    `${carga.bms.length} BM(s) de manutenção incluído(s)`,
+                    `${carga.ajustes.length} desconto(s) e acréscimo(s)`,
+                  ].join(", ");
+                  if (
+                    !confirm(
+                      `Excluir a medição ${m.superintendencia ?? "sem superintendência"} de ${mesPorExtenso(m.mes)}, com ${partes}? Os BMs de manutenção continuam no sistema; sai só a ligação com esta medição. Não tem volta.`,
+                    )
+                  )
+                    return;
+                  iniciar(async () => {
+                    setErro(null);
+                    const r = await excluirMedicao(m.id);
+                    if (!r.ok) return setErro(r.erro ?? "Não deu certo.");
+                    router.push("/locacao");
+                  });
+                }}
+              >
+                Excluir medição
               </Botao>
             )}
             {medicaoFechada && eDiretoria && (

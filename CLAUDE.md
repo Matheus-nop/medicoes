@@ -258,6 +258,11 @@ desfaz isso logo depois de criar.
   linha, BM — e o cabeçalho fica. O faturamento e a diretoria fecham;
   reabrir é só da diretoria. A trava é da RLS (policies restritivas com
   `locacao_aberta()`); a tela só esconde os botões.
+- **excluir a medição** (locação): a aberta por engano (superintendência ou
+  mês errado) a **diretoria** exclui, com tudo dela — boletins do Sisloc,
+  linhas, BMs incluídos e descontos e acréscimos. Os BMs de manutenção em si
+  ficam: sai só a ligação. A fechada se reabre antes (`excluirMedicao`; a RLS
+  da 0023 só deixa a diretoria apagar).
 - **descontos e acréscimos** (locação, 0026, `locacao_ajustes`): vários de
   cada, com descrição, em R$ ou em percentual. O percentual é sobre o
   **subtotal** da medição (locação + manutenção), e não um sobre o outro. O

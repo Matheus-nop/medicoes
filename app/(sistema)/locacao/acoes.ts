@@ -504,3 +504,24 @@ export async function tirarAjuste(medicaoId: number, ajusteId: number): Promise<
   revalidatePath(`/locacao/${medicaoId}`);
   return { ok: true };
 }
+
+/**
+ * Exclui a medição aberta por engano (a superintendência errada, o mês
+ * errado), com tudo dela: os boletins do Sisloc, as linhas, os BMs incluídos
+ * e os descontos e acréscimos. Os BMs de manutenção em si não se apagam — sai
+ * só a ligação. Só a diretoria exclui (a RLS da 0023), e só a medição aberta:
+ * a fechada se reabre antes, para ninguém apagar o que já foi ao cliente
+ * num clique.
+ */
+export async function excluirMedicao(id: number): Promise<Resultado> {
+  const supabase = await createClient();
+  const { data: m, error: el } = await supabase.from("locacao_medicoes").select("id, fechada_em").eq("id", id).maybeSingle();
+  if (el) return { ok: false, erro: recado(el, "excluir a medição") };
+  if (!m) return { ok: false, erro: "Medição não encontrada." };
+  if (m.fechada_em) return { ok: false, erro: "A medição está fechada: reabra antes de excluir." };
+  const { data, error } = await supabase.from("locacao_medicoes").delete().eq("id", id).select("id");
+  if (error) return { ok: false, erro: recado(error, "excluir a medição") };
+  if (!data?.length) return { ok: false, erro: "Só a diretoria exclui medição." };
+  revalidatePath("/locacao");
+  return { ok: true };
+}
