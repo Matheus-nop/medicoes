@@ -6,6 +6,8 @@ import { strictEqual as e, deepStrictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import {
   bateComOSisloc,
+  contaDosAjustes,
+  linhasDosAjustes,
   boletinsDoPdf,
   linhasDosBms,
   omsNoTexto,
@@ -341,4 +343,41 @@ test("o patrimônio que quebra no meio, num nome que já tem parênteses, volta 
     equipamento: "BOMBA SUBMERSÍVEL SPV 4\" (ÁGUA SUJA)",
     patrimonio: "16016-151",
   });
+});
+
+test("descontos e acréscimos: o percentual é sobre o subtotal, e não um sobre o outro", () => {
+  const c = contaDosAjustes(1000, [
+    { tipo: "desconto", descricao: "dias parados", forma: "percentual", valor: 10 },
+    { tipo: "acrescimo", descricao: "frete", forma: "percentual", valor: 5 },
+    { tipo: "desconto", descricao: "avaria", forma: "valor", valor: 33.33 },
+    { tipo: "acrescimo", descricao: "mobilização", forma: "valor", valor: 120 },
+  ]);
+  deepStrictEqual(c.linhas.map((l) => l.calculado), [100, 50, 33.33, 120]);
+  e(c.descontos, 133.33);
+  e(c.acrescimos, 170);
+  e(c.total, 1036.67);
+  // a ordem não muda nada
+  e(contaDosAjustes(1000, [...c.linhas].reverse()).total, 1036.67);
+  // sem ajuste, o total é o subtotal
+  e(contaDosAjustes(4295, []).total, 4295);
+  // o percentual arredonda no centavo
+  e(contaDosAjustes(333.33, [{ tipo: "desconto", descricao: "x", forma: "percentual", valor: 7.5 }]).linhas[0].calculado, 25);
+});
+
+test("na planilha, o desconto entra negativo e o TOTAL já sai com ele", () => {
+  const l = linhasDosAjustes(
+    1000,
+    [
+      { tipo: "desconto", descricao: "dias parados", forma: "percentual", valor: 2.5 },
+      { tipo: "acrescimo", descricao: "frete", forma: "valor", valor: 80 },
+    ],
+    "2026-10-01",
+    "2026-10-31",
+  );
+  e(l[0].servico, "DESCONTO - DIAS PARADOS (2,5%)");
+  e(l[0].valor_total, -25);
+  e(l[1].servico, "ACRÉSCIMO - FRETE");
+  e(l[1].valor_total, 80);
+  e(l[0].tempo, 31);
+  e(1000 + l.reduce((t, x) => t + x.valor_total, 0), 1055);
 });

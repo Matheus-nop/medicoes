@@ -588,3 +588,75 @@ export function linhasDosBms(bms: BmNaMedicao[], inicio: string, fim: string): L
     remessa: b.documento,
   }));
 }
+
+/* ── Descontos e acréscimos (0026) ────────────────────────── */
+
+/** Um desconto ou acréscimo da medição, como a pessoa lançou. */
+export interface AjusteDaMedicao {
+  id?: number;
+  tipo: "desconto" | "acrescimo";
+  descricao: string;
+  /** Em reais, ou percentual sobre o subtotal. */
+  forma: "valor" | "percentual";
+  /** Sempre positivo: o tipo diz o sinal. 5 = 5% quando é percentual. */
+  valor: number;
+}
+
+const centavos = (v: number) => Math.round(v * 100) / 100;
+
+/**
+ * A conta dos descontos e acréscimos: o percentual é sobre o SUBTOTAL da
+ * medição (locação + manutenção), e não um sobre o outro — 10% de desconto e
+ * 5% de acréscimo em 1.000 dão 950, em qualquer ordem. Cada um arredonda no
+ * centavo, como sai no papel.
+ */
+export function contaDosAjustes<T extends AjusteDaMedicao>(
+  subtotal: number,
+  ajustes: T[],
+): { linhas: (T & { calculado: number })[]; descontos: number; acrescimos: number; total: number } {
+  const linhas = ajustes.map((a) => ({
+    ...a,
+    calculado: centavos(a.forma === "percentual" ? (subtotal * a.valor) / 100 : a.valor),
+  }));
+  const descontos = centavos(linhas.filter((l) => l.tipo === "desconto").reduce((t, l) => t + l.calculado, 0));
+  const acrescimos = centavos(linhas.filter((l) => l.tipo === "acrescimo").reduce((t, l) => t + l.calculado, 0));
+  return { linhas, descontos, acrescimos, total: centavos(subtotal - descontos + acrescimos) };
+}
+
+/** Como o ajuste se escreve: "DESCONTO - DIAS PARADOS (10%)". */
+export function rotuloDoAjuste(a: AjusteDaMedicao): string {
+  const pct = a.forma === "percentual" ? ` (${String(a.valor).replace(".", ",")}%)` : "";
+  return `${a.tipo === "desconto" ? "DESCONTO" : "ACRÉSCIMO"} - ${a.descricao.trim().toUpperCase()}${pct}`;
+}
+
+/**
+ * As linhas dos descontos e acréscimos na planilha da AEGEA, depois da
+ * manutenção: o desconto com o valor negativo, para o TOTAL (a soma da coluna)
+ * já sair com eles.
+ */
+export function linhasDosAjustes(subtotal: number, ajustes: AjusteDaMedicao[], inicio: string, fim: string): LinhaDaPlanilha[] {
+  const dias = Math.round((Date.parse(fim) - Date.parse(inicio)) / 86_400_000) + 1;
+  return contaDosAjustes(subtotal, ajustes).linhas.map((a) => {
+    const v = a.tipo === "desconto" ? -a.calculado : a.calculado;
+    return {
+      servico: rotuloDoAjuste(a),
+      patrimonio: "-",
+      execucao: periodoDaPlanilha(inicio, fim),
+      unidade: "UND",
+      tempo: dias,
+      qtde: 1,
+      valor_unidade: v,
+      valor_total: v,
+      aprovada: "SIM",
+      projeto: "",
+      cidade: "",
+      superintendencia: "",
+      bloco: "",
+      posicao: "",
+      troca: "",
+      coordenador: "",
+      base: "",
+      remessa: "",
+    };
+  });
+}

@@ -18,6 +18,7 @@ import {
 import { emReais } from "@/lib/medicoes/dinheiro";
 import {
   bateComOSisloc,
+  contaDosAjustes,
   cobravel,
   faltaNaBase,
   patrimoniosRepetidos,
@@ -30,6 +31,7 @@ import { fecharMedicao, reabrirMedicao, salvarCabecalho, tirarBoletim, type Cabe
 import { diaMes, mesPorExtenso } from "../formato";
 import { Importador } from "../importador";
 import { manutencaoDaMedicao } from "../manutencao";
+import { DescontosEAcrescimos } from "./ajustes";
 import { ManutencaoDaArea } from "./bms";
 
 type Carga = Extract<CargaDaMedicao, { ok: true }>;
@@ -85,6 +87,7 @@ export function Medicao({
   const trocas = porBase.reduce((t, x) => t + x.trocas, 0);
   const daArea = manutencaoDaMedicao(carga);
   const valorManutencao = daArea.linhas.reduce((t, l) => t + l.valor_total, 0);
+  const ajustado = contaDosAjustes(Math.round((locacao + valorManutencao) * 100) / 100, carga.ajustes);
   const repetidos = patrimoniosRepetidos(
     porBase.flatMap((x) =>
       x.itens.filter(cobravel).map((i) => ({ patrimonio: i.patrimonio, base: x.b.base_nome, inicio: i.inicio, fim: i.fim })),
@@ -188,7 +191,7 @@ export function Medicao({
         </Painel>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <CartaoIndicador
           rotulo="Bases"
           valor={boletins.length}
@@ -221,6 +224,17 @@ export function Medicao({
                 : `${manutencao.length} boletim(ns) do mês, somados · nenhum BM incluído`
           }
           cor="bg-cat-manutencao"
+        />
+        <CartaoIndicador
+          compacto
+          rotulo="Total da medição"
+          valor={emReais(ajustado.total)}
+          detalhe={
+            carga.ajustes.length
+              ? `descontos ${emReais(ajustado.descontos)} · acréscimos ${emReais(ajustado.acrescimos)}`
+              : "locação + manutenção"
+          }
+          cor="bg-acento"
         />
       </div>
 
@@ -267,6 +281,13 @@ export function Medicao({
       <CabecalhoDaPlanilha id={m.id} m={m} podeMexer={podeMexer} />
 
       <ManutencaoDaArea carga={carga} podeMexer={podeMexer} />
+
+      <DescontosEAcrescimos
+        medicaoId={m.id}
+        subtotal={Math.round((locacao + valorManutencao) * 100) / 100}
+        ajustes={carga.ajustes}
+        podeMexer={podeMexer}
+      />
 
       <div className="space-y-3">
         {porBase.map((x) => {

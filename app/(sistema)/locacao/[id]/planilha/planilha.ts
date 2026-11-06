@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import { linhasDaLocacao, periodoDaPlanilha, type LinhaDaPlanilha } from "@/lib/medicoes/locacao";
+import { linhasDaLocacao, linhasDosAjustes, periodoDaPlanilha, type LinhaDaPlanilha } from "@/lib/medicoes/locacao";
 import { manutencaoDaMedicao } from "../../manutencao";
 import { MOLDE_AEGEA_BASE64 } from "@/lib/medicoes/molde-aegea";
 import type { CargaDaMedicao } from "../../dados";
@@ -50,6 +50,10 @@ export async function montarPlanilha(
   }
   const fim = ultimoDia(m.mes);
   linhas.push(...manutencaoDaMedicao(carga).linhas);
+  // Os descontos e acréscimos (0026) depois da manutenção, o desconto negativo:
+  // o TOTAL (a soma da coluna) já sai com eles.
+  const subtotal = Math.round(linhas.reduce((t, l) => t + l.valor_total, 0) * 100) / 100;
+  linhas.push(...linhasDosAjustes(subtotal, carga.ajustes, m.mes, fim));
 
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(Buffer.from(MOLDE_AEGEA_BASE64, "base64") as unknown as ArrayBuffer);

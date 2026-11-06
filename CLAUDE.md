@@ -258,6 +258,14 @@ desfaz isso logo depois de criar.
   linha, BM — e o cabeçalho fica. O faturamento e a diretoria fecham;
   reabrir é só da diretoria. A trava é da RLS (policies restritivas com
   `locacao_aberta()`); a tela só esconde os botões.
+- **descontos e acréscimos** (locação, 0026, `locacao_ajustes`): vários de
+  cada, com descrição, em R$ ou em percentual. O percentual é sobre o
+  **subtotal** da medição (locação + manutenção), e não um sobre o outro. O
+  valor em reais e o total não se gravam: saem de `contaDosAjustes`. No PDF,
+  uma seção depois da manutenção e o total já com eles; na planilha, uma
+  linha "DESCONTO - …" (negativa) ou "ACRÉSCIMO - …" depois da manutenção, e
+  o TOTAL da coluna já sai certo (`linhasDosAjustes`). Faturamento e diretoria
+  lançam, e só em medição aberta.
 - **posição** (locação): a vaga de um equipamento na frente. A **troca** não é
   equipamento a mais: o Sisloc marca "Subs." no que SAIU, e o substituto entra
   no dia seguinte (ou no mesmo dia), na mesma ficha, do mesmo tipo ou do mesmo
@@ -398,8 +406,8 @@ desfaz isso logo depois de criar.
       bloco e coordenador das bases, e importar o primeiro mês ao lado da
       planilha digitada. `0023` **aplicada**. A `0024` traz os BMs de
       manutenção da área para dentro da medição, pelo PDF deles, uma linha por
-      BM. A `0025` separa a medição por superintendência e a fecha (falta
-      aplicar). Depois: a
+      BM. A `0025` separa a medição por superintendência e a fecha
+      (**aplicada**); a `0026`, os descontos e acréscimos (falta aplicar). Depois: a
       tabela de preço por contrato e a locação alimentando o controle.
 - As provas de RLS de todas as migrações estão em
-  `supabase/scripts/provar-as-travas.sql` (trechos 1 a 25).
+  `supabase/scripts/provar-as-travas.sql` (trechos 1 a 26).
