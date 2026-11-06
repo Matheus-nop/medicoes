@@ -158,8 +158,18 @@ const CONTROLE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g;
  * do arquivo; o filtro é o `autoFilter` da aba, que o Excel lê sem o nome; e a
  * fórmula morta (`=#REF!`) da aba de fotos sai. Os títulos de impressão o
  * ExcelJS regrava a partir da página de cada aba.
+ *
+ * E o ExcelJS (4.4) escreve o `sheetPr` fora da ordem quando a aba tem
+ * "ajustar à página" — `pageSetUpPr` antes de `outlinePr`, e o Excel exige o
+ * contrário: era o que ainda pedia reparo, na aba de fotos. O LibreOffice
+ * aceita, e por isso não aparecia na conferência. O `outlinePr` do molde só
+ * traz o padrão (resumo abaixo e à direita): sem ele, nada muda e a ordem
+ * fica certa.
  */
 function limparParaOExcel(wb: ExcelJS.Workbook) {
+  wb.eachSheet((s) => {
+    if (s.pageSetup?.fitToPage) delete (s.properties as { outlineProperties?: unknown }).outlineProperties;
+  });
   wb.definedNames.model = wb.definedNames.model.filter(
     (n) => !n.name.startsWith("_xlnm.") && n.ranges.every((r) => !r.includes("[") && !r.includes("#REF!")),
   );
